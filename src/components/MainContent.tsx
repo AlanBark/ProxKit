@@ -9,7 +9,7 @@ export function MainContent() {
     return (
         <div className="flex-1 flex flex-col p-6 overflow-hidden">
             {/* Cards Grid */}
-            <div className={`flex-1 ${backgroundStyles.surface} backdrop-blur-sm rounded-2xl border border-[var(--border)] overflow-hidden`}>
+            <div className={`flex-1 ${backgroundStyles.surface} backdrop-blur-sm rounded-2xl border border-(--border) overflow-hidden`}>
                 <div className="h-full overflow-auto p-6">
                     {cards.length === 0 ? (
                         <div className={`flex flex-col items-center justify-center h-full ${textStyles.muted}`}>

@@ -26,7 +26,7 @@ export function Sidebar({ className = "" }) {
     } = useApp();
 
     return (
-        <div className={`${className} ${backgroundStyles.surface} backdrop-blur-sm border-[var(--border)] p-6 flex flex-col gap-6`}>
+        <div className={`${className} ${backgroundStyles.surface} backdrop-blur-sm border-(--border) p-6 flex flex-col gap-6`}>
             {/* Actions */}
             <Box>
                 <div className="flex flex-col gap-3">
@@ -46,7 +46,7 @@ export function Sidebar({ className = "" }) {
                     <Button
                         onPress={handlePrintPDF}
                         isDisabled={!pdfUrl || isGenerating}
-                        className={`w-full ${buttonStyles.ghost} font-semibold py-3 rounded-lg disabled:bg-[var(--bg-input)] disabled:opacity-50 disabled:cursor-not-allowed transition-all`}
+                        className={`w-full ${buttonStyles.ghost} font-semibold py-3 rounded-lg disabled:bg-(--bg-input) disabled:opacity-50 disabled:cursor-not-allowed transition-all`}
                     >
                         <span className="flex items-center justify-center gap-2">
                             <Printer className="w-5 h-5" />
@@ -81,7 +81,7 @@ export function Sidebar({ className = "" }) {
                         radius="md"
                         labelPlacement="outside"
                         endContent={
-                            <span className={`${textStyles.muted} text-sm pointer-events-none flex-shrink-0`}>mm</span>
+                            <span className={`${textStyles.muted} text-sm pointer-events-none shrink-0`}>mm</span>
                         }
                         classNames={{
                             base: "w-full",
@@ -104,7 +104,7 @@ export function Sidebar({ className = "" }) {
                         radius="md"
                         labelPlacement="outside"
                         endContent={
-                            <span className={`${textStyles.muted} text-sm pointer-events-none flex-shrink-0`}>mm</span>
+                            <span className={`${textStyles.muted} text-sm pointer-events-none shrink-0`}>mm</span>
                         }
                         classNames={{
                             base: "w-full",
@@ -122,7 +122,7 @@ export function Sidebar({ className = "" }) {
                 <Box title="Status">
                     {isGenerating ? (
                         <div className={`flex items-center gap-3 ${textStyles.warning}`}>
-                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-[var(--warning)] border-t-transparent"></div>
+                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-(--warning) border-t-transparent"></div>
                             <span className="text-sm">Generating PDF...</span>
                         </div>
                     ) : pdfUrl ? (
@@ -134,7 +134,7 @@ export function Sidebar({ className = "" }) {
                 </Box>
             )} */}
 
-            <div className="flex-grow-1"></div>
+            <div className="grow"></div>
             <p className={`${textStyles.muted} text-xs text-center opacity-60`}>
                 © {new Date().getFullYear()} Alec Parkes
             </p>

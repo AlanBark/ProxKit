@@ -12,7 +12,7 @@ interface BoxProps {
  */
 export function Box({ children, title, className = "" }: BoxProps) {
     return (
-        <div className={`${backgroundStyles.elevated} rounded-xl p-5 border border-[var(--border)] ${className}`}>
+        <div className={`${backgroundStyles.elevated} rounded-xl p-5 border border-(--border) ${className}`}>
             {title && (
                 <h3 className={`${textStyles.primary} font-semibold mb-4 text-sm uppercase tracking-wider`}>
                     {title}
