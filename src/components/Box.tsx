@@ -1,0 +1,24 @@
+import { ReactNode } from "react";
+import { backgroundStyles, textStyles } from "../theme/classNames";
+
+interface BoxProps {
+    children: ReactNode;
+    title?: string;
+    className?: string;
+}
+
+/**
+ * Standardized container component with consistent styling
+ */
+export function Box({ children, title, className = "" }: BoxProps) {
+    return (
+        <div className={`${backgroundStyles.elevated} rounded-xl p-5 border border-[var(--border)] ${className}`}>
+            {title && (
+                <h3 className={`${textStyles.primary} font-semibold mb-4 text-sm uppercase tracking-wider`}>
+                    {title}
+                </h3>
+            )}
+            {children}
+        </div>
+    );
+}

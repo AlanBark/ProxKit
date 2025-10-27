@@ -1,45 +1,45 @@
 @import "tailwindcss";
-@plugin './hero.ts';
 @source '../../node_modules/@heroui/theme/dist/**/*.{js,ts,jsx,tsx}';
 @custom-variant dark (&:is(.dark *));
+@plugin './hero.ts';
 
 :root {
-  /* Theme Colors - ONE per use case */
-  --primary: #2563eb;
-  --primary-hover: #1d4ed8;
-  --danger: #ef4444;
-  --danger-hover: #dc2626;
-  --success: #22c55e;
-  --warning: #eab308;
+    /* Theme Colors - ONE per use case */
+    --primary: #2563eb;
+    --primary-hover: #1d4ed8;
+    --danger: #ef4444;
+    --danger-hover: #dc2626;
+    --success: #22c55e;
+    --warning: #eab308;
 
-  --bg-app: #111827;
-  --bg-surface: rgba(31, 41, 55, 0.5);
-  --bg-elevated: rgba(17, 24, 39, 0.5);
-  --bg-input: #1f2937;
-  --bg-hover: rgba(55, 65, 81, 0.5);
+    --bg-app: #111827;
+    --bg-surface: rgba(31, 41, 55, 0.5);
+    --bg-elevated: rgba(17, 24, 39, 0.5);
+    --bg-input: #1f2937;
+    --bg-hover: rgba(55, 65, 81, 0.5);
 
-  --border: rgba(55, 65, 81, 0.5);
-  --border-hover: rgba(75, 85, 99, 0.5);
-  --border-focus: #2563eb;
+    --border: rgba(55, 65, 81, 0.5);
+    --border-hover: rgba(75, 85, 99, 0.5);
+    --border-focus: #2563eb;
 
-  --text-primary: #ffffff;
-  --text-secondary: #9ca3af;
-  --text-muted: #6b7280;
+    --text-primary: #ffffff;
+    --text-secondary: #9ca3af;
+    --text-muted: #6b7280;
 
-  --overlay-dark: rgba(0, 0, 0, 0.8);
-  --overlay-light: rgba(0, 0, 0, 0.6);
+    --overlay-dark: rgba(0, 0, 0, 0.8);
+    --overlay-light: rgba(0, 0, 0, 0.6);
 
-  /* Font settings */
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+    /* Font settings */
+    font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+    font-weight: 400;
 
-  color-scheme: dark;
-  color: var(--text-primary);
-  background-color: var(--bg-app);
+    color-scheme: dark;
+    color: var(--text-primary);
+    background-color: var(--bg-app);
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }

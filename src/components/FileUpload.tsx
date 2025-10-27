@@ -34,7 +34,7 @@ export function FileUpload({ onFilesSelected, multiple = true }: FileUploadProps
       />
       <label
         htmlFor="file-upload"
-        className={`cursor-pointer ${buttonStyles.primary} font-semibold px-8 py-3 rounded-xl transition-all shadow-lg shadow-[var(--primary)]/20 inline-flex items-center gap-2`}
+        className={`w-full cursor-pointer ${buttonStyles.primary} font-semibold py-3 rounded-lg transition-all flex items-center justify-center gap-2`}
       >
         <Upload className="w-5 h-5" />
         Upload Images
