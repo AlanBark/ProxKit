@@ -26,15 +26,25 @@ export default heroui({
                 // Background colors
                 background: colors.bgApp,
                 foreground: colors.textPrimary,
-                content1: colors.bgSurface,
-                content2: colors.bgElevated,
-                content3: colors.bgInput,
-                content4: colors.bgHover,
+                content1: colors.bgDropdown,  // Solid background for dropdowns
+                content2: colors.bgSurface,
+                content3: colors.bgElevated,
+                content4: colors.bgInput,
                 // Borders
                 divider: colors.border,
                 focus: colors.borderFocus,
-                // Text
+                // Default variant colors (used by Input with variant="flat")
                 default: {
+                    50: colors.bgElevated,
+                    100: colors.bgInput,
+                    200: colors.bgInput,
+                    300: colors.border,
+                    400: colors.textMuted,
+                    500: colors.textSecondary,
+                    600: colors.textPrimary,
+                    700: colors.textPrimary,
+                    800: colors.textPrimary,
+                    900: colors.textPrimary,
                     DEFAULT: colors.bgInput,
                     foreground: colors.textPrimary,
                 },

@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useRef, useEffect, ReactNode } fro
 import { PDFSession } from "../utils/pdf/pdfSession";
 import type { CardImage } from "../types/card";
 import { CARD_DIMENSIONS } from "../types/card";
+import type { Selection } from "@heroui/react";
 
 export const PAGE_SIZE_OPTIONS = [
     { key: "A4", label: "A4", width: 210, height: 297 },
@@ -15,7 +16,7 @@ interface AppState {
     isGenerating: boolean;
 
     // Settings
-    pageSize: SharedSelection;
+    pageSize: Selection;
     cardWidth: number;
     cardHeight: number;
     defaultBleed: number;
@@ -27,7 +28,7 @@ interface AppState {
     handleDuplicateCard: (card: CardImage) => void;
     handleDownloadPDF: () => void;
     handlePrintPDF: () => void;
-    setPageSize: (size: SharedSelection) => void;
+    setPageSize: (size: Selection) => void;
     setCardWidth: (width: number) => void;
     setCardHeight: (height: number) => void;
     setDefaultBleed: (bleed: number) => void;
@@ -45,7 +46,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const [defaultBleed, setDefaultBleed] = useState<number>(CARD_DIMENSIONS.standardBleed);
     const [cardWidth, setCardWidth] = useState<number>(CARD_DIMENSIONS.width);
     const [cardHeight, setCardHeight] = useState<number>(CARD_DIMENSIONS.height);
-    const [pageSize, setPageSize] = useState<SharedSelection>(new Set(["A4"]));
+    const [pageSize, setPageSize] = useState<Selection>(new Set(["A4"]));
 
     // Initialize PDF session
     useEffect(() => {

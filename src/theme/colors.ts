@@ -20,6 +20,7 @@ export const colors = {
     bgElevated: 'rgba(30, 42, 52, 0.6)',   // Lighter elevated
     bgInput: '#1f2e3a',           // Lighter input
     bgHover: 'rgba(6, 182, 212, 0.15)',    // Slightly more visible
+    bgDropdown: '#19232d',        // Solid background for dropdowns/menus
 
     // Borders
     border: 'rgba(34, 181, 201, 0.38)',      // More visible
