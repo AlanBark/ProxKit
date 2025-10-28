@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, useRef, useEffect, ReactNode } from "react";
-import { PDFSession } from "../utils/pdf/pdfSession";
+import { createContext, useContext, useState, useRef, useEffect, type ReactNode } from "react";
+import { PDFManager } from "../utils/pdf/PDFManager";
 import type { CardImage } from "../types/card";
 import { CARD_DIMENSIONS } from "../types/card";
 import type { Selection } from "@heroui/react";
@@ -14,6 +14,7 @@ interface AppState {
     cards: CardImage[];
     pdfUrl: string | null;
     isGenerating: boolean;
+    generationProgress: number; // 0-100 percentage
 
     // Settings
     pageSize: Selection;
@@ -24,6 +25,7 @@ interface AppState {
     // Actions
     handleFilesSelected: (files: File[]) => void;
     handleRemoveCard: (cardId: string) => void;
+    handleRemoveAllCards: () => void;
     handleUpdateBleed: (cardId: string, bleed: number) => void;
     handleDuplicateCard: (card: CardImage) => void;
     handleDownloadPDF: () => void;
@@ -40,7 +42,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const [cards, setCards] = useState<CardImage[]>([]);
     const [pdfUrl, setPdfUrl] = useState<string | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
-    const pdfSessionRef = useRef<PDFSession | null>(null);
+    const [generationProgress, setGenerationProgress] = useState<number>(0);
+    const pdfManagerRef = useRef<PDFManager | null>(null);
 
     // Settings
     const [defaultBleed, setDefaultBleed] = useState<number>(CARD_DIMENSIONS.standardBleed);
@@ -48,43 +51,46 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const [cardHeight, setCardHeight] = useState<number>(CARD_DIMENSIONS.height);
     const [pageSize, setPageSize] = useState<Selection>(new Set(["A4"]));
 
-    // Initialize PDF session
+    // Initialize PDF manager
     useEffect(() => {
-        pdfSessionRef.current = new PDFSession();
-        return () => {
-            pdfSessionRef.current?.dispose();
-        };
-    }, []);
-
-    // Reinitialize PDF session when page size changes
-    useEffect(() => {
-        if (pdfSessionRef.current) {
-            pdfSessionRef.current.dispose();
-        }
         const selectedKey = Array.from(pageSize)[0] as string;
         const selectedPage = PAGE_SIZE_OPTIONS.find(p => p.key === selectedKey);
         const pageSettings = selectedPage
             ? { width: selectedPage.width, height: selectedPage.height, margin: 10 }
             : { width: 210, height: 297, margin: 10 };
-        pdfSessionRef.current = new PDFSession(pageSettings);
-    }, [pageSize]);
+
+        pdfManagerRef.current = new PDFManager(pageSettings, cardWidth, cardHeight);
+
+        // Set up progress callback
+        pdfManagerRef.current.onProgress = (_current, _total, percentage) => {
+            setGenerationProgress(percentage);
+        };
+
+        return () => {
+            pdfManagerRef.current?.dispose();
+        };
+    }, [pageSize, cardWidth, cardHeight]);
 
     // Auto-generate PDF whenever cards change
     useEffect(() => {
         const generatePDF = async () => {
-            if (!pdfSessionRef.current || cards.length === 0) {
+            if (!pdfManagerRef.current || cards.length === 0) {
                 setPdfUrl(null);
+                setIsGenerating(false);
                 return;
             }
 
             setIsGenerating(true);
+            setGenerationProgress(0);
             try {
-                const url = await pdfSessionRef.current.generatePDF();
+                const url = await pdfManagerRef.current.generatePDF(cards);
                 setPdfUrl(url);
             } catch (error) {
                 console.error("Failed to generate PDF:", error);
+                setPdfUrl(null);
             } finally {
                 setIsGenerating(false);
+                setGenerationProgress(0);
             }
         };
 
@@ -92,25 +98,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }, [cards]);
 
     const handleFilesSelected = async (files: File[]) => {
-        const newCards: CardImage[] = await Promise.all(
-            files.map(async (file) => {
-                const imageUrl = URL.createObjectURL(file);
-                const card: CardImage = {
-                    id: crypto.randomUUID(),
-                    imageUrl,
-                    name: file.name,
-                    bleed: defaultBleed,
-                };
-                pdfSessionRef.current?.addCard(card);
-                return card;
-            })
-        );
+        const newCards: CardImage[] = files.map((file) => {
+            const imageUrl = URL.createObjectURL(file);
+            return {
+                id: crypto.randomUUID(),
+                imageUrl,
+                name: file.name,
+                bleed: defaultBleed,
+            };
+        });
 
         setCards((prev) => [...prev, ...newCards]);
     };
 
     const handleRemoveCard = (cardId: string) => {
-        pdfSessionRef.current?.removeCard(cardId);
         setCards((prev) => {
             const card = prev.find((c) => c.id === cardId);
             if (card) {
@@ -120,8 +121,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         });
     };
 
+    const handleRemoveAllCards = () => {
+        setCards([])
+    }
+
     const handleUpdateBleed = (cardId: string, bleed: number) => {
-        pdfSessionRef.current?.updateCardBleed(cardId, bleed);
         setCards((prev) =>
             prev.map((card) => (card.id === cardId ? { ...card, bleed } : card))
         );
@@ -134,7 +138,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
             name: cardToDuplicate.name,
             bleed: cardToDuplicate.bleed,
         };
-        pdfSessionRef.current?.addCard(newCard);
         setCards((prev) => [...prev, newCard]);
     };
 
@@ -167,12 +170,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         cards,
         pdfUrl,
         isGenerating,
+        generationProgress,
         pageSize,
         cardWidth,
         cardHeight,
         defaultBleed,
         handleFilesSelected,
         handleRemoveCard,
+        handleRemoveAllCards,
         handleUpdateBleed,
         handleDuplicateCard,
         handleDownloadPDF,

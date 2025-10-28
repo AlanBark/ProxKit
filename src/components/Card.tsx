@@ -1,6 +1,8 @@
-import { Trash2, Plus } from "lucide-react";
+import { Trash2, Plus, ChevronUp } from "lucide-react";
+import { Button, NumberInput } from "@heroui/react";
+import { useState } from "react";
 import type { CardImage } from "../types/card";
-import { cardStyles, inputStyles, textStyles } from "../theme/classNames";
+import { cardStyles, backgroundStyles } from "../theme/classNames";
 
 interface CardProps {
     card: CardImage;
@@ -9,9 +11,24 @@ interface CardProps {
     onDuplicateCard: (card: CardImage) => void;
 }
 
+type MenuState = "NONE" | "HOVER" | "ACTIVE"
+
 export function Card({ card, onRemoveCard, onUpdateBleed, onDuplicateCard }: CardProps) {
+
+    const [isHovered, setIsHovered] = useState(false);
+    const [isClicked, setIsClicked] = useState(false);
+
+    const menuState: MenuState = isClicked ? "ACTIVE" : isHovered ? "HOVER" : "NONE";
+
     return (
-        <div className={`${cardStyles.interactive} backdrop-blur-sm rounded-xl overflow-hidden transition-all group`}>
+        <div
+            className={`${cardStyles.interactive} backdrop-blur-sm rounded-xl overflow-hidden transition-all group`}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => {
+                setIsHovered(false);
+                setIsClicked(false);
+            }}
+        >
             {/* Card Image */}
             <div className={`relative aspect-63/88 overflow-hidden ${cardStyles.elevated} cursor-pointer`}>
                 <img
@@ -20,66 +37,85 @@ export function Card({ card, onRemoveCard, onUpdateBleed, onDuplicateCard }: Car
                     className="w-full h-full object-cover"
                 />
 
-                {/* Overlay gradient */}
-                <div className="absolute inset-0 bg-linear-to-t from-(--overlay-dark) via-transparent to-(--overlay-light) opacity-0 group-hover:opacity-100 transition-opacity" />
-
-                {/* Top overlay - Name (left) and Delete (right) */}
-                <div className="absolute top-0 left-0 right-0 p-3 flex justify-between items-start opacity-0 group-hover:opacity-100 transition-opacity">
-                    {/* Name */}
-                    <div className={`text-sm font-medium ${textStyles.primary} drop-shadow-lg flex-1 pr-2 truncate`}>
-                        {card.name || `Card ${card.id.substring(0, 8)}`}
-                    </div>
-
-                    {/* Delete button */}
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onRemoveCard(card.id);
-                        }}
-                        className="bg-(--danger)/20 backdrop-blur-sm rounded-lg p-2 hover:bg-(--danger)/40 transition-colors"
+                {/* Duplicate and Remove Buttons - Fade in/out */}
+                <div
+                    className={`absolute inset-0 gap-4 flex items-center justify-center transition-opacity duration-200 ease-in-out ${
+                        isHovered ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                    }`}
+                >
+                    <Button
+                        isIconOnly
+                        size="lg"
+                        color="primary"
+                        onPress={() => onDuplicateCard(card)}
+                        className="w-16 h-16"
+                        title="Duplicate card"
+                    >
+                        <Plus className="w-8 h-8" />
+                    </Button>
+                    <Button
+                        isIconOnly
+                        size="lg"
+                        color="danger"
+                        onPress={() => onRemoveCard(card.id)}
+                        className="w-16 h-16"
                         title="Delete card"
                     >
-                        <Trash2 className="w-5 h-5 text-(--danger)" />
-                    </button>
+                        <Trash2 className="w-4 h-4" />
+                    </Button>
                 </div>
 
-                {/* Center - Plus icon for duplicate */}
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onDuplicateCard(card);
+                {/* Sliding Menu - Slides up/down on hover */}
+                <div
+                    className="absolute left-0 right-0 top-0 bottom-0 bg-primary-100 backdrop-blur-sm transition-all duration-150 ease-in-out"
+                    style={{
+                        transform: isHovered
+                            ? 'translateY(0)'
+                            : 'translateY(100%)',
+                        clipPath: menuState === "ACTIVE"
+                            ? 'inset(0 0 0 0)'
+                            : 'inset(calc(100% - 2.5rem) 0 0 0)'
                     }}
-                    className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                    title="Duplicate card"
                 >
-                    <div className="bg-(--primary) rounded-full p-3 hover:bg-(--primary-hover) transition-colors shadow-xl">
-                        <Plus className={`w-8 h-8 ${textStyles.primary}`} />
+                    {/* Chevron Button - Always visible at bottom when collapsed, top when expanded */}
+                    <div
+                        className={`absolute w-full flex items-center justify-center p-2 cursor-pointer transition-all duration-300 ${
+                            menuState === "ACTIVE" ? 'top-0' : 'bottom-0'
+                        }`}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setIsClicked(!isClicked);
+                        }}
+                    >
+                        <ChevronUp
+                            className={`w-4 h-4 text-primary-foreground transition-transform duration-300 ${
+                                menuState === "ACTIVE" ? 'rotate-180' : ''
+                            }`}
+                        />
                     </div>
-                </button>
 
-                {/* Bottom overlay - Bleed input */}
-                <div className="absolute bottom-0 left-0 right-0 p-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <div className="bg-(--overlay-dark) backdrop-blur-sm rounded-lg p-2">
-                        <div className="relative">
-                            <input
-                                type="number"
-                                min="0"
-                                max="10"
-                                step="0.5"
-                                value={card.bleed}
-                                onChange={(e) => {
-                                    e.stopPropagation();
-                                    onUpdateBleed(card.id, parseFloat(e.target.value) || 0);
-                                }}
-                                onClick={(e) => e.stopPropagation()}
-                                className={`w-full ${inputStyles.default} rounded-lg px-3 py-2 text-sm focus:outline-none pr-16`}
-                                placeholder="Bleed"
-                            />
-                            <span className={`absolute right-3 top-1/2 -translate-y-1/2 ${textStyles.secondary} text-sm pointer-events-none`}>
-                                mm bleed
-                            </span>
+                    {/* Expanded Menu Content */}
+                    {menuState === "ACTIVE" && (
+                        <div className="flex flex-col gap-3 p-4 pt-12 h-full">
+                            <NumberInput
+                            label="Card Bleed"
+                            value={card.bleed}
+                            onValueChange={(value) => {
+                                onUpdateBleed(card.id, value);
+                            }}
+                            min={10}
+                            max={300}
+                            step={0.1}
+                            size="sm"
+                            variant="flat"
+                            radius="sm"
+                            labelPlacement="outside"
+                            endContent={
+                                <span className="text-default-400 text-xs pointer-events-none shrink-0">mm</span>
+                            }
+                        />
                         </div>
-                    </div>
+                    )}
                 </div>
             </div>
         </div>

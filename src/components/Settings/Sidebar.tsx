@@ -1,9 +1,9 @@
-import { Download, Printer, Check } from "lucide-react";
+import { Download, Trash } from "lucide-react";
 import { FileUpload } from "../FileUpload";
 import { Box } from "../Box";
-import { backgroundStyles, buttonStyles, inputStyles, textStyles } from "../../theme/classNames";
+import { backgroundStyles, buttonStyles, textStyles } from "../../theme/classNames";
 import { useApp } from "../../context/AppContext";
-import { Button, Input} from '@heroui/react';
+import { Button} from '@heroui/react';
 import FileSettings from "./FileSettings";
 import CardSettings from "./CardSettings";
 
@@ -15,15 +15,7 @@ export function Sidebar({ className = "" }) {
         pdfUrl,
         handleFilesSelected,
         handleDownloadPDF,
-        handlePrintPDF,
-        pageSize,
-        setPageSize,
-        cardWidth,
-        setCardWidth,
-        cardHeight,
-        setCardHeight,
-        defaultBleed,
-        setDefaultBleed,
+        handleRemoveAllCards,
     } = useApp();
 
     return (
@@ -34,24 +26,28 @@ export function Sidebar({ className = "" }) {
                     <FileUpload
                         onFilesSelected={handleFilesSelected}
                     />
+
                     <Button
                         onPress={handleDownloadPDF}
                         isDisabled={!pdfUrl || isGenerating}
-                        className={`w-full ${buttonStyles.primary} font-semibold py-3 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-all`}
+                        isLoading={isGenerating}
+                        color={(!pdfUrl || isGenerating) ? "warning" : "success"}
                     >
                         <span className="flex items-center justify-center gap-2">
                             <Download className="w-5 h-5" />
                             Download PDF
                         </span>
                     </Button>
+
                     <Button
-                        onPress={handlePrintPDF}
-                        isDisabled={!pdfUrl || isGenerating}
-                        className={`w-full ${buttonStyles.ghost} font-semibold py-3 rounded-lg disabled:bg-(--bg-input) disabled:opacity-50 disabled:cursor-not-allowed transition-all`}
+                        onPress={handleRemoveAllCards}
+                        isDisabled={cards.length == 0}
+                        variant="ghost"
+                        color="danger"
                     >
                         <span className="flex items-center justify-center gap-2">
-                            <Printer className="w-5 h-5" />
-                            Print
+                            <Trash className="w-5 h-5" />
+                            Delete All
                         </span>
                     </Button>
                 </div>
@@ -62,23 +58,6 @@ export function Sidebar({ className = "" }) {
 
             {/* Card Settings */}
             <CardSettings />
-
-            {/* Status */}
-            {/* {(isGenerating || pdfUrl) && (
-                <Box title="Status">
-                    {isGenerating ? (
-                        <div className={`flex items-center gap-3 ${textStyles.warning}`}>
-                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-(--warning) border-t-transparent"></div>
-                            <span className="text-sm">Generating PDF...</span>
-                        </div>
-                    ) : pdfUrl ? (
-                        <div className={`flex items-center gap-3 ${textStyles.success}`}>
-                            <Check className="w-5 h-5" />
-                            <span className="text-sm">PDF Ready</span>
-                        </div>
-                    ) : null}
-                </Box>
-            )} */}
 
             <div className="grow"></div>
             <p className={`${textStyles.muted} text-xs text-center opacity-60`}>
