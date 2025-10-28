@@ -12,15 +12,19 @@ function FileSettings() {
         <Box>
             <Select
                 label="Page Size"
-                radius="sm"
-                labelPlacement="outside"
                 selectedKeys={pageSize}
                 onSelectionChange={setPageSize}
+                size="sm"
+                variant="flat"
+                radius="sm"
+                labelPlacement="outside"
+                placeholder="Select page size"
+                classNames={{
+                    trigger: "cursor-pointer"
+                }}
             >
                 {PAGE_SIZE_OPTIONS.map((option) => (
-                    <SelectItem 
-                        key={option.key}
-                    >
+                    <SelectItem key={option.key}>
                         {option.label}
                     </SelectItem>
                 ))}
