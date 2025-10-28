@@ -1,8 +1,8 @@
 import { Trash2, Plus, ChevronUp } from "lucide-react";
-import { Button, NumberInput } from "@heroui/react";
+import { Button, NumberInput, Image } from "@heroui/react";
 import { useState } from "react";
 import type { CardImage } from "../types/card";
-import { cardStyles, backgroundStyles } from "../theme/classNames";
+import { cardStyles } from "../theme/classNames";
 
 interface CardProps {
     card: CardImage;
@@ -31,15 +31,15 @@ export function Card({ card, onRemoveCard, onUpdateBleed, onDuplicateCard }: Car
         >
             {/* Card Image */}
             <div className={`relative aspect-63/88 overflow-hidden ${cardStyles.elevated} cursor-pointer`}>
-                <img
+                <Image
                     src={card.imageUrl}
                     alt={card.name || `Card ${card.id}`}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover z-0"
                 />
 
                 {/* Duplicate and Remove Buttons - Fade in/out */}
                 <div
-                    className={`absolute inset-0 gap-4 flex items-center justify-center transition-opacity duration-200 ease-in-out ${
+                    className={`absolute inset-0 gap-[8%] flex items-center justify-center transition-opacity duration-200 ease-in-out ${
                         isHovered ? 'opacity-100' : 'opacity-0 pointer-events-none'
                     }`}
                 >
@@ -48,24 +48,25 @@ export function Card({ card, onRemoveCard, onUpdateBleed, onDuplicateCard }: Car
                         size="lg"
                         color="primary"
                         onPress={() => onDuplicateCard(card)}
-                        className="w-16 h-16"
+                        className="w-[28%] h-[20%] min-w-10 min-h-10"
                         title="Duplicate card"
                     >
-                        <Plus className="w-8 h-8" />
+                        <Plus className="w-[50%] h-[50%]" />
                     </Button>
                     <Button
                         isIconOnly
                         size="lg"
                         color="danger"
                         onPress={() => onRemoveCard(card.id)}
-                        className="w-16 h-16"
+                        className="w-[28%] h-[20%] min-w-10 min-h-10"
                         title="Delete card"
                     >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-[30%] h-[30%]" />
                     </Button>
                 </div>
 
                 {/* Sliding Menu - Slides up/down on hover */}
+                {false && (
                 <div
                     className="absolute left-0 right-0 top-0 bottom-0 bg-primary-100 backdrop-blur-sm transition-all duration-150 ease-in-out"
                     style={{
@@ -117,6 +118,7 @@ export function Card({ card, onRemoveCard, onUpdateBleed, onDuplicateCard }: Car
                         </div>
                     )}
                 </div>
+                )}
             </div>
         </div>
     );
