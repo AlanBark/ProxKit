@@ -12,7 +12,9 @@ initTheme()
 createRoot(document.getElementById('root')!).render(
     <StrictMode>
         <HeroUIProvider>
-            <App />
+            <main className="dark text-foreground bg-background">
+                <App />
+            </main>
         </HeroUIProvider>
     </StrictMode>,
 )

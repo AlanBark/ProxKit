@@ -5,6 +5,7 @@ import { backgroundStyles, buttonStyles, inputStyles, textStyles } from "../../t
 import { useApp } from "../../context/AppContext";
 import { Button, Input} from '@heroui/react';
 import FileSettings from "./FileSettings";
+import CardSettings from "./CardSettings";
 
 export function Sidebar({ className = "" }) {
     
@@ -60,62 +61,7 @@ export function Sidebar({ className = "" }) {
             <FileSettings />
 
             {/* Card Settings */}
-            <Box>
-                <div className="space-y-3">
-                    <Input
-                        label="Card Width"
-                        variant="flat"
-                        radius="md"
-                        value={cardWidth.toString()}
-                    />
-                    <Input
-                        label="Card Height"
-                        type="number"
-                        value={cardHeight.toString()}
-                        onValueChange={(value) => setCardHeight(parseFloat(value) || 0)}
-                        min={10}
-                        max={300}
-                        step={0.1}
-                        size="sm"
-                        variant="flat"
-                        radius="md"
-                        labelPlacement="outside"
-                        endContent={
-                            <span className={`${textStyles.muted} text-sm pointer-events-none shrink-0`}>mm</span>
-                        }
-                        classNames={{
-                            base: "w-full",
-                            label: `text-xs ${textStyles.secondary} pb-1`,
-                            inputWrapper: `${inputStyles.default} rounded-lg min-h-0 h-9`,
-                            input: `text-sm ${textStyles.primary}`,
-                            innerWrapper: "gap-1",
-                        }}
-                    />
-                    <Input
-                        label="Default Bleed"
-                        type="number"
-                        value={defaultBleed.toString()}
-                        onValueChange={(value) => setDefaultBleed(parseFloat(value) || 0)}
-                        min={0}
-                        max={10}
-                        step={0.5}
-                        size="sm"
-                        variant="flat"
-                        radius="md"
-                        labelPlacement="outside"
-                        endContent={
-                            <span className={`${textStyles.muted} text-sm pointer-events-none shrink-0`}>mm</span>
-                        }
-                        classNames={{
-                            base: "w-full",
-                            label: `text-xs ${textStyles.secondary} pb-1`,
-                            inputWrapper: `${inputStyles.default} rounded-lg min-h-0 h-9`,
-                            input: `text-sm ${textStyles.primary}`,
-                            innerWrapper: "gap-1",
-                        }}
-                    />
-                </div>
-            </Box>
+            <CardSettings />
 
             {/* Status */}
             {/* {(isGenerating || pdfUrl) && (
