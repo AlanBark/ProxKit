@@ -4,7 +4,10 @@ import { backgroundStyles, textStyles } from "../theme/classNames";
 import { useApp } from "../context/AppContext";
 
 export function MainContent() {
-    const { cards, handleRemoveCard, handleUpdateBleed, handleDuplicateCard } = useApp();
+    const { cardMap, cardOrder } = useApp();
+
+    // Convert map + order to array for CardList
+    const cards = cardOrder.map(id => cardMap.get(id)).filter((card): card is NonNullable<typeof card> => card !== undefined);
 
     return (
         <div className="flex-1 flex flex-col p-6 overflow-hidden">
@@ -20,9 +23,6 @@ export function MainContent() {
                     ) : (
                         <CardList
                             cards={cards}
-                            onRemoveCard={handleRemoveCard}
-                            onUpdateBleed={handleUpdateBleed}
-                            onDuplicateCard={handleDuplicateCard}
                         />
                     )}
                 </div>

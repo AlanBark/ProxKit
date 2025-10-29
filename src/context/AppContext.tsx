@@ -11,7 +11,8 @@ export const PAGE_SIZE_OPTIONS = [
 
 interface AppState {
     // Card state
-    cards: CardImage[];
+    cardMap: Map<string, CardImage>;
+    cardOrder: string[];
     pdfUrl: string | null;
     isGenerating: boolean;
     generationProgress: number; // 0-100 percentage
@@ -24,7 +25,7 @@ interface AppState {
 
     // Actions
     handleFilesSelected: (files: File[]) => void;
-    handleRemoveCard: (cardId: string) => void;
+    handleRemoveCard: (cardIndex: number) => void;
     handleRemoveAllCards: () => void;
     handleUpdateBleed: (cardId: string, bleed: number) => void;
     handleDuplicateCard: (card: CardImage) => void;
@@ -39,7 +40,8 @@ interface AppState {
 const AppContext = createContext<AppState | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-    const [cards, setCards] = useState<CardImage[]>([]);
+    const [cardMap, setCardMap] = useState<Map<string, CardImage>>(new Map());
+    const [cardOrder, setCardOrder] = useState<string[]>([]);
     const [pdfUrl, setPdfUrl] = useState<string | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
     const [generationProgress, setGenerationProgress] = useState<number>(0);
@@ -74,7 +76,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // Auto-generate PDF whenever cards change
     useEffect(() => {
         const generatePDF = async () => {
-            if (!pdfManagerRef.current || cards.length === 0) {
+            if (!pdfManagerRef.current || cardOrder.length === 0) {
                 setPdfUrl(null);
                 setIsGenerating(false);
                 return;
@@ -83,7 +85,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
             setIsGenerating(true);
             setGenerationProgress(0);
             try {
-                const url = await pdfManagerRef.current.generatePDF(cards);
+                // Convert map + order back to array for PDF generation
+                const cardsArray = cardOrder.map(id => cardMap.get(id)).filter((card): card is CardImage => card !== undefined);
+                const url = await pdfManagerRef.current.generatePDF(cardsArray);
                 setPdfUrl(url);
             } catch (error) {
                 console.error("Failed to generate PDF:", error);
@@ -95,9 +99,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         };
 
         generatePDF();
-    }, [cards]);
+    }, [cardMap, cardOrder]);
 
-    const handleFilesSelected = async (files: File[]) => {
+    const handleAddCards = async (files: File[]) => {
         const newCards: CardImage[] = files.map((file) => {
             const imageUrl = URL.createObjectURL(file);
             return {
@@ -108,27 +112,58 @@ export function AppProvider({ children }: { children: ReactNode }) {
             };
         });
 
-        setCards((prev) => [...prev, ...newCards]);
+        setCardMap((prev) => {
+            const newMap = new Map(prev);
+            newCards.forEach(card => newMap.set(card.id, card));
+            return newMap;
+        });
+
+        setCardOrder((prev) => [...prev, ...newCards.map(card => card.id)]);
     };
 
-    const handleRemoveCard = (cardId: string) => {
-        setCards((prev) => {
-            const card = prev.find((c) => c.id === cardId);
+    const handleRemoveCard = (cardIndex: number) => {
+        
+        let cardId = cardOrder[cardIndex];
+        let cardIdInstances = cardOrder.filter((card) => { card === cardId })
+            
+        if (cardIdInstances.length === 1) {
+            // Remove the card itself if this is the last instance of it being removed
+            let card = cardMap.get(cardId);
             if (card) {
-                URL.revokeObjectURL(card.imageUrl);
+                URL.revokeObjectURL(card?.imageUrl);
             }
-            return prev.filter((c) => c.id !== cardId);
+
+            setCardMap((prevCardMap) => {
+                const newCardMap = new Map(prevCardMap);
+                newCardMap.delete(cardId);
+                return newCardMap;
+            });
+        }
+        // Then always remove the order from the order list
+        setCardOrder((prevCardMap) => {
+            const newCardOrder = [...prevCardMap];
+            newCardOrder.splice(cardIndex, 1);
+            return newCardOrder;
         });
     };
 
     const handleRemoveAllCards = () => {
-        setCards([])
+        for (let card of cardMap.values()) {
+            URL.revokeObjectURL(card.imageUrl);
+        }
+        setCardMap(new Map());
+        setCardOrder([]);
     }
 
     const handleUpdateBleed = (cardId: string, bleed: number) => {
-        setCards((prev) =>
-            prev.map((card) => (card.id === cardId ? { ...card, bleed } : card))
-        );
+        setCardMap((prev) => {
+            const card = prev.get(cardId);
+            if (!card) return prev;
+
+            const newMap = new Map(prev);
+            newMap.set(cardId, { ...card, bleed });
+            return newMap;
+        });
     };
 
     const handleDuplicateCard = (cardToDuplicate: CardImage) => {
@@ -138,7 +173,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
             name: cardToDuplicate.name,
             bleed: cardToDuplicate.bleed,
         };
-        setCards((prev) => [...prev, newCard]);
+
+        setCardMap((prev) => {
+            const newMap = new Map(prev);
+            newMap.set(newCard.id, newCard);
+            return newMap;
+        });
+
+        setCardOrder((prev) => [...prev, newCard.id]);
     };
 
     const handleDownloadPDF = () => {
@@ -167,7 +209,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
 
     const value: AppState = {
-        cards,
+        cardMap,
+        cardOrder,
         pdfUrl,
         isGenerating,
         generationProgress,
@@ -175,7 +218,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         cardWidth,
         cardHeight,
         defaultBleed,
-        handleFilesSelected,
+        handleFilesSelected: handleAddCards,
         handleRemoveCard,
         handleRemoveAllCards,
         handleUpdateBleed,

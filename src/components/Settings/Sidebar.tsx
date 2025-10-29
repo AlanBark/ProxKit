@@ -10,7 +10,7 @@ import CardSettings from "./CardSettings";
 export function Sidebar({ className = "" }) {
     
     const {
-        cards,
+        cardMap,
         isGenerating,
         pdfUrl,
         handleFilesSelected,
@@ -41,7 +41,7 @@ export function Sidebar({ className = "" }) {
 
                     <Button
                         onPress={handleRemoveAllCards}
-                        isDisabled={cards.length == 0}
+                        isDisabled={cardMap.entries.length == 0}
                         variant="ghost"
                         color="danger"
                     >

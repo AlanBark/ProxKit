@@ -2,27 +2,33 @@ import { Trash2, Plus, ChevronUp } from "lucide-react";
 import { Button, NumberInput, Image } from "@heroui/react";
 import { useState } from "react";
 import type { CardImage } from "../types/card";
-import { cardStyles } from "../theme/classNames";
+import { useApp } from "../context/AppContext";
 
 interface CardProps {
+    cardIndex: number,
     card: CardImage;
-    onRemoveCard: (cardId: string) => void;
-    onUpdateBleed: (cardId: string, bleed: number) => void;
-    onDuplicateCard: (card: CardImage) => void;
 }
 
 type MenuState = "NONE" | "HOVER" | "ACTIVE"
 
-export function Card({ card, onRemoveCard, onUpdateBleed, onDuplicateCard }: CardProps) {
-
+export function Card({ card, cardIndex }: CardProps) {
+    const { cardWidth, cardHeight } = useApp();
     const [isHovered, setIsHovered] = useState(false);
     const [isClicked, setIsClicked] = useState(false);
+    
+    const { handleRemoveCard, handleUpdateBleed, handleDuplicateCard } = useApp()
 
     const menuState: MenuState = isClicked ? "ACTIVE" : isHovered ? "HOVER" : "NONE";
 
+    // Calculate the crop percentage based on bleed
+    // If bleed is 3mm, we need to crop 3mm from each side
+    // Crop percentage = (bleed / dimension) * 100
+    const cropXPercent = (card.bleed / cardWidth) * 100;
+    const cropYPercent = (card.bleed / cardHeight) * 100;
+
     return (
         <div
-            className={`${cardStyles.interactive} backdrop-blur-sm rounded-xl overflow-hidden transition-all group`}
+            className={`rounded-xl overflow-hidden transition-all group h-full w-full`}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => {
                 setIsHovered(false);
@@ -30,11 +36,21 @@ export function Card({ card, onRemoveCard, onUpdateBleed, onDuplicateCard }: Car
             }}
         >
             {/* Card Image */}
-            <div className={`relative aspect-63/88 overflow-hidden ${cardStyles.elevated} cursor-pointer`}>
+            <div className={`relative w-full h-full overflow-hidden cursor-pointer flex items-center justify-center`}>
                 <Image
                     src={card.imageUrl}
                     alt={card.name || `Card ${card.id}`}
-                    className="w-full h-full object-cover z-0"
+                    classNames={{
+                        wrapper: "w-full h-full",
+                        img: "w-full h-full object-cover z-0"
+                    }}
+                    style={{
+                        clipPath: `inset(${cropYPercent}% ${cropXPercent}% ${cropYPercent}% ${cropXPercent}%)`,
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        scale: `${1 + (card.bleed * 2) / Math.min(cardWidth, cardHeight)}`
+                    }}
                 />
 
                 {/* Duplicate and Remove Buttons - Fade in/out */}
@@ -47,7 +63,7 @@ export function Card({ card, onRemoveCard, onUpdateBleed, onDuplicateCard }: Car
                         isIconOnly
                         size="lg"
                         color="primary"
-                        onPress={() => onDuplicateCard(card)}
+                        onPress={() => handleDuplicateCard(card)}
                         className="w-[28%] h-[20%] min-w-10 min-h-10"
                         title="Duplicate card"
                     >
@@ -57,7 +73,7 @@ export function Card({ card, onRemoveCard, onUpdateBleed, onDuplicateCard }: Car
                         isIconOnly
                         size="lg"
                         color="danger"
-                        onPress={() => onRemoveCard(card.id)}
+                        onPress={() => handleRemoveCard(cardIndex)}
                         className="w-[28%] h-[20%] min-w-10 min-h-10"
                         title="Delete card"
                     >
@@ -102,7 +118,7 @@ export function Card({ card, onRemoveCard, onUpdateBleed, onDuplicateCard }: Car
                             label="Card Bleed"
                             value={card.bleed}
                             onValueChange={(value) => {
-                                onUpdateBleed(card.id, value);
+                                handleUpdateBleed(card.id, value);
                             }}
                             min={10}
                             max={300}
