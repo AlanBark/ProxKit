@@ -1,24 +1,31 @@
 import { Trash2, Plus, ChevronUp } from "lucide-react";
-import { Button, NumberInput, Image } from "@heroui/react";
+import { Button, NumberInput } from "@heroui/react";
 import { useState } from "react";
 import type { CardImage } from "../types/card";
 import { useApp } from "../context/AppContext";
 
 interface CardProps {
     cardIndex: number,
-    card: CardImage;
+    card: CardImage | undefined;
+    gridPosition: number
 }
 
 type MenuState = "NONE" | "HOVER" | "ACTIVE"
 
-export function Card({ card, cardIndex }: CardProps) {
+export function Card({ card, cardIndex, gridPosition }: CardProps) {
+
     const { cardWidth, cardHeight } = useApp();
     const [isHovered, setIsHovered] = useState(false);
     const [isClicked, setIsClicked] = useState(false);
-    
+
     const { handleRemoveCard, handleUpdateBleed, handleDuplicateCard } = useApp()
 
     const menuState: MenuState = isClicked ? "ACTIVE" : isHovered ? "HOVER" : "NONE";
+
+    // Return empty div if no card
+    if (!card) {
+        return <div className="relative w-full h-full bg-gray-100" />;
+    }
 
     // Calculate the crop percentage based on bleed
     // If bleed is 3mm, we need to crop 3mm from each side
@@ -28,32 +35,26 @@ export function Card({ card, cardIndex }: CardProps) {
 
     return (
         <div
-            className={`rounded-xl overflow-hidden transition-all group h-full w-full`}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => {
                 setIsHovered(false);
                 setIsClicked(false);
             }}
+            className="relative flex flex-col"
         >
-            {/* Card Image */}
-            <div className={`relative w-full h-full overflow-hidden cursor-pointer flex items-center justify-center`}>
-                <Image
+                <img
                     src={card.imageUrl}
                     alt={card.name || `Card ${card.id}`}
-                    classNames={{
-                        wrapper: "w-full h-full",
-                        img: "w-full h-full object-cover z-0"
-                    }}
+                    className=""
                     style={{
-                        clipPath: `inset(${cropYPercent}% ${cropXPercent}% ${cropYPercent}% ${cropXPercent}%)`,
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover',
-                        scale: `${1 + (card.bleed * 2) / Math.min(cardWidth, cardHeight)}`
+                        alignSelf: gridPosition >= 0 && gridPosition <= 3 ? 'flex-end' : 'flex-start',
+                        borderRadius: "2.5mm"
                     }}
                 />
 
                 {/* Duplicate and Remove Buttons - Fade in/out */}
+                {false && (
+
                 <div
                     className={`absolute inset-0 gap-[8%] flex items-center justify-center transition-opacity duration-200 ease-in-out ${
                         isHovered ? 'opacity-100' : 'opacity-0 pointer-events-none'
@@ -80,6 +81,7 @@ export function Card({ card, cardIndex }: CardProps) {
                         <Trash2 className="w-[30%] h-[30%]" />
                     </Button>
                 </div>
+                )}
 
                 {/* Sliding Menu - Slides up/down on hover */}
                 {false && (
@@ -135,7 +137,6 @@ export function Card({ card, cardIndex }: CardProps) {
                     )}
                 </div>
                 )}
-            </div>
         </div>
     );
 }

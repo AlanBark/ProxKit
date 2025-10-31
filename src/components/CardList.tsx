@@ -1,71 +1,88 @@
 import { Card } from "./Card";
-import type { CardImage } from "../types/card";
 import { Pagination } from "@heroui/react";
+import { textStyles } from "../theme/classNames";
 import { useState, useMemo } from "react";
 import { useApp } from "../context/AppContext";
+import { ImageIcon } from "lucide-react";
+import { Box } from "./Box";
 
-interface CardListProps {
-    cards: CardImage[];
-}
-
+// @TODO dynamic somehow
 const CARDS_PER_PAGE = 8;
 
-export function CardList({ cards }: CardListProps) {
+// The main goal here is to display a whole page of cards, without compromising card aspect ratio
+
+export function CardList() {
+
     const [currentPage, setCurrentPage] = useState(1);
-    const { cardWidth, cardHeight } = useApp();
+    const {
+        cardMap,
+        cardOrder,
+        cardWidth,
+        cardHeight
+    } = useApp();
 
-    const totalPages = Math.ceil(cards.length / CARDS_PER_PAGE);
+    const totalPages = Math.ceil(cardOrder.length / CARDS_PER_PAGE);
 
-    const paginatedCards = useMemo(() => {
+    const currentPageCards = useMemo(() => {
         const startIndex = (currentPage - 1) * CARDS_PER_PAGE;
         const endIndex = startIndex + CARDS_PER_PAGE;
-        return cards.slice(startIndex, endIndex);
-    }, [cards, currentPage]);
+        return cardOrder.slice(startIndex, endIndex);
+    }, [cardOrder, currentPage]);
 
-    // Reset to page 1 if current page becomes invalid
+    // Go back a page if required
     if (currentPage > totalPages && totalPages > 0) {
-        setCurrentPage(1);
+        setCurrentPage(totalPages);
     }
 
-    const aspectRatio = cardWidth / cardHeight;
-
     return (
-        <div className="flex flex-col h-full">
-            {/* Cards Grid - Grid constrained to show exactly 2 rows without overflow */}
-            <div className="flex-1 grid grid-cols-4 grid-rows-2 auto-rows-fr gap-4 p-1 min-h-0">
-                {paginatedCards.map((card, index) => (
-                    <div
-                        key={card.id}
-                        className="w-full h-full min-h-0"
-                    >
-                        <div
-                            className="w-full h-full max-h-full"
-                            style={{
-                                aspectRatio: aspectRatio.toString(),
-                                objectFit: 'contain'
-                            }}
-                        >
-                            <Card
-                                card={card}
-                                cardIndex={index}
-                            />
-                        </div>
+        <>
+            {cardOrder.length === 0 || !cardOrder ? (
+                <Box className="m-6">
+                    <div className={`flex flex-col items-center justify-center h-full ${textStyles.muted}`}>
+                        <ImageIcon className="w-24 h-24 mb-4 opacity-30" />
+                        <p className="text-lg">No cards yet</p>
+                        <p className="text-sm mt-1">Upload images to get started</p>
                     </div>
-                ))}
-            </div>
+                </Box>
+            ) : (
+                <div className="flex flex-col h-full">
+                    {/* Grid container - centers the grid */}
+                    {/* <div className="p-6 flex-1 flex items-center justify-center overflow-hidden"> */}
+                        <Box className="m-6 flex-1 flex items-center justify-center overflow-hidden">
+                            <div
+                                className="w-full h-full"
+                                style={{
+                                    maxWidth: `min(90vw, calc(100vh - 8rem) * ${(4 * cardWidth + 6) / (2 * cardHeight + 1)})`,
+                                    maxHeight: `min(calc(100vh - 8rem), 90vw * ${(2 * cardHeight + 1) / (4 * cardWidth + 3)})`,
+                                    minWidth: `min(20vw, calc(100vh - 8rem) * ${(4 * cardWidth + 6) / (2 * cardHeight + 1)})`,
+                                    minHeight: `min(calc(20vh - 8rem), 90vw * ${(2 * cardHeight + 1) / (4 * cardWidth + 3)})`,
+                            }}>
+                                <div className="grid grid-cols-4 grid-rows-2 gap-4">
+                                    {currentPageCards.map((cardId, index) => (
+                                        <Card
+                                            card={cardMap.get(cardId)}
+                                            cardIndex={(currentPage - 1) * CARDS_PER_PAGE + index}
+                                            gridPosition={index}
+                                            key={index}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        </Box>
+                    {/* </div> */}
 
-            {/* Pagination Controls */}
-            {totalPages > 1 && (
-                <div className="flex justify-center py-2 shrink-0">
-                    <Pagination
-                        total={totalPages}
-                        page={currentPage}
-                        onChange={setCurrentPage}
-                        showControls
-                        size="sm"
-                    />
+                    {/* Pagination stays at bottom */}
+                    {/* <div className="flex justify-center py-2 shrink-0">
+                        <Pagination
+                            total={totalPages}
+                            page={currentPage}
+                            onChange={setCurrentPage}
+                            showControls
+                            size="sm"
+                        />
+                    </div> */}
                 </div>
             )}
-        </div>
+        </>
     );
 }

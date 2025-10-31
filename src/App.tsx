@@ -1,9 +1,9 @@
 import { Sidebar } from "./components/Settings/Sidebar";
-import { MainContent } from "./components/MainContent";
 import { AppProvider } from "./context/AppContext";
 import { backgroundStyles, textStyles } from "./theme/classNames";
 
 import githubLogo from './assets/github-mark-white.svg';
+import { CardList } from "./components/CardList";
 
 function App() {
     return (
@@ -22,9 +22,8 @@ function App() {
                             </a>
                         </div>
                     </div>
-
                     <Sidebar />
-                    <MainContent />
+                    <CardList />
                 </div>
             </AppProvider>
     );
