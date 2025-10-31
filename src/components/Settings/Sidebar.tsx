@@ -3,12 +3,13 @@ import { FileUpload } from "../FileUpload";
 import { Box } from "../Box";
 import { backgroundStyles, buttonStyles, textStyles } from "../../theme/classNames";
 import { useApp } from "../../context/AppContext";
-import { Button} from '@heroui/react';
+import { Button } from '@heroui/react';
 import FileSettings from "./FileSettings";
 import CardSettings from "./CardSettings";
+import gitHubLogo from "../../assets/github-mark-white.svg"
 
 export function Sidebar({ className = "" }) {
-    
+
     const {
         cardMap,
         isGenerating,
@@ -19,10 +20,20 @@ export function Sidebar({ className = "" }) {
     } = useApp();
 
     return (
-        <div className={`${className} ${backgroundStyles.surface} backdrop-blur-sm border-(--border) p-6 flex flex-col gap-6`}>
+        <div className={`${className} backdrop-blur-sm border-(--border) p-6 flex flex-col gap-6 grow`}>
             {/* Actions */}
             <Box>
                 <div className="flex flex-col gap-3">
+                    <div className={`text-xl flex justify-between`}>
+                        <h1 className={`mb-4 font-bold ${textStyles.primary}`}>
+                            Proxy Print and Cut
+                        </h1>
+                        <div className="">
+                        <a href="https://github.com/AlanBark/proxy-print-and-cut" target="_blank" rel="noopener noreferrer">
+                            <img src={gitHubLogo} alt="GitHub" className="w-6 h-6 opacity-50 hover:opacity-100 transition" />
+                        </a>
+                    </div>
+                    </div>
                     <FileUpload
                         onFilesSelected={handleFilesSelected}
                     />

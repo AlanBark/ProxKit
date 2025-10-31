@@ -1,9 +1,9 @@
 import { Card } from "./Card";
-import { Pagination } from "@heroui/react";
+import { Pagination, Button } from "@heroui/react";
 import { textStyles } from "../theme/classNames";
 import { useState, useMemo } from "react";
 import { useApp } from "../context/AppContext";
-import { ImageIcon } from "lucide-react";
+import { ImageIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import { Box } from "./Box";
 
 // @TODO dynamic somehow
@@ -45,18 +45,26 @@ export function CardList() {
                     </div>
                 </Box>
             ) : (
-                <div className="flex flex-col h-full">
-                    {/* Grid container - centers the grid */}
-                    {/* <div className="p-6 flex-1 flex items-center justify-center overflow-hidden"> */}
-                        <Box className="m-6 flex-1 flex items-center justify-center overflow-hidden">
+                <div className="flex h-full">
+                    <div className="my-6 mr-6 flex-1 flex items-center justify-center gap-4">
+                        <Box className="h-full flex flex-col">
+                            <div className="flex items-center justify-center ">
+                            <Button
+                                isIconOnly
+                                variant="light"
+                                onPress={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                isDisabled={currentPage === 1}
+                                aria-label="Previous page"
+                            >
+                                <ChevronLeft className="w-5 h-5" />
+                            </Button>
                             <div
-                                className="w-full h-full"
+                                className=""
                                 style={{
                                     maxWidth: `min(90vw, calc(100vh - 8rem) * ${(4 * cardWidth + 6) / (2 * cardHeight + 1)})`,
                                     maxHeight: `min(calc(100vh - 8rem), 90vw * ${(2 * cardHeight + 1) / (4 * cardWidth + 3)})`,
-                                    minWidth: `min(20vw, calc(100vh - 8rem) * ${(4 * cardWidth + 6) / (2 * cardHeight + 1)})`,
-                                    minHeight: `min(calc(20vh - 8rem), 90vw * ${(2 * cardHeight + 1) / (4 * cardWidth + 3)})`,
-                            }}>
+                                   
+                                }}>
                                 <div className="grid grid-cols-4 grid-rows-2 gap-4">
                                     {currentPageCards.map((cardId, index) => (
                                         <Card
@@ -68,19 +76,26 @@ export function CardList() {
                                     ))}
                                 </div>
                             </div>
+                            <Button
+                                isIconOnly
+                                variant="light"
+                                onPress={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                isDisabled={currentPage === totalPages}
+                                aria-label="Next page"
+                            >
+                                <ChevronRight className="w-5 h-5" />
+                            </Button>
+                            </div>
+                            <div className="flex justify-center pt-3">
+                                <Pagination
+                                    total={totalPages}
+                                    page={currentPage}
+                                    onChange={setCurrentPage}
+                                    size="sm"
+                                />
+                            </div>
                         </Box>
-                    {/* </div> */}
-
-                    {/* Pagination stays at bottom */}
-                    {/* <div className="flex justify-center py-2 shrink-0">
-                        <Pagination
-                            total={totalPages}
-                            page={currentPage}
-                            onChange={setCurrentPage}
-                            showControls
-                            size="sm"
-                        />
-                    </div> */}
+                    </div>
                 </div>
             )}
         </>
