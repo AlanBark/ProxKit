@@ -27,11 +27,11 @@ export function Card({ card, cardIndex, gridPosition }: CardProps) {
         return <div className="relative w-full h-full bg-gray-100" />;
     }
 
-    // Calculate the crop percentage based on bleed
-    // If bleed is 3mm, we need to crop 3mm from each side
-    // Crop percentage = (bleed / dimension) * 100
-    const cropXPercent = (card.bleed / cardWidth) * 100;
-    const cropYPercent = (card.bleed / cardHeight) * 100;
+    // Calculate the scale factor to account for bleed
+    // We need to scale up the image so that when the container clips it,
+    // the visible area shows the correct content
+    const scaleX = (cardWidth + 2 * card.bleed) / cardWidth;
+    const scaleY = (cardHeight + 2 * card.bleed) / cardHeight;
 
     return (
         <div
@@ -40,15 +40,19 @@ export function Card({ card, cardIndex, gridPosition }: CardProps) {
                 setIsHovered(false);
                 setIsClicked(false);
             }}
-            className="relative flex flex-col"
+            className="relative flex flex-col overflow-hidden"
+            style={{
+
+                borderRadius: "2.5mm",
+            }}
         >
                 <img
                     src={card.imageUrl}
                     alt={card.name || `Card ${card.id}`}
-                    className=""
+                    className="object-cover"
                     style={{
                         alignSelf: gridPosition >= 0 && gridPosition <= 3 ? 'flex-end' : 'flex-start',
-                        borderRadius: "2.5mm"
+                        transform: `scale(${scaleX}, ${scaleY})`
                     }}
                 />
 
