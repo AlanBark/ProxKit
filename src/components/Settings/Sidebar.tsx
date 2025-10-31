@@ -11,7 +11,7 @@ import gitHubLogo from "../../assets/github-mark-white.svg"
 export function Sidebar({ className = "" }) {
 
     const {
-        cardMap,
+        cardOrder,
         isGenerating,
         pdfUrl,
         handleFilesSelected,
@@ -52,7 +52,7 @@ export function Sidebar({ className = "" }) {
 
                     <Button
                         onPress={handleRemoveAllCards}
-                        isDisabled={cardMap.entries.length == 0}
+                        isDisabled={cardOrder.length === 0}
                         variant="ghost"
                         color="danger"
                     >
