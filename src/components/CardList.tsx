@@ -62,14 +62,17 @@ export function CardList() {
                                     <p className="text-sm mt-1">Upload images to get started</p>
                                 </div>) : (
                                 <div className="grid grid-cols-4 grid-rows-2 gap-4">
-                                    {currentPageCards.map((cardId, index) => (
-                                        <Card
-                                            card={cardMap.get(cardId)}
-                                            cardIndex={(currentPage - 1) * CARDS_PER_PAGE + index}
-                                            gridPosition={index}
-                                            key={index}
-                                        />
-                                    ))}
+                                    {currentPageCards.map((cardId, index) => {
+                                        const globalIndex = (currentPage - 1) * CARDS_PER_PAGE + index;
+                                        return (
+                                            <Card
+                                                card={cardMap.get(cardId)}
+                                                cardIndex={globalIndex}
+                                                gridPosition={index}
+                                                key={`${cardId}-${globalIndex}`}
+                                            />
+                                        );
+                                    })}
                                 </div>
                                 )}
                             </div>

@@ -3,6 +3,7 @@ import { PDFManager } from "../utils/pdf/PDFManager";
 import type { CardImage } from "../types/card";
 import { CARD_DIMENSIONS } from "../types/card";
 import type { Selection } from "@heroui/react";
+import { createThumbnail } from "../utils/imageUtils";
 
 export const PAGE_SIZE_OPTIONS = [
     { key: "A4", label: "A4", width: 210, height: 297 },
@@ -102,15 +103,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }, [cardMap, cardOrder]);
 
     const handleAddCards = async (files: File[]) => {
-        const newCards: CardImage[] = files.map((file) => {
-            const imageUrl = URL.createObjectURL(file);
-            return {
-                id: crypto.randomUUID(),
-                imageUrl,
-                name: file.name,
-                bleed: defaultBleed,
-            };
-        });
+        const newCards: CardImage[] = await Promise.all(
+            files.map(async (file) => {
+                const imageUrl = URL.createObjectURL(file);
+                let thumbnailUrl: string | undefined;
+
+                try {
+                    // Create a lower-res thumbnail for UI display
+                    thumbnailUrl = await createThumbnail(file, 800, 800, 0.85);
+                } catch (error) {
+                    console.warn('Failed to create thumbnail, using original:', error);
+                    // Fall back to original if thumbnail creation fails
+                    thumbnailUrl = undefined;
+                }
+
+                return {
+                    id: crypto.randomUUID(),
+                    imageUrl,
+                    thumbnailUrl,
+                    name: file.name,
+                    bleed: defaultBleed,
+                };
+            })
+        );
 
         setCardMap((prev) => {
             const newMap = new Map(prev);
@@ -122,15 +137,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
 
     const handleRemoveCard = (cardIndex: number) => {
-        
+
         let cardId = cardOrder[cardIndex];
         let cardIdInstances = cardOrder.filter((card) => { card === cardId })
-            
+
         if (cardIdInstances.length === 1) {
             // Remove the card itself if this is the last instance of it being removed
             let card = cardMap.get(cardId);
             if (card) {
-                URL.revokeObjectURL(card?.imageUrl);
+                URL.revokeObjectURL(card.imageUrl);
+                if (card.thumbnailUrl) {
+                    URL.revokeObjectURL(card.thumbnailUrl);
+                }
             }
 
             setCardMap((prevCardMap) => {
@@ -150,6 +168,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const handleRemoveAllCards = () => {
         for (let card of cardMap.values()) {
             URL.revokeObjectURL(card.imageUrl);
+            if (card.thumbnailUrl) {
+                URL.revokeObjectURL(card.thumbnailUrl);
+            }
         }
         setCardMap(new Map());
         setCardOrder([]);

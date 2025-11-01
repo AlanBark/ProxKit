@@ -47,12 +47,15 @@ export function Card({ card, cardIndex, gridPosition }: CardProps) {
             }}
         >
                 <img
-                    src={card.imageUrl}
+                    src={card.thumbnailUrl || card.imageUrl}
                     alt={card.name || `Card ${card.id}`}
                     className="object-cover"
+                    loading="eager"
+                    decoding="async"
                     style={{
                         alignSelf: gridPosition >= 0 && gridPosition <= 3 ? 'flex-end' : 'flex-start',
-                        transform: `scale(${scaleX}, ${scaleY})`
+                        transform: `scale(${scaleX}, ${scaleY})`,
+                        contentVisibility: 'auto'
                     }}
                 />
 

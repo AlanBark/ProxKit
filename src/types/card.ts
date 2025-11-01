@@ -9,6 +9,7 @@ export const CARD_DIMENSIONS = {
 export interface CardImage {
     id: string;
     imageUrl: string;
+    thumbnailUrl?: string; // Lower-res version for UI display
     name?: string;
     bleed: number; // bleed amount in millimeters
 }
