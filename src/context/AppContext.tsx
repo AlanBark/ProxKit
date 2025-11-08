@@ -109,8 +109,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 let thumbnailUrl: string | undefined;
 
                 try {
-                    // Create a lower-res thumbnail for UI display
-                    thumbnailUrl = await createThumbnail(file, 800, 800, 0.85);
+                    // Create a lower-res thumbnail for UI display with bleed cropped out
+                    thumbnailUrl = await createThumbnail(file, 800, 800, 0.85, defaultBleed, cardWidth, cardHeight);
                 } catch (error) {
                     console.warn('Failed to create thumbnail, using original:', error);
                     // Fall back to original if thumbnail creation fails
@@ -176,15 +176,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setCardOrder([]);
     }
 
-    const handleUpdateBleed = (cardId: string, bleed: number) => {
-        setCardMap((prev) => {
-            const card = prev.get(cardId);
-            if (!card) return prev;
+    const handleUpdateBleed = async (cardId: string, bleed: number) => {
+        const card = cardMap.get(cardId);
+        if (!card) return;
 
-            const newMap = new Map(prev);
-            newMap.set(cardId, { ...card, bleed });
-            return newMap;
-        });
+        try {
+            // Fetch the original image blob from the blob URL
+            const response = await fetch(card.imageUrl);
+            const blob = await response.blob();
+            const file = new File([blob], card.name || 'image.jpg', { type: blob.type });
+
+            // Regenerate thumbnail with new bleed value
+            const newThumbnailUrl = await createThumbnail(file, 800, 800, 0.85, bleed, cardWidth, cardHeight);
+
+            // Clean up old thumbnail URL if it exists
+            if (card.thumbnailUrl) {
+                URL.revokeObjectURL(card.thumbnailUrl);
+            }
+
+            // Update card with new bleed and thumbnail
+            setCardMap((prev) => {
+                const newMap = new Map(prev);
+                newMap.set(cardId, { ...card, bleed, thumbnailUrl: newThumbnailUrl });
+                return newMap;
+            });
+        } catch (error) {
+            console.error('Failed to regenerate thumbnail with new bleed:', error);
+            // Fall back to just updating the bleed value
+            setCardMap((prev) => {
+                const newMap = new Map(prev);
+                newMap.set(cardId, { ...card, bleed });
+                return newMap;
+            });
+        }
     };
 
     const handleDuplicateCard = (cardToDuplicate: CardImage) => {

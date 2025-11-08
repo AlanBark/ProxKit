@@ -27,12 +27,6 @@ export function Card({ card, cardIndex, gridPosition }: CardProps) {
         return <div className="relative w-full h-full bg-gray-100" />;
     }
 
-    // Calculate the scale factor to account for bleed
-    // We need to scale up the image so that when the container clips it,
-    // the visible area shows the correct content
-    const scaleX = (cardWidth + 2 * card.bleed) / cardWidth;
-    const scaleY = (cardHeight + 2 * card.bleed) / cardHeight;
-
     return (
         <div
             onMouseEnter={() => setIsHovered(true)}
@@ -40,7 +34,7 @@ export function Card({ card, cardIndex, gridPosition }: CardProps) {
                 setIsHovered(false);
                 setIsClicked(false);
             }}
-            className="relative flex flex-col overflow-hidden bg-primary justify-center"
+            className="relative flex flex-col overflow-hidden justify-center"
             style={{
                 width: '100%',
                 height: '100%',
@@ -49,14 +43,16 @@ export function Card({ card, cardIndex, gridPosition }: CardProps) {
             }}
         >
                 <img
-                    src={card.imageUrl}
+                    src={card.thumbnailUrl || card.imageUrl}
                     alt={card.name || `Card ${card.id}`}
-                    className="object-cover w-full h-full"
+                    className="w-full h-full"
                     loading="eager"
                     decoding="async"
                     style={{
-                        transform: `scale(${scaleX}, ${scaleY})`,
-                        contentVisibility: 'auto'
+                        objectFit: 'contain',
+                        objectPosition: 'center',
+                        contentVisibility: 'auto',
+                        imageRendering: 'auto',
                     }}
                 />
 

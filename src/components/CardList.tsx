@@ -75,7 +75,7 @@ export function CardList() {
                                     <p className="text-sm mt-1">Upload images to get started</p>
                                 </div>) : (
                                 <div
-                                    className="grid grid-cols-4 grid-rows-2"
+                                    className="grid grid-cols-4 grid-rows-2 gap-2"
                                     style={{
                                         width: `min(90vw, calc((100vh - 12rem) * ${aspectRatio}))`,
                                         height: `calc(min(90vw, calc((100vh - 12rem) * ${aspectRatio})) / ${aspectRatio})`,
