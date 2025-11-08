@@ -31,7 +31,6 @@ interface AppState {
     handleUpdateBleed: (cardId: string, bleed: number) => void;
     handleDuplicateCard: (card: CardImage) => void;
     handleDownloadPDF: () => void;
-    handlePrintPDF: () => void;
     setPageSize: (size: Selection) => void;
     setCardWidth: (width: number) => void;
     setCardHeight: (height: number) => void;
@@ -238,22 +237,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         link.click();
     };
 
-    const handlePrintPDF = () => {
-        if (!pdfUrl) return;
-
-        const iframe = document.createElement("iframe");
-        iframe.style.display = "none";
-        iframe.src = pdfUrl;
-        document.body.appendChild(iframe);
-
-        iframe.onload = () => {
-            iframe.contentWindow?.print();
-            setTimeout(() => {
-                document.body.removeChild(iframe);
-            }, 100);
-        };
-    };
-
     const value: AppState = {
         cardMap,
         cardOrder,
@@ -270,7 +253,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         handleUpdateBleed,
         handleDuplicateCard,
         handleDownloadPDF,
-        handlePrintPDF,
         setPageSize,
         setCardWidth,
         setCardHeight,

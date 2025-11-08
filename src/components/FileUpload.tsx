@@ -39,6 +39,7 @@ export function FileUpload({ onFilesSelected, multiple = true }: FileUploadProps
                 onPress={handleButtonClick}
                 className={`w-full`}
                 color="primary"
+                variant="ghost"
             >
                 <span className="flex items-center justify-center gap-2">
                     <Upload className="w-5 h-5" />

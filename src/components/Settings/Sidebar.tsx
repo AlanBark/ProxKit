@@ -1,4 +1,4 @@
-import { Download, Trash } from "lucide-react";
+import { Download, Trash, Upload, FileDown, Save, ArchiveRestore } from "lucide-react";
 import { FileUpload } from "../FileUpload";
 import { Box } from "../Box";
 import { backgroundStyles, buttonStyles, textStyles } from "../../theme/classNames";
@@ -34,33 +34,68 @@ export function Sidebar({ className = "" }) {
                         </a>
                     </div>
                     </div>
-                    <FileUpload
-                        onFilesSelected={handleFilesSelected}
-                    />
+                    <div className="grid grid-cols-1 2xl:grid-cols-2 gap-3">
+                        <FileUpload
+                            onFilesSelected={handleFilesSelected}
+                        />
 
-                    <Button
-                        onPress={handleDownloadPDF}
-                        isDisabled={!pdfUrl || isGenerating}
-                        isLoading={isGenerating}
-                        color={(!pdfUrl || isGenerating) ? "warning" : "success"}
-                    >
-                        <span className="flex items-center justify-center gap-2">
-                            <Download className="w-5 h-5" />
-                            Download PDF
-                        </span>
-                    </Button>
+                        <Button
+                            onPress={handleDownloadPDF}
+                            isDisabled={!pdfUrl || isGenerating}
+                            isLoading={isGenerating}
+                            color={(!pdfUrl || isGenerating) ? "warning" : "success"}
+                            variant="ghost"
+                        >
+                            <span className="flex items-center justify-center gap-2">
+                                <Download className="w-5 h-5" />
+                                Download PDF
+                            </span>
+                        </Button>
 
-                    <Button
-                        onPress={handleRemoveAllCards}
-                        isDisabled={cardOrder.length === 0}
-                        variant="ghost"
-                        color="danger"
-                    >
-                        <span className="flex items-center justify-center gap-2">
-                            <Trash className="w-5 h-5" />
-                            Delete All
-                        </span>
-                    </Button>
+                        <Button
+                            onPress={() => {/* TODO: Implement upload XML */}}
+                            isDisabled={true}
+                            variant="flat"
+                        >
+                            <span className="flex items-center justify-center gap-2">
+                                <Upload className="w-5 h-5" />
+                                Upload MPCFill XML
+                            </span>
+                        </Button>
+
+                        <Button
+                            onPress={() => {/* TODO: Implement download Silhouette file */}}
+                            isDisabled={cardOrder.length === 0}
+                            variant="flat"
+                        >
+                            <span className="flex items-center justify-center gap-2">
+                                <Download className="w-5 h-5" />
+                                Download Cut File
+                            </span>
+                        </Button>
+
+                        <Button
+                            onPress={() => {/* TODO: Implement download XML */}}
+                            isDisabled={cardOrder.length === 0}
+                            variant="flat"
+                        >
+                            <span className="flex items-center justify-center gap-2">
+                                <Save className="w-5 h-5" />
+                                Save Project
+                            </span>
+                        </Button>
+
+                       <Button
+                            onPress={() => {/* TODO: Implement upload my own XML */}}
+                            isDisabled={true}
+                            variant="flat"
+                        >
+                            <span className="flex items-center justify-center gap-2">
+                                <ArchiveRestore className="w-5 h-5" />
+                                Restore Project
+                            </span>
+                        </Button>
+                    </div>
                 </div>
             </Box>
 
