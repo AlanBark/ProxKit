@@ -39,7 +39,6 @@ export function Card({ card, cardIndex, gridPosition }: CardProps) {
                 width: '100%',
                 height: '100%',
                 aspectRatio: cardWidth / cardHeight,
-                borderRadius: "2.5mm",
             }}
         >
                 <img
@@ -53,12 +52,11 @@ export function Card({ card, cardIndex, gridPosition }: CardProps) {
                         objectPosition: 'center',
                         contentVisibility: 'auto',
                         imageRendering: 'auto',
+                        borderRadius: "3mm",
                     }}
                 />
 
                 {/* Duplicate and Remove Buttons - Fade in/out */}
-                {false && (
-
                 <div
                     className={`absolute inset-0 gap-[8%] flex items-center justify-center transition-opacity duration-200 ease-in-out ${
                         isHovered ? 'opacity-100' : 'opacity-0 pointer-events-none'
@@ -85,7 +83,6 @@ export function Card({ card, cardIndex, gridPosition }: CardProps) {
                         <Trash2 className="w-[30%] h-[30%]" />
                     </Button>
                 </div>
-                )}
 
                 {/* Sliding Menu - Slides up/down on hover */}
                 {false && (

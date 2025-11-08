@@ -217,6 +217,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             imageUrl: cardToDuplicate.imageUrl,
             name: cardToDuplicate.name,
             bleed: cardToDuplicate.bleed,
+            thumbnailUrl: cardToDuplicate.thumbnailUrl
         };
 
         setCardMap((prev) => {

@@ -41,7 +41,7 @@ export function CardList() {
         <div className="flex h-full">
             <div className="my-6 mr-6 flex-1 flex items-center justify-center gap-4">
                 <Box className="h-full flex flex-col justify-between">
-                    <div className="flex-1 flex items-center justify-center">
+                    <div className="flex-1 flex items-center justify-center ">
                         <Button
                             isIconOnly
                             variant="light"
@@ -114,6 +114,7 @@ export function CardList() {
                                 onChange={setCurrentPage}
                                 size="sm"
                                 variant="light"
+                                className="cursor-pointer"
                             />
                         </div>
                     }
