@@ -34,11 +34,14 @@ export function CardList() {
         setCurrentPage(totalPages);
     }
 
+    // The grid will be a rectangle with LxW ratio of:
+    const aspectRatio = (4 * cardWidth) / (2 * cardHeight);
+
     return (
         <div className="flex h-full">
             <div className="my-6 mr-6 flex-1 flex items-center justify-center gap-4">
                 <Box className="h-full flex flex-col justify-between">
-                    <div className="flex items-center justify-center ">
+                    <div className="flex-1 flex items-center justify-center">
                         <Button
                             isIconOnly
                             variant="light"
@@ -49,19 +52,35 @@ export function CardList() {
                             <ChevronLeft className="w-5 h-5" />
                         </Button>
                         <div
-                            className=""
+                            className="flex items-center justify-center flex-1"
                             style={{
-                                width: `min(90vw, calc(100vh - 8rem) * ${(4 * cardWidth + 6) / (2 * cardHeight + 1)})`,
-                                height: `min(calc(100vh - 8rem), 90vw * ${(2 * cardHeight + 1) / (4 * cardWidth + 3)})`,
-
+                                minHeight: 0,
+                                minWidth: 0,
+                            }}>
+                            <div style={{
+                                aspectRatio: aspectRatio,
+                                maxWidth: '100%',
+                                maxHeight: '100%',
+                                width: 'fit-content',
+                                height: 'fit-content',
                             }}>
                             {cardOrder.length === 0 || !cardOrder ? (
-                                <div className={`flex flex-col items-center justify-center h-full ${textStyles.muted}`}>
+                                <div className={`flex flex-col items-center justify-center ${textStyles.muted}`}
+                                    style={{
+                                        width: `min(90vw, calc((100vh - 12rem) * ${aspectRatio}))`,
+                                        height: `calc(min(90vw, calc((100vh - 12rem) * ${aspectRatio})) / ${aspectRatio})`,
+                                    }}>
                                     <ImageIcon className="w-24 h-24 mb-4 opacity-30" />
                                     <p className="text-lg">No cards yet</p>
                                     <p className="text-sm mt-1">Upload images to get started</p>
                                 </div>) : (
-                                <div className="grid grid-cols-4 grid-rows-2 gap-4">
+                                <div
+                                    className="grid grid-cols-4 grid-rows-2"
+                                    style={{
+                                        width: `min(90vw, calc((100vh - 12rem) * ${aspectRatio}))`,
+                                        height: `calc(min(90vw, calc((100vh - 12rem) * ${aspectRatio})) / ${aspectRatio})`,
+                                    }}
+                                >
                                     {currentPageCards.map((cardId, index) => {
                                         const globalIndex = (currentPage - 1) * CARDS_PER_PAGE + index;
                                         return (
@@ -76,6 +95,7 @@ export function CardList() {
                                 </div>
                                 )}
                             </div>
+                        </div>
                         <Button
                             isIconOnly
                             variant="light"

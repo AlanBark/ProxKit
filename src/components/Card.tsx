@@ -40,20 +40,21 @@ export function Card({ card, cardIndex, gridPosition }: CardProps) {
                 setIsHovered(false);
                 setIsClicked(false);
             }}
-            className="relative flex flex-col overflow-hidden"
+            className="relative flex flex-col overflow-hidden bg-primary justify-center"
             style={{
-
+                width: '100%',
+                height: '100%',
+                aspectRatio: cardWidth / cardHeight,
                 borderRadius: "2.5mm",
             }}
         >
                 <img
-                    src={card.thumbnailUrl || card.imageUrl}
+                    src={card.imageUrl}
                     alt={card.name || `Card ${card.id}`}
-                    className="object-cover"
+                    className="object-cover w-full h-full"
                     loading="eager"
                     decoding="async"
                     style={{
-                        alignSelf: gridPosition >= 0 && gridPosition <= 3 ? 'flex-end' : 'flex-start',
                         transform: `scale(${scaleX}, ${scaleY})`,
                         contentVisibility: 'auto'
                     }}
