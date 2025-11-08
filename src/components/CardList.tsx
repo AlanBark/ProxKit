@@ -1,10 +1,11 @@
 import { Card } from "./Card";
 import { Pagination, Button } from "@heroui/react";
 import { textStyles } from "../theme/classNames";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useApp } from "../context/AppContext";
 import { ImageIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import { Box } from "./Box";
+import { motion, AnimatePresence } from "framer-motion";
 
 // @TODO dynamic somehow
 const CARDS_PER_PAGE = 8;
@@ -14,6 +15,8 @@ const CARDS_PER_PAGE = 8;
 export function CardList() {
 
     const [currentPage, setCurrentPage] = useState(1);
+    const [direction, setDirection] = useState(0); // -1 for left, 1 for right
+    const isScrolling = useRef(false);
     const {
         cardMap,
         cardOrder,
@@ -22,6 +25,30 @@ export function CardList() {
     } = useApp();
 
     const totalPages = Math.ceil(cardOrder.length / CARDS_PER_PAGE);
+
+    const handleWheel = (e: React.WheelEvent) => {
+        // Prevent multiple rapid scrolls
+        if (isScrolling.current) return;
+
+        const delta = e.deltaY;
+
+        // Threshold to prevent accidental scrolls
+        if (Math.abs(delta) < 10) return;
+
+        if (delta > 0 && currentPage < totalPages) {
+            // Scroll down - next page
+            setDirection(1);
+            setCurrentPage(p => Math.min(totalPages, p + 1));
+            isScrolling.current = true;
+            setTimeout(() => { isScrolling.current = false; }, 100);
+        } else if (delta < 0 && currentPage > 1) {
+            // Scroll up - previous page
+            setDirection(-1);
+            setCurrentPage(p => Math.max(1, p - 1));
+            isScrolling.current = true;
+            setTimeout(() => { isScrolling.current = false; }, 100);
+        }
+    };
 
     const currentPageCards = useMemo(() => {
         const startIndex = (currentPage - 1) * CARDS_PER_PAGE;
@@ -45,7 +72,10 @@ export function CardList() {
                         <Button
                             isIconOnly
                             variant="light"
-                            onPress={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            onPress={() => {
+                                setDirection(-1);
+                                setCurrentPage(p => Math.max(1, p - 1));
+                            }}
                             isDisabled={currentPage === 1}
                             aria-label="Previous page"
                         >
@@ -56,7 +86,9 @@ export function CardList() {
                             style={{
                                 minHeight: 0,
                                 minWidth: 0,
-                            }}>
+                                overflow: 'hidden',
+                            }}
+                            onWheel={handleWheel}>
                             <div style={{
                                 aspectRatio: aspectRatio,
                                 maxWidth: '100%',
@@ -74,24 +106,54 @@ export function CardList() {
                                     <p className="text-lg">No cards yet</p>
                                     <p className="text-sm mt-1">Upload images to get started</p>
                                 </div>) : (
-                                <div
-                                    className="grid grid-cols-4 grid-rows-2 gap-2"
-                                    style={{
-                                        width: `min(90vw, calc((100vh - 12rem) * ${aspectRatio}))`,
-                                        height: `calc(min(90vw, calc((100vh - 12rem) * ${aspectRatio})) / ${aspectRatio})`,
-                                    }}
-                                >
-                                    {currentPageCards.map((cardId, index) => {
-                                        const globalIndex = (currentPage - 1) * CARDS_PER_PAGE + index;
-                                        return (
-                                            <Card
-                                                card={cardMap.get(cardId)}
-                                                cardIndex={globalIndex}
-                                                gridPosition={index}
-                                                key={`${cardId}-${globalIndex}`}
-                                            />
-                                        );
-                                    })}
+                                <div style={{
+                                    position: 'relative',
+                                    width: `min(90vw, calc((100vh - 12rem) * ${aspectRatio}))`,
+                                    height: `calc(min(90vw, calc((100vh - 12rem) * ${aspectRatio})) / ${aspectRatio})`,
+                                }}>
+                                    <AnimatePresence initial={false} custom={direction}>
+                                        <motion.div
+                                            key={currentPage}
+                                            custom={direction}
+                                            variants={{
+                                                enter: (direction: number) => ({
+                                                    x: direction > 0 ? '100%' : '-100%',
+                                                }),
+                                                center: {
+                                                    x: 0,
+                                                },
+                                                exit: (direction: number) => ({
+                                                    x: direction > 0 ? '-100%' : '100%',
+                                                })
+                                            }}
+                                            initial="enter"
+                                            animate="center"
+                                            exit="exit"
+                                            transition={{
+                                                x: { type: "tween", duration: 0.2, ease: [0.4, 0, 0.2, 1] },
+                                            }}
+                                            className="grid grid-cols-4 grid-rows-2 gap-2"
+                                            style={{
+                                                position: 'absolute',
+                                                top: 0,
+                                                left: 0,
+                                                width: '100%',
+                                                height: '100%',
+                                            }}
+                                        >
+                                            {currentPageCards.map((cardId, index) => {
+                                                const globalIndex = (currentPage - 1) * CARDS_PER_PAGE + index;
+                                                return (
+                                                    <Card
+                                                        card={cardMap.get(cardId)}
+                                                        cardIndex={globalIndex}
+                                                        gridPosition={index}
+                                                        key={`${cardId}-${globalIndex}`}
+                                                    />
+                                                );
+                                            })}
+                                        </motion.div>
+                                    </AnimatePresence>
                                 </div>
                                 )}
                             </div>
@@ -99,7 +161,10 @@ export function CardList() {
                         <Button
                             isIconOnly
                             variant="light"
-                            onPress={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            onPress={() => {
+                                setDirection(1);
+                                setCurrentPage(p => Math.min(totalPages, p + 1));
+                            }}
                             isDisabled={currentPage === totalPages}
                             aria-label="Next page"
                         >
@@ -111,7 +176,10 @@ export function CardList() {
                             <Pagination
                                 total={totalPages}
                                 page={currentPage}
-                                onChange={setCurrentPage}
+                                onChange={(page) => {
+                                    setDirection(page > currentPage ? 1 : -1);
+                                    setCurrentPage(page);
+                                }}
                                 size="sm"
                                 variant="light"
                                 className="cursor-pointer"
