@@ -22,7 +22,7 @@ import registrationLetter from "../assets/letter_registration.jpg";
  *
  * Example: If bleed is 3mm and BLEED_EDGE_MARGIN is 1mm, crop 2mm from each side
  */
-const BLEED_EDGE_MARGIN = 1;
+const BLEED_EDGE_MARGIN = 0;
 
 let currentRequestId: string | null = null;
 let isCancelled = false;
@@ -96,13 +96,15 @@ function getRegistrationBackground(pageSettings: { width: number; height: number
  * - BLEED_EDGE_MARGIN: 1mm
  * - Total image represents: (63 + 3*2) x (88 + 3*2) = 69mm x 94mm
  * - We crop 2mm (3mm - 1mm) from each side to get a 65mm x 90mm result
+ *
+ * @returns Object containing the cropped image bytes and actual dimensions in mm
  */
 async function cropImageBleed(
     imageUrl: string,
     bleed: number,
     cardWidth: number,
     cardHeight: number
-): Promise<Uint8Array> {
+): Promise<{ imageBytes: Uint8Array; widthMm: number; heightMm: number }> {
     // Fetch the image
     const response = await fetch(imageUrl);
     const blob = await response.blob();
@@ -155,7 +157,16 @@ async function cropImageBleed(
     const croppedBlob = await canvas.convertToBlob({ type: 'image/png' });
     const arrayBuffer = await croppedBlob.arrayBuffer();
 
-    return new Uint8Array(arrayBuffer);
+    // Calculate the actual dimensions of the cropped image in mm
+    // The cropped image retains BLEED_EDGE_MARGIN on each side
+    const croppedWidthMm = cardWidth + (2 * BLEED_EDGE_MARGIN);
+    const croppedHeightMm = cardHeight + (2 * BLEED_EDGE_MARGIN);
+
+    return {
+        imageBytes: new Uint8Array(arrayBuffer),
+        widthMm: croppedWidthMm,
+        heightMm: croppedHeightMm,
+    };
 }
 
 /**
@@ -229,7 +240,7 @@ async function generatePDF(request: GeneratePDFRequest): Promise<void> {
                     const row = Math.floor(i / 4);
 
                     // Crop the image to remove bleed
-                    const croppedImageBytes = await cropImageBleed(
+                    const croppedImage = await cropImageBleed(
                         card.imageUrl,
                         card.bleed,
                         cardWidth,
@@ -237,7 +248,7 @@ async function generatePDF(request: GeneratePDFRequest): Promise<void> {
                     );
 
                     // Embed the cropped image
-                    const embeddedImage = await pdfDoc.embedPng(croppedImageBytes);
+                    const embeddedImage = await pdfDoc.embedPng(croppedImage.imageBytes);
 
                     // Calculate position in mm
                     const cardX = layout.x + col * layout.cellWidth;
@@ -245,10 +256,11 @@ async function generatePDF(request: GeneratePDFRequest): Promise<void> {
 
                     // Convert to points (flip Y axis for PDF coordinate system)
                     const xPt = mmToPoints(cardX);
-                    const yPt = mmToPoints(pageSettings.width - cardY - cardHeight);  // Flip Y
+                    const yPt = mmToPoints(pageSettings.width - cardY - croppedImage.heightMm);  // Flip Y
 
-                    const widthPt = mmToPoints(cardWidth);
-                    const heightPt = mmToPoints(cardHeight);
+                    // Use the actual cropped image dimensions to prevent warping
+                    const widthPt = mmToPoints(croppedImage.widthMm);
+                    const heightPt = mmToPoints(croppedImage.heightMm);
 
                     // Draw the cropped image
                     page.drawImage(embeddedImage, {
