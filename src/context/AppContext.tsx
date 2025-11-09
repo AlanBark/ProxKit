@@ -15,6 +15,7 @@ interface AppState {
     cardMap: Map<string, CardImage>;
     cardOrder: string[];
     pdfUrl: string | null;
+    dxfUrl: string | null;
     isGenerating: boolean;
     generationProgress: number; // 0-100 percentage
 
@@ -31,6 +32,7 @@ interface AppState {
     handleUpdateBleed: (cardId: string, bleed: number) => void;
     handleDuplicateCard: (card: CardImage) => void;
     handleDownloadPDF: () => void;
+    handleDownloadDXF: () => void;
     setPageSize: (size: Selection) => void;
     setCardWidth: (width: number) => void;
     setCardHeight: (height: number) => void;
@@ -43,6 +45,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const [cardMap, setCardMap] = useState<Map<string, CardImage>>(new Map());
     const [cardOrder, setCardOrder] = useState<string[]>([]);
     const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+    const [dxfUrl, setDxfUrl] = useState<string | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
     const [generationProgress, setGenerationProgress] = useState<number>(0);
     const pdfManagerRef = useRef<PDFManager | null>(null);
@@ -73,11 +76,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         };
     }, [pageSize, cardWidth, cardHeight]);
 
-    // Auto-generate PDF whenever cards change
+    // Auto-generate PDF and DXF whenever cards change
     useEffect(() => {
         const generatePDF = async () => {
             if (!pdfManagerRef.current || cardOrder.length === 0) {
                 setPdfUrl(null);
+                setDxfUrl(null);
                 setIsGenerating(false);
                 return;
             }
@@ -87,11 +91,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
             try {
                 // Convert map + order back to array for PDF generation
                 const cardsArray = cardOrder.map(id => cardMap.get(id)).filter((card): card is CardImage => card !== undefined);
-                const url = await pdfManagerRef.current.generatePDF(cardsArray);
-                setPdfUrl(url);
+                const pdfUrlResult = await pdfManagerRef.current.generatePDF(cardsArray);
+                const dxfUrlResult = pdfManagerRef.current.getCachedDxfUrl();
+                setPdfUrl(pdfUrlResult);
+                setDxfUrl(dxfUrlResult);
             } catch (error) {
                 console.error("Failed to generate PDF:", error);
                 setPdfUrl(null);
+                setDxfUrl(null);
             } finally {
                 setIsGenerating(false);
                 setGenerationProgress(0);
@@ -237,10 +244,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
         link.click();
     };
 
+    const handleDownloadDXF = () => {
+        if (!dxfUrl) return;
+
+        const link = document.createElement("a");
+        link.href = dxfUrl;
+        link.download = `cut-file-${new Date().getTime()}.dxf`;
+        link.click();
+    };
+
     const value: AppState = {
         cardMap,
         cardOrder,
         pdfUrl,
+        dxfUrl,
         isGenerating,
         generationProgress,
         pageSize,
@@ -253,6 +270,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         handleUpdateBleed,
         handleDuplicateCard,
         handleDownloadPDF,
+        handleDownloadDXF,
         setPageSize,
         setCardWidth,
         setCardHeight,

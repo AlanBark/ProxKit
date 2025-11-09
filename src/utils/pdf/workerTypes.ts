@@ -26,12 +26,13 @@ export interface GeneratePDFRequest {
 }
 
 /**
- * Success response with generated PDF
+ * Success response with generated PDF and DXF cut file
  */
 export interface GeneratePDFSuccess {
     type: typeof PDFWorkerMessageType.GENERATE_PDF_SUCCESS;
     payload: {
         pdfBytes: Uint8Array;
+        dxfBytes: Uint8Array;
         requestId: string;
         totalPages: number;
     };

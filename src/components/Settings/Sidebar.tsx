@@ -14,8 +14,10 @@ export function Sidebar({ className = "" }) {
         cardOrder,
         isGenerating,
         pdfUrl,
+        dxfUrl,
         handleFilesSelected,
         handleDownloadPDF,
+        handleDownloadDXF,
         handleRemoveAllCards,
     } = useApp();
 
@@ -64,9 +66,11 @@ export function Sidebar({ className = "" }) {
                         </Button>
 
                         <Button
-                            onPress={() => {/* TODO: Implement download Silhouette file */}}
-                            isDisabled={cardOrder.length === 0}
-                            variant="flat"
+                            onPress={handleDownloadDXF}
+                            isDisabled={!dxfUrl || isGenerating}
+                            isLoading={isGenerating}
+                            color={(!dxfUrl || isGenerating) ? "warning" : "success"}
+                            variant="ghost"
                         >
                             <span className="flex items-center justify-center gap-2">
                                 <Download className="w-5 h-5" />

@@ -38,6 +38,7 @@ export class PDFManager {
     private worker: Worker | null = null;
     private currentRequestId: string | null = null;
     private cachedPdfUrl: string | null = null;
+    private cachedDxfUrl: string | null = null;
     private cachedCardsHash: string | null = null;
     private pageSettings: PageSettings;
     private cardWidth: number;
@@ -183,19 +184,28 @@ export class PDFManager {
                     this.worker!.removeEventListener("message", handleMessage);
 
                     // Type guard ensures we have the right payload type
-                    if ("pdfBytes" in message.payload) {
-                        // Convert bytes to blob URL
-                        const blob = new Blob([message.payload.pdfBytes], {
+                    if ("pdfBytes" in message.payload && "dxfBytes" in message.payload) {
+                        // Convert PDF bytes to blob URL
+                        const pdfBlob = new Blob([new Uint8Array(message.payload.pdfBytes)], {
                             type: "application/pdf",
                         });
 
-                        // Revoke old URL to prevent memory leaks
+                        // Convert DXF bytes to blob URL
+                        const dxfBlob = new Blob([new Uint8Array(message.payload.dxfBytes)], {
+                            type: "application/dxf",
+                        });
+
+                        // Revoke old URLs to prevent memory leaks
                         if (this.cachedPdfUrl) {
                             URL.revokeObjectURL(this.cachedPdfUrl);
                         }
+                        if (this.cachedDxfUrl) {
+                            URL.revokeObjectURL(this.cachedDxfUrl);
+                        }
 
-                        // Cache new URL
-                        this.cachedPdfUrl = URL.createObjectURL(blob);
+                        // Cache new URLs
+                        this.cachedPdfUrl = URL.createObjectURL(pdfBlob);
+                        this.cachedDxfUrl = URL.createObjectURL(dxfBlob);
                         this.cachedCardsHash = cardsHash;
                         this.currentRequestId = null;
 
@@ -248,14 +258,18 @@ export class PDFManager {
     }
 
     /**
-     * Invalidate cached PDF (forces regeneration on next request)
+     * Invalidate cached PDF and DXF (forces regeneration on next request)
      */
     public invalidateCache(): void {
         if (this.cachedPdfUrl) {
             URL.revokeObjectURL(this.cachedPdfUrl);
             this.cachedPdfUrl = null;
-            this.cachedCardsHash = null;
         }
+        if (this.cachedDxfUrl) {
+            URL.revokeObjectURL(this.cachedDxfUrl);
+            this.cachedDxfUrl = null;
+        }
+        this.cachedCardsHash = null;
     }
 
     /**
@@ -270,6 +284,13 @@ export class PDFManager {
      */
     public getCachedUrl(): string | null {
         return this.cachedPdfUrl;
+    }
+
+    /**
+     * Get currently cached DXF cut file URL (if available)
+     */
+    public getCachedDxfUrl(): string | null {
+        return this.cachedDxfUrl;
     }
 
     /**
