@@ -10,7 +10,7 @@ function App() {
         <AppProvider>
             <div 
                 className={`flex h-dvh`}
-                style={{background: "linear-gradient(135deg,rgba(25, 35, 45, 1) 0%, rgba(128, 117, 255, 1) 100%)"}}
+                style={{background: "linear-gradient(90deg,rgba(30, 42, 52, 1) 25%, rgba(69, 63, 120, 1) 50%, rgba(30, 42, 52, 1) 75%)"}}
             >
                 <Sidebar />
                 <CardList />
