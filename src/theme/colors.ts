@@ -16,8 +16,8 @@ export const colors = {
 
     // Backgrounds - lightened
     bgApp: '#111b22',             // Lighter slate-blue
-    bgSurface: 'rgba(25, 35, 45, 0.7)',    // More visible
-    bgElevated: 'rgba(30, 42, 52, 0.6)',   // Lighter elevated
+    bgSurface: '#302b63',    // More visible
+    bgElevated: 'rgba(255, 255, 255, 0.3)',   // Lighter elevated
     bgInput: '#1f2e3a',           // Lighter input
     bgHover: 'rgba(6, 182, 212, 0.15)',    // Slightly more visible
     bgDropdown: '#19232d',        // Solid background for dropdowns/menus
