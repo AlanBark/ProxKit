@@ -1,10 +1,13 @@
 import { PDFDocument, rgb } from "pdf-lib";
+import { jsPDF } from "jspdf";
 import type { CardImage } from "../types/card";
 
 import {
     PDFWorkerMessageType,
     type GeneratePDFRequest,
     type PDFWorkerMessage,
+    type InitPDFRequest,
+    type PlaceImageRequest,
 } from "../utils/pdf/workerTypes";
 
 // Import registration background images
@@ -422,6 +425,225 @@ async function cropImageBleed(
     };
 }
 
+let pdfDoc: PDFDocument | null = null;
+
+/**
+ * Helper function to convert Base64 to Uint8Array
+ */
+function base64ToUint8Array(base64: string): Uint8Array {
+    const binaryString = atob(base64);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes;
+}
+
+/**
+ * Helper function to convert Uint8Array to Base64
+ */
+function uint8ArrayToBase64(bytes: Uint8Array): string {
+    let binary = '';
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+}
+
+/**
+ * Helper function to convert ArrayBuffer to Base64
+ */
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+    return uint8ArrayToBase64(new Uint8Array(buffer));
+}
+
+/**
+ * Initialize a PDF document with a new page and registration background
+ * Can either create a new PDF or add a page to an existing one
+ * Uses jsPDF for better performance
+ */
+async function initPDF(request: InitPDFRequest): Promise<void> {
+    const { pageSettings, pageNumber, pdfBytesBase64, requestId } = request.payload;
+
+    try {
+        let doc: jsPDF;
+
+        // Note: jsPDF doesn't support loading/modifying existing PDFs in the traditional sense
+        // For multi-page PDFs, we'll use pdf-lib to load and jsPDF to add new pages
+        // However, for simplicity, we'll just create new pages with jsPDF
+
+        // Create new PDF with landscape orientation
+        doc = new jsPDF({
+            orientation: 'landscape',
+            unit: 'mm',
+            format: [pageSettings.width, pageSettings.height],
+        });
+
+        // If we have existing PDF data and need to add pages, we'll need to use a different approach
+        // For now, jsPDF will start fresh with each page
+        // TODO: Consider using pdf-lib for merging if multi-page support is needed
+
+        // Determine which registration background to use
+        const registrationBg = getRegistrationBackground(pageSettings);
+
+        // Add registration background image
+        // jsPDF uses top-left origin, dimensions in mm (landscape: height x width)
+        doc.addImage(
+            registrationBg,
+            'JPEG',
+            0,
+            0,
+            pageSettings.height,  // width in landscape
+            pageSettings.width,   // height in landscape
+            undefined,
+            'FAST'
+        );
+
+        // Get PDF as ArrayBuffer and convert to base64
+        const pdfArrayBuffer = doc.output('arraybuffer');
+        const pdfBytesBase64Result = arrayBufferToBase64(pdfArrayBuffer);
+
+        // Send success response
+        self.postMessage({
+            type: PDFWorkerMessageType.INIT_PDF_SUCCESS,
+            payload: {
+                requestId,
+                pageNumber,
+                pdfBytesBase64: pdfBytesBase64Result,
+            },
+        } satisfies PDFWorkerMessage);
+    } catch (error) {
+        console.error("PDF initialization error:", error);
+        self.postMessage({
+            type: PDFWorkerMessageType.INIT_PDF_ERROR,
+            payload: {
+                error: error instanceof Error ? error.message : "Unknown error",
+                requestId,
+            },
+        } satisfies PDFWorkerMessage);
+    }
+}
+
+/**
+ * Places an image on the PDF file. Each web worker does this.
+ * Uses jsPDF exclusively
+ * @param request
+ */
+async function placeImage(request: PlaceImageRequest): Promise<void> {
+    const {
+        card,
+        cardWidth,
+        cardHeight,
+        pageNumber,
+        position,
+        gridLayout,
+        pageSettings,
+        pdfBytesBase64,
+        requestId,
+    } = request.payload;
+
+    try {
+        // Convert base64 PDF to data URL for jsPDF
+        const pdfDataUrl = `data:application/pdf;base64,${pdfBytesBase64}`;
+
+        // Create a new jsPDF instance and load the existing PDF
+        // Note: jsPDF doesn't directly load PDFs, so we'll reconstruct it
+        const doc = new jsPDF({
+            orientation: 'landscape',
+            unit: 'mm',
+            format: [pageSettings.width, pageSettings.height],
+        });
+
+        // For now, we'll work with the assumption that the PDF is being built page by page
+        // and each placeImage call works on the current/last page
+        // If pageNumber > 0, we need to add pages
+        for (let i = 0; i < pageNumber; i++) {
+            doc.addPage([pageSettings.height, pageSettings.width], 'landscape');
+        }
+
+        // Crop the image to remove bleed
+        const croppedImage = await cropImageBleed(
+            card.imageUrl,
+            card.bleed,
+            cardWidth,
+            cardHeight
+        );
+
+        // Convert cropped image bytes to data URL for jsPDF
+        const imageBlob = new Blob([croppedImage.imageBytes.buffer as ArrayBuffer], { type: 'image/png' });
+        const imageDataUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(imageBlob);
+        });
+
+        // Calculate position in mm
+        // gridLayout.cellWidth/cellHeight include the bleed margin spacing
+        const cellX = gridLayout.x + position.col * gridLayout.cellWidth;
+        const cellY = gridLayout.y + position.row * gridLayout.cellHeight;
+
+        // Center the cropped image within its cell
+        const offsetX = cellX + (gridLayout.cellWidth - croppedImage.widthMm) / 2;
+        const offsetY = cellY + (gridLayout.cellHeight - croppedImage.heightMm) / 2;
+
+        // jsPDF uses top-left origin, no need to flip Y for landscape
+        // Add the image to the PDF
+        doc.addImage(
+            imageDataUrl,
+            'PNG',
+            offsetX,
+            offsetY,
+            croppedImage.widthMm,
+            croppedImage.heightMm,
+            undefined,
+            'FAST'
+        );
+
+        // Generate cut path for DXF - center the cut line within the cell
+        const cardX = cellX + (gridLayout.cellWidth - cardWidth) / 2;
+        const cardY = cellY + (gridLayout.cellHeight - cardHeight) / 2;
+
+        // Generate rounded rectangle cut path for the card (without bleed margin)
+        const cutPathDXF = generateRoundedRectangleDXF(
+            cardX,
+            cardY,
+            cardWidth,
+            cardHeight,
+            CUT_CORNER_RADIUS
+        );
+
+        // Get PDF as ArrayBuffer and convert to base64
+        const pdfArrayBuffer = doc.output('arraybuffer');
+        const pdfBytesBase64Result = arrayBufferToBase64(pdfArrayBuffer);
+
+        // Send success response
+        self.postMessage({
+            type: PDFWorkerMessageType.PLACE_IMAGE_SUCCESS,
+            payload: {
+                requestId,
+                cardId: card.id,
+                pageNumber,
+                pdfBytesBase64: pdfBytesBase64Result,
+                cutPathDXF,
+            },
+        } satisfies PDFWorkerMessage);
+    } catch (error) {
+        console.error(`Failed to place image for card ${card.id}:`, error);
+        self.postMessage({
+            type: PDFWorkerMessageType.PLACE_IMAGE_ERROR,
+            payload: {
+                error: error instanceof Error ? error.message : "Unknown error",
+                requestId,
+                cardId: card.id,
+            },
+        } satisfies PDFWorkerMessage);
+    }
+}
+
+
+
 /**
  * Generate PDF with progress reporting and cancellation support
  */
@@ -646,6 +868,18 @@ self.onmessage = async (event: MessageEvent<PDFWorkerMessage>) => {
         case PDFWorkerMessageType.GENERATE_PDF:
             if ("cards" in message.payload) {
                 await generatePDF(message as GeneratePDFRequest);
+            }
+            break;
+
+        case PDFWorkerMessageType.INIT_PDF:
+            if ("pageSettings" in message.payload) {
+                await initPDF(message as InitPDFRequest);
+            }
+            break;
+
+        case PDFWorkerMessageType.PLACE_IMAGE:
+            if ("card" in message.payload && "position" in message.payload) {
+                await placeImage(message as PlaceImageRequest);
             }
             break;
 
