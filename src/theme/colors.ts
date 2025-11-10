@@ -16,8 +16,8 @@ export const colors = {
 
     // Backgrounds - lightened
     bgApp: '#111b22',             // Lighter slate-blue
-    bgSurface: '#302b63',    // More visible
-    bgElevated: 'rgba(255, 255, 255, 0.3)',   // Lighter elevated
+    bgSurface: 'rgba(255, 255, 255, 0.1',    // More visible
+    bgElevated: 'rgba(255, 255, 255, 0.2)',   // Liquid glass effect
     bgInput: '#1f2e3a',           // Lighter input
     bgHover: 'rgba(6, 182, 212, 0.15)',    // Slightly more visible
     bgDropdown: '#19232d',        // Solid background for dropdowns/menus
@@ -30,7 +30,7 @@ export const colors = {
     // Text
     textPrimary: '#e0f2fe',       // Cyan tint
     textSecondary: '#94a3b8',
-    textMuted: '#64748b',
+    textMuted: '#F2F4F3',        // Light grayish
 
     // Overlays
     overlayDark: 'rgba(17, 27, 34, 0.9)',
