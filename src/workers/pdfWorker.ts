@@ -1,21 +1,22 @@
 import { PDFDocument, rgb } from "pdf-lib";
 import { jsPDF } from "jspdf";
-import type { CardImage } from "../types/card";
-
-import {
-    PDFWorkerMessageType,
-    type GeneratePDFRequest,
-    type PDFWorkerMessage,
-    type InitPDFRequest,
-    type PlaceImageRequest,
-} from "../utils/pdf/workerTypes";
 
 // Import registration background images
 import registrationA4 from "../assets/a4_registration.jpg";
 import registrationLetter from "../assets/letter_registration.jpg";
 
+import {
+    PDFWorkerMessageType,
+    type PDFWorkerMessage
+} from "../utils/pdf/workerTypes";
+
+import type { CardImage, PageSettings } from "../types/card";
+
 /**
  * PDF Worker - Handles PDF generation in background thread
+ * This worker creates a single jsPDF file
+ * This worker also merges any amount of PDF files.
+ *  Merges are done with this worker as well to keep off the main thread + not have to spin a new one up
  */
 
 /**
@@ -40,251 +41,6 @@ let isCancelled = false;
  */
 function mmToPoints(mm: number): number {
     return (mm / 25.4) * 72;
-}
-
-/**
- * Generate DXF header section with page dimensions
- * pageWidthMm and pageHeightMm are in mm, will be converted to inches for DXF
- */
-function generateDXFHeader(pageWidthMm: number, pageHeightMm: number): string {
-    // Convert page dimensions to inches (DXF units)
-    const pageWidthInches = mmToInches(pageWidthMm);
-    const pageHeightInches = mmToInches(pageHeightMm);
-
-    return `0
-SECTION
-2
-HEADER
-9
-$ACADVER
-1
-AC1015
-9
-$INSUNITS
-70
-1
-9
-$LIMMIN
-10
-0.0
-20
-0.0
-9
-$LIMMAX
-10
-${pageWidthInches.toFixed(6)}
-20
-${pageHeightInches.toFixed(6)}
-9
-$EXTMIN
-10
-0.0
-20
-0.0
-30
-0.0
-9
-$EXTMAX
-10
-${pageWidthInches.toFixed(6)}
-20
-${pageHeightInches.toFixed(6)}
-30
-0.0
-0
-ENDSEC
-0
-SECTION
-2
-TABLES
-0
-TABLE
-2
-LTYPE
-70
-1
-0
-LTYPE
-2
-CONTINUOUS
-70
-0
-3
-Solid line
-72
-65
-73
-0
-40
-0.0
-0
-ENDTAB
-0
-TABLE
-2
-LAYER
-70
-1
-0
-LAYER
-2
-CUT
-70
-0
-62
-7
-6
-CONTINUOUS
-0
-ENDTAB
-0
-ENDSEC
-0
-SECTION
-2
-ENTITIES
-`;
-}
-
-/**
- * Generate DXF footer section
- */
-function generateDXFFooter(): string {
-    return `0
-ENDSEC
-0
-EOF
-`;
-}
-
-/**
- * Convert millimeters to inches (for DXF - Silhouette Studio interprets DXF units as inches)
- */
-function mmToInches(mm: number): number {
-    return mm / 25.4;
-}
-
-/**
- * Generate a rounded rectangle path in DXF format
- * Input coordinates are in mm, but will be converted to inches for DXF output
- * Silhouette Studio interprets DXF units as inches
- */
-function generateRoundedRectangleDXF(
-    xMm: number,
-    yMm: number,
-    widthMm: number,
-    heightMm: number,
-    radiusMm: number
-): string {
-    let dxf = "";
-
-    // Convert all measurements from mm to inches
-    const x = mmToInches(xMm);
-    const y = mmToInches(yMm);
-    const width = mmToInches(widthMm);
-    const height = mmToInches(heightMm);
-    const radius = mmToInches(radiusMm);
-
-    // Ensure radius doesn't exceed half of smallest dimension
-    const maxRadius = Math.min(width, height) / 2;
-    const r = Math.min(radius, maxRadius);
-
-    // Calculate corner centers
-    const corners = [
-        { cx: x + r, cy: y + r },                    // Bottom-left
-        { cx: x + width - r, cy: y + r },            // Bottom-right
-        { cx: x + width - r, cy: y + height - r },   // Top-right
-        { cx: x + r, cy: y + height - r },           // Top-left
-    ];
-
-    // Draw lines connecting the arcs
-    // Bottom line
-    dxf += generateDXFLine(x + r, y, x + width - r, y);
-
-    // Bottom-right arc
-    dxf += generateDXFArc(corners[1].cx, corners[1].cy, r, 270, 0);
-
-    // Right line
-    dxf += generateDXFLine(x + width, y + r, x + width, y + height - r);
-
-    // Top-right arc
-    dxf += generateDXFArc(corners[2].cx, corners[2].cy, r, 0, 90);
-
-    // Top line
-    dxf += generateDXFLine(x + width - r, y + height, x + r, y + height);
-
-    // Top-left arc
-    dxf += generateDXFArc(corners[3].cx, corners[3].cy, r, 90, 180);
-
-    // Left line
-    dxf += generateDXFLine(x, y + height - r, x, y + r);
-
-    // Bottom-left arc
-    dxf += generateDXFArc(corners[0].cx, corners[0].cy, r, 180, 270);
-
-    return dxf;
-}
-
-/**
- * Generate DXF LINE entity
- */
-function generateDXFLine(x1: number, y1: number, x2: number, y2: number): string {
-    return `0
-LINE
-8
-CUT
-10
-${x1.toFixed(6)}
-20
-${y1.toFixed(6)}
-30
-0.0
-11
-${x2.toFixed(6)}
-21
-${y2.toFixed(6)}
-31
-0.0
-`;
-}
-
-/**
- * Generate DXF ARC entity
- * Angles in degrees, counterclockwise from positive X-axis
- */
-function generateDXFArc(
-    cx: number,
-    cy: number,
-    radius: number,
-    startAngle: number,
-    endAngle: number
-): string {
-    return `0
-ARC
-8
-CUT
-10
-${cx.toFixed(6)}
-20
-${cy.toFixed(6)}
-30
-0.0
-40
-${radius.toFixed(6)}
-50
-${startAngle.toFixed(6)}
-51
-${endAngle.toFixed(6)}
-`;
-}
-
-/**
- * Fetch image data from URL or blob
- */
-async function fetchImageAsBytes(imageUrl: string): Promise<Uint8Array> {
-    const response = await fetch(imageUrl);
-    const arrayBuffer = await response.arrayBuffer();
-    return new Uint8Array(arrayBuffer);
 }
 
 /**
@@ -315,15 +71,6 @@ function calculateGridLayout(
     };
 }
 
-/**
- * Determine which registration background to use based on page dimensions
- */
-function getRegistrationBackground(pageSettings: { width: number; height: number }): string {
-    // A4: 210mm x 297mm (portrait)
-    // Letter: 215.9mm x 279.4mm (portrait)
-    // Check the width to determine the page type
-    return pageSettings.width === 210 ? registrationA4 : registrationLetter;
-}
 
 /**
  * Crop image canvas by removing bleed
@@ -425,472 +172,288 @@ async function cropImageBleed(
     };
 }
 
-let pdfDoc: PDFDocument | null = null;
 
 /**
- * Helper function to convert Base64 to Uint8Array
+ * 
  */
-function base64ToUint8Array(base64: string): Uint8Array {
-    const binaryString = atob(base64);
-    const len = binaryString.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-    }
-    return bytes;
-}
-
-/**
- * Helper function to convert Uint8Array to Base64
- */
-function uint8ArrayToBase64(bytes: Uint8Array): string {
-    let binary = '';
-    const len = bytes.byteLength;
-    for (let i = 0; i < len; i++) {
-        binary += String.fromCharCode(bytes[i]);
-    }
-    return btoa(binary);
-}
-
-/**
- * Helper function to convert ArrayBuffer to Base64
- */
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
-    return uint8ArrayToBase64(new Uint8Array(buffer));
-}
-
-/**
- * Initialize a PDF document with a new page and registration background
- * Can either create a new PDF or add a page to an existing one
- * Uses jsPDF for better performance
- */
-async function initPDF(request: InitPDFRequest): Promise<void> {
-    const { pageSettings, pageNumber, pdfBytesBase64, requestId } = request.payload;
-
-    try {
-        let doc: jsPDF;
-
-        // Note: jsPDF doesn't support loading/modifying existing PDFs in the traditional sense
-        // For multi-page PDFs, we'll use pdf-lib to load and jsPDF to add new pages
-        // However, for simplicity, we'll just create new pages with jsPDF
-
-        // Create new PDF with landscape orientation
-        doc = new jsPDF({
-            orientation: 'landscape',
-            unit: 'mm',
-            format: [pageSettings.width, pageSettings.height],
-        });
-
-        // If we have existing PDF data and need to add pages, we'll need to use a different approach
-        // For now, jsPDF will start fresh with each page
-        // TODO: Consider using pdf-lib for merging if multi-page support is needed
-
-        // Determine which registration background to use
-        const registrationBg = getRegistrationBackground(pageSettings);
-
-        // Add registration background image
-        // jsPDF uses top-left origin, dimensions in mm (landscape: height x width)
-        doc.addImage(
-            registrationBg,
-            'JPEG',
-            0,
-            0,
-            pageSettings.height,  // width in landscape
-            pageSettings.width,   // height in landscape
-            undefined,
-            'FAST'
-        );
-
-        // Get PDF as ArrayBuffer and convert to base64
-        const pdfArrayBuffer = doc.output('arraybuffer');
-        const pdfBytesBase64Result = arrayBufferToBase64(pdfArrayBuffer);
-
-        // Send success response
-        self.postMessage({
-            type: PDFWorkerMessageType.INIT_PDF_SUCCESS,
-            payload: {
-                requestId,
-                pageNumber,
-                pdfBytesBase64: pdfBytesBase64Result,
-            },
-        } satisfies PDFWorkerMessage);
-    } catch (error) {
-        console.error("PDF initialization error:", error);
-        self.postMessage({
-            type: PDFWorkerMessageType.INIT_PDF_ERROR,
-            payload: {
-                error: error instanceof Error ? error.message : "Unknown error",
-                requestId,
-            },
-        } satisfies PDFWorkerMessage);
-    }
+interface PlaceImageParams {
+    card: CardImage;
+    cardWidth: number;
+    cardHeight: number;
+    pageNumber: number;
+    position: {
+        col: number;
+        row: number;
+    };
+    gridLayout: {
+        x: number;
+        y: number;
+        cellWidth: number;
+        cellHeight: number;
+    };
+    pdfRef: jsPDF
 }
 
 /**
  * Places an image on the PDF file. Each web worker does this.
  * Uses jsPDF exclusively
+ *
+ * This places on the current page of the pdfRef
+ *
  * @param request
  */
-async function placeImage(request: PlaceImageRequest): Promise<void> {
-    const {
-        card,
+async function cropAndPlaceImage({
+    card,
+    cardWidth,
+    cardHeight,
+    position,
+    gridLayout,
+    pdfRef
+}: PlaceImageParams): Promise<void> {
+
+    // Crop the image to remove bleed
+    const croppedImage = await cropImageBleed(
+        card.imageUrl,
+        card.bleed,
         cardWidth,
-        cardHeight,
-        pageNumber,
-        position,
-        gridLayout,
-        pageSettings,
-        pdfBytesBase64,
-        requestId,
-    } = request.payload;
+        cardHeight
+    );
 
-    try {
-        // Convert base64 PDF to data URL for jsPDF
-        const pdfDataUrl = `data:application/pdf;base64,${pdfBytesBase64}`;
+    // Convert cropped image bytes to data URL for jsPDF
+    // Note: Using Blob directly is more efficient than base64 string manipulation
+    const imageBlob = new Blob([croppedImage.imageBytes.buffer as ArrayBuffer], { type: 'image/png' });
+    const imageDataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error('Failed to read image data'));
+        reader.readAsDataURL(imageBlob);
+    });
 
-        // Create a new jsPDF instance and load the existing PDF
-        // Note: jsPDF doesn't directly load PDFs, so we'll reconstruct it
-        const doc = new jsPDF({
-            orientation: 'landscape',
-            unit: 'mm',
-            format: [pageSettings.width, pageSettings.height],
-        });
+    // Calculate position in mm
+    // gridLayout.cellWidth/cellHeight include the bleed margin spacing
+    const cellX = gridLayout.x + position.col * gridLayout.cellWidth;
+    const cellY = gridLayout.y + position.row * gridLayout.cellHeight;
 
-        // For now, we'll work with the assumption that the PDF is being built page by page
-        // and each placeImage call works on the current/last page
-        // If pageNumber > 0, we need to add pages
-        for (let i = 0; i < pageNumber; i++) {
-            doc.addPage([pageSettings.height, pageSettings.width], 'landscape');
-        }
+    // Center the cropped image within its cell
+    const offsetX = cellX + (gridLayout.cellWidth - croppedImage.widthMm) / 2;
+    const offsetY = cellY + (gridLayout.cellHeight - croppedImage.heightMm) / 2;
 
-        // Crop the image to remove bleed
-        const croppedImage = await cropImageBleed(
-            card.imageUrl,
-            card.bleed,
-            cardWidth,
-            cardHeight
-        );
-
-        // Convert cropped image bytes to data URL for jsPDF
-        const imageBlob = new Blob([croppedImage.imageBytes.buffer as ArrayBuffer], { type: 'image/png' });
-        const imageDataUrl = await new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.readAsDataURL(imageBlob);
-        });
-
-        // Calculate position in mm
-        // gridLayout.cellWidth/cellHeight include the bleed margin spacing
-        const cellX = gridLayout.x + position.col * gridLayout.cellWidth;
-        const cellY = gridLayout.y + position.row * gridLayout.cellHeight;
-
-        // Center the cropped image within its cell
-        const offsetX = cellX + (gridLayout.cellWidth - croppedImage.widthMm) / 2;
-        const offsetY = cellY + (gridLayout.cellHeight - croppedImage.heightMm) / 2;
-
-        // jsPDF uses top-left origin, no need to flip Y for landscape
-        // Add the image to the PDF
-        doc.addImage(
-            imageDataUrl,
-            'PNG',
-            offsetX,
-            offsetY,
-            croppedImage.widthMm,
-            croppedImage.heightMm,
-            undefined,
-            'FAST'
-        );
-
-        // Generate cut path for DXF - center the cut line within the cell
-        const cardX = cellX + (gridLayout.cellWidth - cardWidth) / 2;
-        const cardY = cellY + (gridLayout.cellHeight - cardHeight) / 2;
-
-        // Generate rounded rectangle cut path for the card (without bleed margin)
-        const cutPathDXF = generateRoundedRectangleDXF(
-            cardX,
-            cardY,
-            cardWidth,
-            cardHeight,
-            CUT_CORNER_RADIUS
-        );
-
-        // Get PDF as ArrayBuffer and convert to base64
-        const pdfArrayBuffer = doc.output('arraybuffer');
-        const pdfBytesBase64Result = arrayBufferToBase64(pdfArrayBuffer);
-
-        // Send success response
-        self.postMessage({
-            type: PDFWorkerMessageType.PLACE_IMAGE_SUCCESS,
-            payload: {
-                requestId,
-                cardId: card.id,
-                pageNumber,
-                pdfBytesBase64: pdfBytesBase64Result,
-                cutPathDXF,
-            },
-        } satisfies PDFWorkerMessage);
-    } catch (error) {
-        console.error(`Failed to place image for card ${card.id}:`, error);
-        self.postMessage({
-            type: PDFWorkerMessageType.PLACE_IMAGE_ERROR,
-            payload: {
-                error: error instanceof Error ? error.message : "Unknown error",
-                requestId,
-                cardId: card.id,
-            },
-        } satisfies PDFWorkerMessage);
-    }
+    // jsPDF uses top-left origin in landscape mode
+    pdfRef.addImage(
+        imageDataUrl,
+        'PNG',
+        offsetX,
+        offsetY,
+        croppedImage.widthMm,
+        croppedImage.heightMm,
+        `card_${card.id}`,  // Alias for potential reuse
+        'FAST'  // Use FAST compression for performance
+    );
 }
 
 
 
-/**
- * Generate PDF with progress reporting and cancellation support
- */
-async function generatePDF(request: GeneratePDFRequest): Promise<void> {
-    const { cards, pageSettings, cardWidth, cardHeight, requestId } = request.payload;
+/*
+* Given a chunk of data (an array of CardImage), generate a pdf of x pages long
+* X is CardImage length / cards per page
+* Using transferable objects only, no shared array buffer
+*/
+async function generateChunk(
+    cards: (CardImage | null)[],
+    pageSettings: PageSettings,
+    cardWidth: number,
+    cardHeight: number,
+    requestId: string
+): Promise<{ pdfBytes: Uint8Array; totalPages: number }> {
 
-    currentRequestId = requestId;
-    isCancelled = false;
+    // Constants
+    const CARDS_PER_PAGE = 8; // 4x2 grid
+    const COLS = 4;
 
+    // Calculate total pages needed
+    const totalPages = Math.ceil(cards.length / CARDS_PER_PAGE);
+
+    // Initialize jsPDF document
+    const pdf = new jsPDF({
+        orientation: 'landscape',
+        unit: 'mm',
+        format: [pageSettings.height, pageSettings.width] // Swapped for landscape
+    });
+
+    // Calculate grid layout once (same for all pages)
+    const gridLayout = calculateGridLayout(
+        pageSettings.height,  // Landscape width
+        pageSettings.width,   // Landscape height
+        cardWidth + (2 * BLEED_EDGE_MARGIN),  // Cell width with margin spacing
+        cardHeight + (2 * BLEED_EDGE_MARGIN)  // Cell height with margin spacing
+    );
+
+    // Load and cache registration background ONCE (not per page)
+    const registrationBg = pageSettings.width === 210 ? registrationA4 : registrationLetter;
+    let bgDataUrl: string | null = null;
     try {
-        // Create new PDF document
-        const pdfDoc = await PDFDocument.create();
+        const bgResponse = await fetch(registrationBg);
+        const bgBlob = await bgResponse.blob();
+        bgDataUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(bgBlob);
+        });
+    } catch (error) {
+        console.warn('Failed to load registration background:', error);
+    }
 
-        // Use landscape orientation (swap width and height)
-        const pageWidthPt = mmToPoints(pageSettings.height);
-        const pageHeightPt = mmToPoints(pageSettings.width);
+    // Process each page
+    for (let pageNum = 0; pageNum < totalPages; pageNum++) {
+        // Check for cancellation
+        if (isCancelled) {
+            throw new Error('Generation cancelled');
+        }
 
-        // Initialize DXF cut file with page dimensions (in landscape)
-        // Note: DXF uses landscape dimensions (height x width)
-        let dxfContent = generateDXFHeader(pageSettings.height, pageSettings.width);
+        // Add a new page for each page after the first
+        if (pageNum > 0) {
+            pdf.addPage([pageSettings.height, pageSettings.width], 'landscape');
+        }
 
-        // Determine which registration background to use
-        const registrationBg = getRegistrationBackground(pageSettings);
+        // Add registration background at full page size (if loaded)
+        if (bgDataUrl) {
+            pdf.addImage(
+                bgDataUrl,
+                'JPEG',
+                0,
+                0,
+                pageSettings.height,  // Landscape width
+                pageSettings.width,   // Landscape height
+                undefined,
+                'FAST'
+            );
+        }
 
-        // Fetch and embed the registration background
-        const bgBytes = await fetchImageAsBytes(registrationBg);
-        let bgImage = await pdfDoc.embedJpg(bgBytes);
+        // Process cards for this page
+        const startIdx = pageNum * CARDS_PER_PAGE;
+        const endIdx = Math.min(startIdx + CARDS_PER_PAGE, cards.length);
+        const pageCards = cards.slice(startIdx, endIdx);
 
-        const cardsPerPage = 8;
-        const totalPages = Math.ceil(cards.length / cardsPerPage);
+        // Place each card on the page
+        for (let i = 0; i < pageCards.length; i++) {
+            const card = pageCards[i];
 
-        // Calculate grid layout for centered 4x2 arrangement
-        // Use actual card dimensions including bleed margin for spacing
-        const layout = calculateGridLayout(
-            pageSettings.height,  // Landscape width in mm
-            pageSettings.width,   // Landscape height in mm
-            cardWidth + (2 * BLEED_EDGE_MARGIN),  // Actual width with margin
-            cardHeight + (2 * BLEED_EDGE_MARGIN)  // Actual height with margin
-        );
+            // Skip null cards (blank placeholders)
+            if (!card) continue;
 
-        // Process each page
-        for (let pageNum = 0; pageNum < totalPages; pageNum++) {
-            // Check for cancellation
-            if (isCancelled || currentRequestId !== requestId) {
-                return;
-            }
+            // Calculate grid position
+            const col = i % COLS;
+            const row = Math.floor(i / COLS);
 
-            // Add landscape page
-            const page = pdfDoc.addPage([pageWidthPt, pageHeightPt]);
-
-            // Draw registration background to fill entire page
-            page.drawImage(bgImage, {
-                x: 0,
-                y: 0,
-                width: pageWidthPt,
-                height: pageHeightPt,
+            // Place the card image
+            await cropAndPlaceImage({
+                card,
+                cardWidth,
+                cardHeight,
+                pageNumber: pageNum,
+                position: { col, row },
+                gridLayout,
+                pdfRef: pdf
             });
 
-            // Get cards for this page
-            const startIdx = pageNum * cardsPerPage;
-            const endIdx = Math.min(startIdx + cardsPerPage, cards.length);
-            const cardsOnPage = cards.slice(startIdx, endIdx);
-
-            // Render each card in the 4x2 grid
-            for (let i = 0; i < cardsOnPage.length; i++) {
-                const card = cardsOnPage[i];
-
-                // Skip null cards (blank placeholders)
-                if (!card) continue;
-
-                try {
-                    // Calculate grid position (4 columns, 2 rows)
-                    const col = i % 4;
-                    const row = Math.floor(i / 4);
-
-                    // Crop the image to remove bleed
-                    const croppedImage = await cropImageBleed(
-                        card.imageUrl,
-                        card.bleed,
-                        cardWidth,
-                        cardHeight
-                    );
-
-                    // Embed the cropped image
-                    const embeddedImage = await pdfDoc.embedPng(croppedImage.imageBytes);
-
-                    // Calculate position in mm
-                    // layout.cellWidth/cellHeight now include the bleed margin spacing
-                    const cellX = layout.x + col * layout.cellWidth;
-                    const cellY = layout.y + row * layout.cellHeight;
-
-                    // Center the cropped image within its cell
-                    // The cell is sized for the full margin, but the actual image might be slightly different due to rounding
-                    const offsetX = cellX + (layout.cellWidth - croppedImage.widthMm) / 2;
-                    const offsetY = cellY + (layout.cellHeight - croppedImage.heightMm) / 2;
-
-                    // Convert to points (flip Y axis for PDF coordinate system)
-                    const xPt = mmToPoints(offsetX);
-                    const yPt = mmToPoints(pageSettings.width - offsetY - croppedImage.heightMm);  // Flip Y
-
-                    // Use the actual cropped image dimensions to prevent warping
-                    const widthPt = mmToPoints(croppedImage.widthMm);
-                    const heightPt = mmToPoints(croppedImage.heightMm);
-
-                    // Draw the cropped image
-                    page.drawImage(embeddedImage, {
-                        x: xPt,
-                        y: yPt,
-                        width: widthPt,
-                        height: heightPt,
-                    });
-
-                    // Add cut path to DXF - center the cut line within the cell
-                    const cardX = cellX + (layout.cellWidth - cardWidth) / 2;
-                    const cardY = cellY + (layout.cellHeight - cardHeight) / 2;
-
-                    // Debug: Output DXF offset for card 0 only (same offset applies to all cards in grid)
-                    if (i === 0) {
-                        const gridWidth = cardWidth * 4 + (BLEED_EDGE_MARGIN * 2);
-                        const gridHeight = cardHeight * 2 + (BLEED_EDGE_MARGIN * 2);
-                        console.log(`DXF Grid Info (4x2 layout):`);
-                        console.log(`  Offset (bottom-left): (${cardX.toFixed(2)}mm, ${cardY.toFixed(2)}mm)`);
-                        console.log(`  Grid dimensions: ${gridWidth.toFixed(2)}mm x ${gridHeight.toFixed(2)}mm`);
-                        console.log(`  Card size: ${cardWidth}x${cardHeight}mm`);
-                    }
-
-                    // Generate rounded rectangle cut path for the card (without bleed margin)
-                    dxfContent += generateRoundedRectangleDXF(
-                        cardX,
-                        cardY,
-                        cardWidth,
-                        cardHeight,
-                        CUT_CORNER_RADIUS
-                    );
-
-                } catch (error) {
-                    console.error(`Failed to render card ${card.id}:`, error);
-                    // Draw placeholder rectangle for failed cards
-                    const col = i % 4;
-                    const row = Math.floor(i / 4);
-                    const cellX = layout.x + col * layout.cellWidth;
-                    const cellY = layout.y + row * layout.cellHeight;
-
-                    // Center the card within the cell
-                    const cardX = cellX + (layout.cellWidth - cardWidth) / 2;
-                    const cardY = cellY + (layout.cellHeight - cardHeight) / 2;
-
-                    const xPt = mmToPoints(cardX);
-                    const yPt = mmToPoints(pageSettings.width - cardY - cardHeight);
-
-                    page.drawRectangle({
-                        x: xPt,
-                        y: yPt,
-                        width: mmToPoints(cardWidth),
-                        height: mmToPoints(cardHeight),
-                        borderColor: rgb(1, 0, 0),
-                        borderWidth: 2,
-                    });
-                }
-            }
-
             // Send progress update
-            const percentage = Math.round(((pageNum + 1) / totalPages) * 100);
+            const cardIndex = startIdx + i;
+            const percentage = Math.round((cardIndex / cards.length) * 100);
             self.postMessage({
                 type: PDFWorkerMessageType.GENERATE_PDF_PROGRESS,
                 payload: {
                     requestId,
                     currentPage: pageNum + 1,
                     totalPages,
-                    percentage,
-                },
+                    percentage
+                }
             } satisfies PDFWorkerMessage);
         }
-
-        // Check for cancellation before finalizing
-        if (isCancelled || currentRequestId !== requestId) {
-            return;
-        }
-
-        // Finalize DXF file
-        dxfContent += generateDXFFooter();
-
-        // Convert DXF content to bytes
-        const dxfBytes = new TextEncoder().encode(dxfContent);
-
-        // Save PDF to bytes
-        const pdfBytes = await pdfDoc.save();
-
-        // Send success response
-        self.postMessage({
-            type: PDFWorkerMessageType.GENERATE_PDF_SUCCESS,
-            payload: {
-                pdfBytes,
-                dxfBytes,
-                requestId,
-                totalPages,
-            },
-        } satisfies PDFWorkerMessage);
-    } catch (error) {
-        console.error("PDF generation error:", error);
-        self.postMessage({
-            type: PDFWorkerMessageType.GENERATE_PDF_ERROR,
-            payload: {
-                error: error instanceof Error ? error.message : "Unknown error",
-                requestId,
-            },
-        } satisfies PDFWorkerMessage);
-    } finally {
-        if (currentRequestId === requestId) {
-            currentRequestId = null;
-        }
     }
+
+    // Convert jsPDF to ArrayBuffer for transferable objects
+    const pdfArrayBuffer = pdf.output('arraybuffer');
+    const pdfBytes = new Uint8Array(pdfArrayBuffer);
+
+    return {
+        pdfBytes,
+        totalPages
+    };
 }
 
 /**
- * Handle messages from main thread
+ * Message event handler for worker communication
  */
-self.onmessage = async (event: MessageEvent<PDFWorkerMessage>) => {
+self.addEventListener('message', async (event: MessageEvent<PDFWorkerMessage>) => {
     const message = event.data;
 
     switch (message.type) {
-        case PDFWorkerMessageType.GENERATE_PDF:
-            if ("cards" in message.payload) {
-                await generatePDF(message as GeneratePDFRequest);
+        case PDFWorkerMessageType.GENERATE_PDF: {
+            const { cards, pageSettings, cardWidth, cardHeight, requestId } = message.payload;
+
+            // Store current request ID and reset cancellation flag
+            currentRequestId = requestId;
+            isCancelled = false;
+
+            try {
+                // Generate the PDF chunk
+                const result = await generateChunk(
+                    cards,
+                    pageSettings,
+                    cardWidth,
+                    cardHeight,
+                    requestId
+                );
+
+                // Check if request was cancelled during generation
+                if (isCancelled || currentRequestId !== requestId) {
+                    return;
+                }
+
+                // Send success response with transferable objects
+                const dxfBytes = new Uint8Array(); // TODO: Implement DXF generation
+                const successMessage: PDFWorkerMessage = {
+                    type: PDFWorkerMessageType.GENERATE_PDF_SUCCESS,
+                    payload: {
+                        pdfBytes: result.pdfBytes,
+                        dxfBytes,
+                        requestId,
+                        totalPages: result.totalPages
+                    }
+                };
+
+                // Transfer ownership of ArrayBuffers to main thread (zero-copy)
+                // Use the structured clone algorithm with transfer list
+                self.postMessage(successMessage, {
+                    transfer: [result.pdfBytes.buffer, dxfBytes.buffer]
+                });
+
+            } catch (error) {
+                // Only send error if request wasn't cancelled
+                if (!isCancelled && currentRequestId === requestId) {
+                    const errorMessage: PDFWorkerMessage = {
+                        type: PDFWorkerMessageType.GENERATE_PDF_ERROR,
+                        payload: {
+                            error: error instanceof Error ? error.message : 'Unknown error',
+                            requestId
+                        }
+                    };
+                    self.postMessage(errorMessage);
+                }
             }
             break;
+        }
 
-        case PDFWorkerMessageType.INIT_PDF:
-            if ("pageSettings" in message.payload) {
-                await initPDF(message as InitPDFRequest);
-            }
-            break;
-
-        case PDFWorkerMessageType.PLACE_IMAGE:
-            if ("card" in message.payload && "position" in message.payload) {
-                await placeImage(message as PlaceImageRequest);
-            }
-            break;
-
-        case PDFWorkerMessageType.CANCEL_GENERATION:
-            if (currentRequestId === message.payload.requestId) {
+        case PDFWorkerMessageType.CANCEL_GENERATION: {
+            const { requestId } = message.payload;
+            if (currentRequestId === requestId) {
                 isCancelled = true;
                 currentRequestId = null;
             }
             break;
+        }
 
         default:
-            console.warn("Unknown message type:", (message as any).type);
+            console.warn('Unknown message type:', message);
     }
-};
+});

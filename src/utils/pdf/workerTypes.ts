@@ -12,9 +12,6 @@ export const PDFWorkerMessageType = {
     INIT_PDF: "INIT_PDF",
     INIT_PDF_SUCCESS: "INIT_PDF_SUCCESS",
     INIT_PDF_ERROR: "INIT_PDF_ERROR",
-    PLACE_IMAGE: "PLACE_IMAGE",
-    PLACE_IMAGE_SUCCESS: "PLACE_IMAGE_SUCCESS",
-    PLACE_IMAGE_ERROR: "PLACE_IMAGE_ERROR",
 } as const;
 
 /**
@@ -137,32 +134,6 @@ export interface InitPDFError {
     type: typeof PDFWorkerMessageType.INIT_PDF_ERROR;
     payload: {
         error: string;
-        requestId: string;
-    };
-}
-
-/**
- * Request to place a card image on the PDF
- */
-export interface PlaceImageRequest {
-    type: typeof PDFWorkerMessageType.PLACE_IMAGE;
-    payload: {
-        card: CardImage;
-        cardWidth: number;
-        cardHeight: number;
-        pageNumber: number;
-        position: {
-            col: number; // Column position (0-3)
-            row: number; // Row position (0-1)
-        };
-        gridLayout: {
-            x: number;
-            y: number;
-            cellWidth: number;
-            cellHeight: number;
-        };
-        pageSettings: PageSettings;
-        pdfBytesBase64: string; // Base64 encoded PDF document bytes
         requestId: string;
     };
 }
