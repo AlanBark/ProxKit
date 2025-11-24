@@ -211,18 +211,14 @@ async function cropAndPlaceImage({
 }: PlaceImageParams): Promise<void> {
 
     // Crop the image to remove bleed
-    const cropStart = performance.now();
     const croppedImage = await cropImageBleed(
         card.imageUrl,
         card.bleed,
         cardWidth,
         cardHeight
     );
-    const cropTime = performance.now() - cropStart;
 
     // Convert cropped image bytes to data URL for jsPDF
-    // Note: Using Blob directly is more efficient than base64 string manipulation
-    const conversionStart = performance.now();
     const imageBlob = new Blob([croppedImage.imageBytes.buffer as ArrayBuffer], { type: 'image/png' });
     const imageDataUrl = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
@@ -230,7 +226,6 @@ async function cropAndPlaceImage({
         reader.onerror = () => reject(new Error('Failed to read image data'));
         reader.readAsDataURL(imageBlob);
     });
-    const conversionTime = performance.now() - conversionStart;
 
     // Calculate position in mm
     // gridLayout.cellWidth/cellHeight include the bleed margin spacing
@@ -242,7 +237,6 @@ async function cropAndPlaceImage({
     const offsetY = cellY + (gridLayout.cellHeight - croppedImage.heightMm) / 2;
 
     // jsPDF uses top-left origin in landscape mode
-    const addImageStart = performance.now();
     pdfRef.addImage(
         imageDataUrl,
         'PNG',
@@ -252,12 +246,6 @@ async function cropAndPlaceImage({
         croppedImage.heightMm,
         `card_${card.id}`,  // Alias for potential reuse
     );
-    const addImageTime = performance.now() - addImageStart;
-
-    // Log breakdown for first few images to avoid spam
-    if (position.col === 0 && position.row === 0) {
-        console.log(`[Worker] Image placement breakdown: Crop=${cropTime.toFixed(2)}ms, Convert=${conversionTime.toFixed(2)}ms, AddImage=${addImageTime.toFixed(2)}ms`);
-    }
 }
 
 
@@ -274,26 +262,19 @@ async function generateChunk(
     cardHeight: number,
     requestId: string
 ): Promise<{ pdfBytes: Uint8Array; totalPages: number }> {
-    const chunkStartTime = performance.now();
-    console.log(`[Worker ${requestId}] Starting chunk generation for ${cards.length} cards`);
-
     // Constants
     const CARDS_PER_PAGE = 8; // 4x2 grid
     const COLS = 4;
 
     // Calculate total pages needed
     const totalPages = Math.ceil(cards.length / CARDS_PER_PAGE);
-    console.log(`[Worker ${requestId}] Will generate ${totalPages} pages`);
 
     // Initialize jsPDF document
-    const pdfInitStart = performance.now();
     const pdf = new jsPDF({
         orientation: 'landscape',
         unit: 'mm',
         format: [pageSettings.height, pageSettings.width] // Swapped for landscape
     });
-    const pdfInitTime = performance.now() - pdfInitStart;
-    console.log(`[Worker ${requestId}] jsPDF initialized in ${pdfInitTime.toFixed(2)}ms`);
 
     // Calculate grid layout once (same for all pages)
     const gridLayout = calculateGridLayout(
@@ -304,30 +285,20 @@ async function generateChunk(
     );
 
     // Load and cache registration background ONCE (not per page)
-    const bgLoadStart = performance.now();
     const registrationBg = pageSettings.width === 210 ? registrationA4 : registrationLetter;
     let bgDataUrl: string | null = null;
-    try {
-        const bgResponse = await fetch(registrationBg);
-        const bgBlob = await bgResponse.blob();
-        bgDataUrl = await new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.readAsDataURL(bgBlob);
-        });
-        const bgLoadTime = performance.now() - bgLoadStart;
-        console.log(`[Worker ${requestId}] Registration background loaded in ${bgLoadTime.toFixed(2)}ms`);
-    } catch (error) {
-        console.warn(`[Worker ${requestId}] Failed to load registration background:`, error);
-    }
+    const bgResponse = await fetch(registrationBg);
+    const bgBlob = await bgResponse.blob();
+    bgDataUrl = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(bgBlob);
+    });
 
     // Process each page
-    const pageProcessingStart = performance.now();
-    let totalImagePlacementTime = 0;
     let imageCount = 0;
 
     for (let pageNum = 0; pageNum < totalPages; pageNum++) {
-        const pageStart = performance.now();
 
         // Check for cancellation
         if (isCancelled) {
@@ -370,7 +341,6 @@ async function generateChunk(
             const row = Math.floor(i / COLS);
 
             // Place the card image
-            const imagePlacementStart = performance.now();
             await cropAndPlaceImage({
                 card,
                 cardWidth,
@@ -380,8 +350,6 @@ async function generateChunk(
                 gridLayout,
                 pdfRef: pdf
             });
-            const imagePlacementTime = performance.now() - imagePlacementStart;
-            totalImagePlacementTime += imagePlacementTime;
             imageCount++;
 
             // Send progress update
@@ -397,30 +365,16 @@ async function generateChunk(
                 }
             } satisfies PDFWorkerMessage);
         }
-
-        const pageTime = performance.now() - pageStart;
-        console.log(`[Worker ${requestId}] Page ${pageNum + 1}/${totalPages} completed in ${pageTime.toFixed(2)}ms`);
     }
 
-    const pageProcessingTime = performance.now() - pageProcessingStart;
-    const avgImageTime = imageCount > 0 ? totalImagePlacementTime / imageCount : 0;
-    console.log(`[Worker ${requestId}] All pages processed in ${pageProcessingTime.toFixed(2)}ms`);
-    console.log(`[Worker ${requestId}] Image placement: ${imageCount} images, avg ${avgImageTime.toFixed(2)}ms per image`);
-
-    // Convert jsPDF to ArrayBuffer for transferable objects
-    const pdfOutputStart = performance.now();
+    // Convert PDF to Uint8Array for transferable ArrayBuffer
     const pdfBlob = pdf.output('blob');
-    // const pdfBytes = new Uint8Array(pdfArrayBuffer);
-    const pdfOutputTime = performance.now() - pdfOutputStart;
-    console.log(`[Worker ${requestId}] PDF output generated in ${pdfOutputTime.toFixed(2)}ms (${pdfBytes.length} bytes)`);
-
-    const totalChunkTime = performance.now() - chunkStartTime;
-    console.log(`[Worker ${requestId}] ✅ Chunk generation complete in ${totalChunkTime.toFixed(2)}ms total`);
-    console.log(`[Worker ${requestId}] Breakdown: Init=${pdfInitTime.toFixed(2)}ms, BgLoad=${(performance.now() - bgLoadStart).toFixed(2)}ms, Pages=${pageProcessingTime.toFixed(2)}ms, Output=${pdfOutputTime.toFixed(2)}ms`);
+    const pdfArrayBuffer = await pdfBlob.arrayBuffer();
+    const pdfBytes = new Uint8Array(pdfArrayBuffer);
 
     return {
-        pdfBytes,
-        totalPages
+        totalPages,
+        pdfBytes
     };
 }
 

@@ -34,7 +34,7 @@ interface WorkerChunkResult {
  */
 export class PDFManager {
     private currentRequestId: string | null = null;
-    private cachedPdfUrl: string | null = null;
+    private cachedPdfUrls: string[] = [];
     private cachedDxfUrl: string | null = null;
     private cachedCardsHash: string | null = null;
     private pageSettings: PageSettings;
@@ -112,55 +112,78 @@ export class PDFManager {
      * Merge multiple PDF documents using pdf-lib
      * Maintains page order based on chunk indices
      */
-    private async mergePDFs(results: WorkerChunkResult[]): Promise<Uint8Array> {
+    private async mergePDFs(results: WorkerChunkResult[]): Promise<Uint8Array[]> {
         // Sort results by chunk index to maintain order
         const sortedResults = results.sort((a, b) => a.chunkIndex - b.chunkIndex);
 
         // Single PDF? No merging needed
         if (sortedResults.length === 1) {
             console.log(`[PDFManager] Single PDF, no merge needed`);
-            return sortedResults[0].pdfBytes;
+            return [sortedResults[0].pdfBytes];
         }
 
-        // Create new PDF document for merging
-        const createStart = performance.now();
-        const mergedPdf = await PDFDocument.create();
-        const createTime = performance.now() - createStart;
-        console.log(`[PDFManager] Created merge document in ${createTime.toFixed(2)}ms`);
+        // Maximum size per merged PDF (conservative limit to avoid allocation failures)
+        const MAX_PDF_SIZE = 2 * 1024 * 1024 * 1024;
+        const mergedPdfs: Uint8Array[] = [];
+        let currentPdf = await PDFDocument.create();
+        let currentSize = 0;
 
-        // Load and merge each chunk
+        console.log(`[PDFManager] Starting smart merge with ${sortedResults.length} chunks`);
+
+        // Load and merge each chunk, splitting into multiple PDFs if needed
         for (const result of sortedResults) {
             const chunkStart = performance.now();
             try {
+                const chunkSize = result.pdfBytes.length;
+
+                // Check if adding this chunk would exceed the limit
+                if (currentSize > 0 && currentSize + chunkSize > MAX_PDF_SIZE) {
+                    // Save current PDF and start a new one
+                    console.log(`[PDFManager] Size limit reached (${(currentSize / 1024 / 1024).toFixed(2)}MB), starting new PDF file`);
+                    const saveStart = performance.now();
+                    const savedBytes = await currentPdf.save();
+                    const saveTime = performance.now() - saveStart;
+                    console.log(`[PDFManager] Saved PDF ${mergedPdfs.length + 1} in ${saveTime.toFixed(2)}ms`);
+                    mergedPdfs.push(new Uint8Array(savedBytes));
+
+                    // Create new PDF for remaining chunks
+                    currentPdf = await PDFDocument.create();
+                    currentSize = 0;
+                }
+
                 const loadStart = performance.now();
                 const chunkPdf = await PDFDocument.load(result.pdfBytes);
                 const loadTime = performance.now() - loadStart;
 
                 const copyStart = performance.now();
                 const pageIndices = Array.from({ length: chunkPdf.getPageCount() }, (_, i) => i);
-                const copiedPages = await mergedPdf.copyPages(chunkPdf, pageIndices);
+                const copiedPages = await currentPdf.copyPages(chunkPdf, pageIndices);
                 const copyTime = performance.now() - copyStart;
 
                 const addStart = performance.now();
                 for (const page of copiedPages) {
-                    mergedPdf.addPage(page);
+                    currentPdf.addPage(page);
                 }
                 const addTime = performance.now() - addStart;
 
+                currentSize += chunkSize;
                 const chunkTime = performance.now() - chunkStart;
-                console.log(`[PDFManager] Merged chunk ${result.chunkIndex} (${chunkPdf.getPageCount()} pages) in ${chunkTime.toFixed(2)}ms (Load=${loadTime.toFixed(2)}ms, Copy=${copyTime.toFixed(2)}ms, Add=${addTime.toFixed(2)}ms)`);
+                console.log(`[PDFManager] Merged chunk ${result.chunkIndex} (${chunkPdf.getPageCount()} pages, ${(chunkSize / 1024 / 1024).toFixed(2)}MB) in ${chunkTime.toFixed(2)}ms (Load=${loadTime.toFixed(2)}ms, Copy=${copyTime.toFixed(2)}ms, Add=${addTime.toFixed(2)}ms)`);
             } catch (error) {
                 console.error(`[PDFManager] Failed to merge PDF chunk ${result.chunkIndex}:`, error);
                 throw new Error(`PDF merge failed for chunk ${result.chunkIndex}`);
             }
         }
 
-        // Return merged PDF as bytes
+        // Save the final PDF
         const saveStart = performance.now();
-        const mergedBytes = await mergedPdf.save();
+        const finalBytes = await currentPdf.save();
         const saveTime = performance.now() - saveStart;
-        console.log(`[PDFManager] Saved merged PDF in ${saveTime.toFixed(2)}ms`);
-        return new Uint8Array(mergedBytes);
+        console.log(`[PDFManager] Saved final PDF ${mergedPdfs.length + 1} in ${saveTime.toFixed(2)}ms`);
+        mergedPdfs.push(new Uint8Array(finalBytes));
+
+        console.log(`[PDFManager] Merge complete: ${mergedPdfs.length} PDF file(s) generated`);
+        return mergedPdfs;
     }
 
     /**
@@ -227,9 +250,9 @@ export class PDFManager {
 
         // Check cache
         const cardsHash = this.hashCards(cards);
-        if (this.cachedPdfUrl && this.cachedCardsHash === cardsHash) {
+        if (this.cachedPdfUrls.length > 0 && this.cachedCardsHash === cardsHash) {
             console.log(`[PDFManager] Cache hit, returning cached PDF`);
-            return this.cachedPdfUrl;
+            return this.cachedPdfUrls[0];
         }
 
         // Cancel any ongoing generation
@@ -368,34 +391,39 @@ export class PDFManager {
             // Merge PDFs on main thread using pdf-lib
             const mergeStart = performance.now();
             console.log(`[PDFManager] Merging ${results.length} PDF chunks...`);
-            const mergedPdfBytes = await this.mergePDFs(results);
+            const mergedPdfBytesArray = await this.mergePDFs(results);
             const mergeTime = performance.now() - mergeStart;
-            console.log(`[PDFManager] PDF merge completed in ${mergeTime.toFixed(2)}ms (${mergedPdfBytes.length} bytes)`);
+            const totalBytes = mergedPdfBytesArray.reduce((sum, pdf) => sum + pdf.length, 0);
+            console.log(`[PDFManager] PDF merge completed in ${mergeTime.toFixed(2)}ms (${mergedPdfBytesArray.length} file(s), ${totalBytes} bytes total)`);
 
             const dxfMergeStart = performance.now();
             const mergedDxfBytes = this.mergeDXFs(results);
             const dxfMergeTime = performance.now() - dxfMergeStart;
             console.log(`[PDFManager] DXF merge completed in ${dxfMergeTime.toFixed(2)}ms`);
 
-            // Convert merged PDF bytes to blob URL
-            const pdfBlob = new Blob([mergedPdfBytes.buffer as ArrayBuffer], {
-                type: "application/pdf",
-            });
+            // Convert merged PDF bytes to blob URLs
+            const pdfUrls: string[] = [];
+            for (let i = 0; i < mergedPdfBytesArray.length; i++) {
+                const pdfBlob = new Blob([mergedPdfBytesArray[i].buffer as ArrayBuffer], {
+                    type: "application/pdf",
+                });
+                pdfUrls.push(URL.createObjectURL(pdfBlob));
+            }
 
             const dxfBlob = new Blob([mergedDxfBytes.buffer as ArrayBuffer], {
                 type: "application/dxf",
             });
 
             // Revoke old URLs to prevent memory leaks
-            if (this.cachedPdfUrl) {
-                URL.revokeObjectURL(this.cachedPdfUrl);
+            for (const url of this.cachedPdfUrls) {
+                URL.revokeObjectURL(url);
             }
             if (this.cachedDxfUrl) {
                 URL.revokeObjectURL(this.cachedDxfUrl);
             }
 
             // Cache new URLs
-            this.cachedPdfUrl = URL.createObjectURL(pdfBlob);
+            this.cachedPdfUrls = pdfUrls;
             this.cachedDxfUrl = URL.createObjectURL(dxfBlob);
             this.cachedCardsHash = cardsHash;
             this.currentRequestId = null;
@@ -403,7 +431,25 @@ export class PDFManager {
             const totalTime = performance.now() - startTime;
             console.log(`[PDFManager] ✅ PDF generation complete in ${totalTime.toFixed(2)}ms total`);
             console.log(`[PDFManager] Breakdown: Chunk=${chunkTime.toFixed(2)}ms, Workers=${workersTime.toFixed(2)}ms, Merge=${mergeTime.toFixed(2)}ms`);
-            return this.cachedPdfUrl;
+
+            // Auto-download multiple PDFs if more than one
+            if (pdfUrls.length > 1) {
+                console.log(`[PDFManager] Auto-downloading ${pdfUrls.length} PDF files...`);
+                for (let i = 0; i < pdfUrls.length; i++) {
+                    const a = document.createElement('a');
+                    a.href = pdfUrls[i];
+                    a.download = `cards_part_${i + 1}_of_${pdfUrls.length}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    // Small delay between downloads to avoid browser blocking
+                    if (i < pdfUrls.length - 1) {
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                    }
+                }
+            }
+
+            return this.cachedPdfUrls[0];
 
         } catch (error) {
             this.currentRequestId = null;
