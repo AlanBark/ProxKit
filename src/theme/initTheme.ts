@@ -18,7 +18,6 @@ export function initTheme() {
         '--success': colors.success,
         '--warning': colors.warning,
 
-        '--bg-app': colors.bgApp,
         '--bg-surface': colors.bgSurface,
         '--bg-elevated': colors.bgElevated,
         '--bg-input': colors.bgInput,
