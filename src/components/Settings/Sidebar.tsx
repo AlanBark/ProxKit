@@ -115,11 +115,13 @@ export function Sidebar({ className = "" }) {
                 </div>
             </Box>
 
-            {/* File Settings */}
-            <FileSettings />
+            <Box>
+                {/* File Settings */}
+                <FileSettings />
 
-            {/* Card Settings */}
-            <CardSettings />
+                {/* Card Settings */}
+                <CardSettings />
+            </Box>
 
             <div className="grow"></div>
             <p className={`${textStyles.muted} text-xs text-center opacity-60`}>

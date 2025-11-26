@@ -1,21 +1,8 @@
-import { NumberInput, Checkbox } from "@heroui/react";
+import { NumberInput, Checkbox, Button } from "@heroui/react";
 import { Box } from "../Box";
 import { useApp } from "../../context/AppContext";
-import { useRef, useEffect } from "react";
-import { Upload } from "lucide-react";
-
-// Helper function to create a white square image
-const createWhiteSquare = (width: number, height: number): string => {
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-        ctx.fillStyle = 'white';
-        ctx.fillRect(0, 0, width, height);
-    }
-    return canvas.toDataURL('image/png');
-};
+import { useRef, useState } from "react";
+import { Upload, Trash2 } from "lucide-react";
 
 function CardSettings() {
     const {
@@ -36,13 +23,7 @@ function CardSettings() {
     } = useApp();
 
     const fileInputRef = useRef<HTMLInputElement>(null);
-
-    // Initialize with white square on mount
-    useEffect(() => {
-        if (!defaultCardBackUrl) {
-            setDefaultCardBackUrl(createWhiteSquare(500, 500));
-        }
-    }, []);
+    const [isHovered, setIsHovered] = useState(false);
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -60,94 +41,93 @@ function CardSettings() {
         fileInputRef.current?.click();
     };
 
+    const handleDeleteCardBack = () => {
+        setDefaultCardBackUrl(null);
+    };
+
     return (
-        <Box>
-            <div className="space-y-4">
-                <div className="flex gap-4">
-                    <NumberInput
-                        label="Width"
-                        type="number"
-                        value={cardWidth}
-                        onValueChange={(value) => setCardWidth(value)}
-                        min={10}
-                        max={300}
-                        step={0.1}
-                        size="sm"
-                        variant="flat"
-                        radius="sm"
-                        labelPlacement="outside"
-                        endContent={
-                            <span className="text-default-400 text-xs pointer-events-none shrink-0">mm</span>
-                        }
-                    />
-                    
-                    <NumberInput
-                        label="Height"
-                        type="number"
-                        value={cardHeight}
-                        onValueChange={(value) => setCardHeight(value)}
-                        min={10}
-                        max={300}
-                        step={0.1}
-                        size="sm"
-                        variant="flat"
-                        radius="sm"
-                        labelPlacement="outside"
-                        endContent={
-                            <span className="text-default-400 text-xs pointer-events-none shrink-0">mm</span>
-                        }
-                    />
-                </div>
-                <div className="flex gap-4">
-                    <NumberInput
-                        label="Input Bleed"
-                        type="number"
-                        value={defaultBleed}
-                        onValueChange={(value) => setDefaultBleed(value)}
-                        min={0}
-                        max={10}
-                        step={0.1}
-                        size="sm"
-                        variant="flat"
-                        radius="sm"
-                        labelPlacement="outside"
-                        endContent={
-                            <span className="text-default-400 text-xs pointer-events-none shrink-0">mm</span>
-                        }
-                    />
-                    
-                    <NumberInput
-                        label="Output Bleed"
-                        type="number"
-                        value={outputBleed}
-                        onValueChange={(value) => setOutputBleed(value)}
-                        min={0}
-                        max={10}
-                        step={0.1}
-                        size="sm"
-                        variant="flat"
-                        radius="sm"
-                        labelPlacement="outside"
-                        endContent={
-                            <span className="text-default-400 text-xs pointer-events-none shrink-0">mm</span>
-                        }
-                    />
-                </div>
+        <div className="space-y-4">
+            <div className="flex gap-4">
+                <NumberInput
+                    label="Width"
+                    type="number"
+                    value={cardWidth}
+                    onValueChange={(value) => setCardWidth(value)}
+                    min={10}
+                    max={300}
+                    step={0.1}
+                    size="sm"
+                    variant="flat"
+                    radius="sm"
+                    labelPlacement="outside"
+                    endContent={
+                        <span className="text-default-400 text-xs pointer-events-none shrink-0">mm</span>
+                    }
+                />
+
+                <NumberInput
+                    label="Height"
+                    type="number"
+                    value={cardHeight}
+                    onValueChange={(value) => setCardHeight(value)}
+                    min={10}
+                    max={300}
+                    step={0.1}
+                    size="sm"
+                    variant="flat"
+                    radius="sm"
+                    labelPlacement="outside"
+                    endContent={
+                        <span className="text-default-400 text-xs pointer-events-none shrink-0">mm</span>
+                    }
+                />
+            </div>
+            <div className="flex gap-4">
+                <NumberInput
+                    label="Input Bleed"
+                    type="number"
+                    value={defaultBleed}
+                    onValueChange={(value) => setDefaultBleed(value)}
+                    min={0}
+                    max={10}
+                    step={0.1}
+                    size="sm"
+                    variant="flat"
+                    radius="sm"
+                    labelPlacement="outside"
+                    endContent={
+                        <span className="text-default-400 text-xs pointer-events-none shrink-0">mm</span>
+                    }
+                />
+
+                <NumberInput
+                    label="Output Bleed"
+                    type="number"
+                    value={outputBleed}
+                    onValueChange={(value) => setOutputBleed(value)}
+                    min={0}
+                    max={10}
+                    step={0.1}
+                    size="sm"
+                    variant="flat"
+                    radius="sm"
+                    labelPlacement="outside"
+                    endContent={
+                        <span className="text-default-400 text-xs pointer-events-none shrink-0">mm</span>
+                    }
+                />
+            </div>
 
 
-                <div className="pt-2 border-t border-default-200 space-y-3">
-                    <div>
-
+            <div className="pt-4 border-t border-default-200 flex gap-4">
+                <div className="flex-1 flex flex-col gap-3">
                     <Checkbox
                         isSelected={enableCardBacks}
                         onValueChange={setEnableCardBacks}
                         size="sm"
-                        >
+                    >
                         Enable card backs
                     </Checkbox>
-                        </div>
-
-                    <div>
                     <Checkbox
                         isSelected={groupByCardBacks}
                         onValueChange={setGroupByCardBacks}
@@ -155,37 +135,72 @@ function CardSettings() {
                     >
                         Group by card backs
                     </Checkbox>
-                    </div>
-
-                    <div>
-                        <label className="text-xs text-default-600 mb-2 block">Default Card Back</label>
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept="image/*"
-                            onChange={handleFileChange}
-                            className="hidden"
-                        />
-                        <div className="flex gap-2 items-center">
-                            <button
-                                onClick={handleUploadClick}
-                                className="flex items-center gap-2 px-3 py-2 text-xs bg-default-100 hover:bg-default-200 rounded-md transition-colors"
-                            >
-                                <Upload className="w-4 h-4" />
-                                Upload
-                            </button>
-                            {defaultCardBackUrl && (
+                </div>
+                <div className="flex-1 flex items-center justify-center min-h-[200px]">
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                        className="hidden"
+                    />
+                    <div
+                        className="p-3 relative rounded border-2 border-dashed border-default-300 cursor-pointer hover:border-default-400 transition-colors w-full h-full"
+                        onMouseEnter={() => setIsHovered(true)}
+                        onMouseLeave={() => setIsHovered(false)}
+                        style={{
+                            maxHeight: '300px',
+                            aspectRatio: `${cardWidth} / ${cardHeight}`,
+                        }}
+                    >
+                        {defaultCardBackUrl ? (
+                            <>
                                 <img
                                     src={defaultCardBackUrl}
                                     alt="Default card back"
-                                    className="w-12 h-12 object-cover rounded border border-default-300"
+                                    className="w-full h-full object-contain rounded"
                                 />
-                            )}
-                        </div>
+                                {/* Upload and Delete Buttons on Hover */}
+                                <div
+                                    className={`absolute inset-0 gap-[8%] flex items-center justify-center transition-opacity duration-200 ease-in-out ${
+                                        isHovered ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                                    }`}
+                                >
+                                    <Button
+                                        isIconOnly
+                                        size="lg"
+                                        color="primary"
+                                        onPress={handleUploadClick}
+                                        className="w-[28%] h-[20%] min-w-10 min-h-10"
+                                        title="Upload new card back"
+                                    >
+                                        <Upload className="w-[50%] h-[50%]" />
+                                    </Button>
+                                    <Button
+                                        isIconOnly
+                                        size="lg"
+                                        color="danger"
+                                        onPress={handleDeleteCardBack}
+                                        className="w-[28%] h-[20%] min-w-10 min-h-10"
+                                        title="Delete card back"
+                                    >
+                                        <Trash2 className="w-[30%] h-[30%]" />
+                                    </Button>
+                                </div>
+                            </>
+                        ) : (
+                            /* Upload Icon when no image */
+                            <div
+                                className="w-full h-full flex items-center justify-center"
+                                onClick={handleUploadClick}
+                            >
+                                <Upload className="w-[20%] h-[20%] text-default-400" />
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
-        </Box>
+        </div>
     );
 }
 
