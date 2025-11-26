@@ -34,7 +34,8 @@ interface AppState {
     handleRemoveCard: (cardIndex: number) => void;
     handleRemoveAllCards: () => void;
     handleUpdateBleed: (cardId: string, bleed: number) => void;
-    handleDuplicateCard: (card: CardImage) => void;
+    handleDuplicateCard: (card: CardImage, count: number) => void;
+    handleUpdateCardBack: (cardId: string, file: File | null) => Promise<void>;
     handleGeneratePDF: () => Promise<void>;
     handleDownloadPDF: () => void;
     handleDownloadDXF: () => void;
@@ -301,22 +302,61 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
     };
 
-    const handleDuplicateCard = (cardToDuplicate: CardImage) => {
-        const newCard: CardImage = {
-            id: crypto.randomUUID(),
-            imageUrl: cardToDuplicate.imageUrl,
-            name: cardToDuplicate.name,
-            bleed: cardToDuplicate.bleed,
-            thumbnailUrl: cardToDuplicate.thumbnailUrl
-        };
+    const handleDuplicateCard = (cardToDuplicate: CardImage, count: number = 1) => {
+        // Create array of new card IDs upfront to minimize state updates
+        const newCardIds: string[] = [];
+        const newCards: CardImage[] = [];
 
+        for (let i = 0; i < count; i++) {
+            const newId = crypto.randomUUID();
+            newCardIds.push(newId);
+            newCards.push({
+                id: newId,
+                imageUrl: cardToDuplicate.imageUrl,
+                name: cardToDuplicate.name,
+                bleed: cardToDuplicate.bleed,
+                thumbnailUrl: cardToDuplicate.thumbnailUrl
+            });
+        }
+
+        // Single state update for cardMap
         setCardMap((prev) => {
             const newMap = new Map(prev);
-            newMap.set(newCard.id, newCard);
+            newCards.forEach(card => newMap.set(card.id, card));
             return newMap;
         });
 
-        setCardOrder((prev) => [...prev, newCard.id]);
+        // Single state update for cardOrder
+        setCardOrder((prev) => [...prev, ...newCardIds]);
+    };
+
+    const handleUpdateCardBack = async (cardId: string, file: File | null) => {
+        const card = cardMap.get(cardId);
+        if (!card) return;
+
+        // Clean up old card back URL if it exists
+        if (card.cardBackUrl) {
+            URL.revokeObjectURL(card.cardBackUrl);
+        }
+
+        // If file is null, we're removing the custom back
+        if (!file) {
+            setCardMap((prev) => {
+                const newMap = new Map(prev);
+                newMap.set(cardId, { ...card, cardBackUrl: undefined });
+                return newMap;
+            });
+            return;
+        }
+
+        // Create a new object URL for the card back
+        const cardBackUrl = URL.createObjectURL(file);
+
+        setCardMap((prev) => {
+            const newMap = new Map(prev);
+            newMap.set(cardId, { ...card, cardBackUrl });
+            return newMap;
+        });
     };
 
     const handleGeneratePDF = async () => {
@@ -384,6 +424,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         handleRemoveAllCards,
         handleUpdateBleed,
         handleDuplicateCard,
+        handleUpdateCardBack,
         handleGeneratePDF,
         handleDownloadPDF,
         handleDownloadDXF,

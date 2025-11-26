@@ -14,6 +14,7 @@ export interface CardImage {
     thumbnailLoading?: boolean; // Whether thumbnail is being generated
     name?: string;
     bleed: number; // bleed amount in millimeters
+    cardBackUrl?: string; // Custom back image for this specific card
 }
 
 export interface PageSettings {

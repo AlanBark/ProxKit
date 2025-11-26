@@ -126,14 +126,14 @@ function CardSettings() {
                         onValueChange={setEnableCardBacks}
                         size="sm"
                     >
-                        Enable card backs
+                        Print Card Backs
                     </Checkbox>
                     <Checkbox
                         isSelected={groupByCardBacks}
                         onValueChange={setGroupByCardBacks}
                         size="sm"
                     >
-                        Group by card backs
+                        Group by Card Backs
                     </Checkbox>
                 </div>
                 <div className="flex-1 flex items-center justify-center min-h-[200px]">
