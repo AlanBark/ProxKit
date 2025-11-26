@@ -1,4 +1,4 @@
-import { Trash2, Plus, ChevronUp, Loader2, RotateCcw, Upload, ChevronDown } from "lucide-react";
+import { Trash2, Plus, ChevronUp, Loader2, RotateCcw, Upload, ChevronDown, Menu } from "lucide-react";
 import { Button, ButtonGroup, Dropdown, DropdownItem, DropdownMenu, DropdownTrigger, Input, NumberInput, Popover, PopoverContent, PopoverTrigger } from "@heroui/react";
 import { useState, useRef } from "react";
 import type { CardImage } from "../types/card";
@@ -127,22 +127,20 @@ export function Card({ card, cardIndex, gridPosition }: CardProps) {
                     )}
                 </div>
             </div>
-
-            {/* Duplicate and Remove Buttons - Fade in/out - only on front */}
-            {!isFlipped && (
-                <div
-                    className={`absolute inset-0 gap-[8%] flex flex-col items-center justify-end transition-opacity  ${isHovered ? 'opacity-100' : 'opacity-0 pointer-events-none'
-                        }`}
-                >
-                    <div className="h-full w-full flex items-end justify-between p-2" style={
-                        {
-                            background: 'linear-gradient(0deg, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 1) 15%, rgba(90 , 90, 90, 0.1) 50%)',
-                            borderRadius: '3mm',
-                            boxShadow: '0 4px 30px rgba(0, 0, 0, 0.1)',
-                            borderTop: '1px solid rgba(255, 255, 255, 0.25)',
-                            borderLeft: '1px solid rgba(255, 255, 255, 0.25)',
-                            borderRight: '1px solid rgba(255, 255, 255, 0.25)',
-                        }}>
+            <div
+                className={`absolute inset-0 gap-[8%] flex flex-col items-center justify-end transition-opacity  ${isHovered ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                    }`}
+            >
+                <div className="h-full w-full flex items-end justify-between p-2" style={
+                    {
+                        background: 'linear-gradient(0deg, rgba(0, 0, 0, 1) 0%, rgba(0, 0, 0, 1) 15%, rgba(90 , 90, 90, 0.1) 50%)',
+                        borderRadius: '3mm',
+                        boxShadow: '0 4px 30px rgba(0, 0, 0, 0.1)',
+                        borderTop: '1px solid rgba(255, 255, 255, 0.25)',
+                        borderLeft: '1px solid rgba(255, 255, 255, 0.25)',
+                        borderRight: '1px solid rgba(255, 255, 255, 0.25)',
+                    }}>
+                    <ButtonGroup variant="light">
                         <Button
                             isIconOnly
                             color="danger"
@@ -153,41 +151,112 @@ export function Card({ card, cardIndex, gridPosition }: CardProps) {
                             <Trash2 />
                         </Button>
 
-                        <ButtonGroup variant="light">
-                            <Button
-                                isIconOnly
-                                color="primary"
-                                onPress={() => handleDuplicateCard(card, 1)}
-                                title="Duplicate card"
-                                variant="light"
-                            >
-                                <Plus />
-                            </Button>
-                            <Popover showArrow offset={10} placement="top-end" isOpen={isOptionsOpen} onOpenChange={(open) => {
-                                setIsOptionsOpen(open);
-                                // If closing the popover and mouse is not over the card, hide the hover state
-                                if (!open && !isMouseOver) {
-                                    setIsHovered(false);
-                                }
-                            }}>
-                                <PopoverTrigger>
-                                    <Button isIconOnly color="primary">
-                                        <ChevronUp
-                                            className="transition-transform duration-200"
-                                            style={{ transform: isOptionsOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
-                                        />
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent>
-                                    <div className="my-2 flex w-full">
+                        <Button
+                            isIconOnly
+                            color="secondary"
+                            variant="light"
+                            title="Flip Card"
+                            onPress={() => setIsFlipped(!isFlipped)}
+                        >
+                            <RotateCcw
+                                className="transition-transform duration-500"
+                                style={{ transform: isFlipped ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                            />
+                        </Button>
+                        
+                    </ButtonGroup>
+
+                    <div className="flex gap-1 items-center pb-4">
+                            <div
+                                className="w-2 h-2 rounded-full transition-colors duration-300"
+                                style={{ backgroundColor: !isFlipped ? '#9333ea' : '#6b7280' }}
+                            />
+                            <div
+                                className="w-2 h-2 rounded-full transition-colors duration-300"
+                                style={{ backgroundColor: isFlipped ? '#9333ea' : '#6b7280' }}
+                            />
+                        </div>
+
+                    <ButtonGroup variant="light">
+                        <Button
+                            isIconOnly
+                            color="primary"
+                            onPress={() => handleDuplicateCard(card, 1)}
+                            title="Duplicate card"
+                            variant="light"
+                        >
+                            <Plus />
+                        </Button>
+                        <Popover showArrow offset={10} placement="top-end" isOpen={isOptionsOpen} onOpenChange={(open) => {
+                            setIsOptionsOpen(open);
+                            // If closing the popover and mouse is not over the card, hide the hover state
+                            if (!open && !isMouseOver) {
+                                setIsHovered(false);
+                            }
+                        }}>
+                            <PopoverTrigger>
+                                <Button isIconOnly color="primary">
+                                    <Menu
+                                    />
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent>
+                                <div className="flex flex-col gap-2 p-2">
+                                    {/* Main Image Bleed */}
+                                    <div className="flex items-center gap-2">
                                         <Input
-                                            placeholder="Add More"
+                                            type="number"
                                             size="sm"
                                             variant="bordered"
-                                            classNames={{inputWrapper: [ "rounded-r-none" ]}}
+                                            value={card.bleed.toString()}
+                                            onChange={(e) => {
+                                                const value = parseFloat(e.target.value);
+                                                if (!isNaN(value) && value >= 0) {
+                                                    handleUpdateBleed(card.id, value);
+                                                }
+                                            }}
+                                            step="0.1"
+                                            min="0"
+                                        />
+                                    </div>
+
+                                    {/* Card Back Image File Select */}
+                                    <div className="flex items-center gap-2">
+                                        <Button
+                                            size="sm"
+                                            color="primary"
+                                            variant="flat"
+                                            onPress={() => fileInputRef.current?.click()}
+                                            className="flex-1"
+                                        >
+                                            <Upload className="w-4 h-4" />
+                                            {card.cardBackUrl ? 'Change' : 'Upload'}
+                                        </Button>
+                                        {card.cardBackUrl && (
+                                            <Button
+                                                size="sm"
+                                                color="danger"
+                                                variant="flat"
+                                                isIconOnly
+                                                onPress={() => handleUpdateCardBack(card.id, null)}
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </Button>
+                                        )}
+                                    </div>
+
+                                    {/* Multiple Duplicate */}
+                                    <div className="flex items-center gap-2">
+                                        <Input
+                                            placeholder="Count"
+                                            size="sm"
+                                            variant="bordered"
+                                            classNames={{ inputWrapper: ["rounded-r-none"] }}
                                             value={duplicateCount}
                                             onChange={(e) => setDuplicateCount(e.target.value)}
                                             type="number"
+                                            min="1"
+                                            className="flex-1"
                                         />
                                         <Button
                                             isIconOnly
@@ -206,82 +275,12 @@ export function Card({ card, cardIndex, gridPosition }: CardProps) {
                                             <Plus />
                                         </Button>
                                     </div>
-                                </PopoverContent>
-                            </Popover>
-                        </ButtonGroup>
-                    </div>
-                    {/* <div className="flex gap-[8%]">
-                        <Button
-                            isIconOnly
-                            size="lg"
-                            color="primary"
-                            onPress={() => handleDuplicateCard(card)}
-                            className="w-[28%] min-w-10 h-[20%] min-h-10"
-                            title="Duplicate card"
-                        >
-                            <Plus className="w-[50%] h-[50%]" />
-                        </Button>
-                        <Button
-                            isIconOnly
-                            size="lg"
-                            color="danger"
-                            onPress={() => handleRemoveCard(cardIndex)}
-                            className="w-[28%] min-w-10 h-[20%] min-h-10"
-                            title="Delete card"
-                        >
-                            <Trash2 className="w-[30%] h-[30%]" />
-                        </Button>
-                    </div>
-                    <Button
-                        isIconOnly
-                        size="lg"
-                        color="secondary"
-                        onPress={() => setIsFlipped(true)}
-                        className="w-[28%] min-w-10 h-[20%] min-h-10"
-                        title="Flip card"
-                    >
-                        <RotateCcw className="w-[40%] h-[40%]" />
-                    </Button> */}
+                                </div>
+                            </PopoverContent>
+                        </Popover>
+                    </ButtonGroup>
                 </div>
-            )}
-
-            {/* Flip back and Upload buttons when showing back */}
-            {isFlipped && (
-                <div
-                    className={`absolute inset-0 gap-[8%] flex items-center justify-center transition-opacity duration-200 ease-in-out ${isHovered ? 'opacity-100' : 'opacity-0 pointer-events-none'
-                        }`}
-                >
-                    <Button
-                        isIconOnly
-                        size="lg"
-                        color="secondary"
-                        onPress={() => fileInputRef.current?.click()}
-                        className="w-[28%] min-w-10 h-[20%] min-h-10"
-                        title="Upload card back"
-                    >
-                        <Upload className="w-[40%] h-[40%]" />
-                    </Button>
-                    <Button
-                        isIconOnly
-                        size="lg"
-                        color="primary"
-                        onPress={() => setIsFlipped(false)}
-                        className="w-[28%] min-w-10 h-[20%] min-h-10"
-                        title="Flip to front"
-                    >
-                        <RotateCcw className="w-[40%] h-[40%]" />
-                    </Button>
-                </div>
-            )}
-
-            {/* Hidden file input for uploading card back */}
-            <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleFileChange}
-                className="hidden"
-            />
+            </div>
         </div>
     );
 }
