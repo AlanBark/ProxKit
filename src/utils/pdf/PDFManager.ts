@@ -123,7 +123,7 @@ export class PDFManager {
         }
 
         // Maximum size per merged PDF (conservative limit to avoid allocation failures)
-        const MAX_PDF_SIZE = 2 * 1024 * 1024 * 1024;
+        const MAX_PDF_SIZE = 1024 * 1024 * 1024;
         const mergedPdfs: Uint8Array[] = [];
         let currentPdf = await PDFDocument.create();
         let currentSize = 0;
@@ -432,20 +432,20 @@ export class PDFManager {
             console.log(`[PDFManager] ✅ PDF generation complete in ${totalTime.toFixed(2)}ms total`);
             console.log(`[PDFManager] Breakdown: Chunk=${chunkTime.toFixed(2)}ms, Workers=${workersTime.toFixed(2)}ms, Merge=${mergeTime.toFixed(2)}ms`);
 
-            // Auto-download multiple PDFs if more than one
-            if (pdfUrls.length > 1) {
-                console.log(`[PDFManager] Auto-downloading ${pdfUrls.length} PDF files...`);
-                for (let i = 0; i < pdfUrls.length; i++) {
-                    const a = document.createElement('a');
-                    a.href = pdfUrls[i];
-                    a.download = `cards_part_${i + 1}_of_${pdfUrls.length}.pdf`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    // Small delay between downloads to avoid browser blocking
-                    if (i < pdfUrls.length - 1) {
-                        await new Promise(resolve => setTimeout(resolve, 100));
-                    }
+            // Auto-download PDF(s)
+            console.log(`[PDFManager] Auto-downloading ${pdfUrls.length} PDF file(s)...`);
+            for (let i = 0; i < pdfUrls.length; i++) {
+                const a = document.createElement('a');
+                a.href = pdfUrls[i];
+                a.download = pdfUrls.length > 1
+                    ? `cards_part_${i + 1}_of_${pdfUrls.length}.pdf`
+                    : `cards_${new Date().getTime()}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                // Small delay between downloads to avoid browser blocking
+                if (i < pdfUrls.length - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
                 }
             }
 

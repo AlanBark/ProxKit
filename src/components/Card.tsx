@@ -1,4 +1,4 @@
-import { Trash2, Plus, ChevronUp } from "lucide-react";
+import { Trash2, Plus, ChevronUp, Loader2 } from "lucide-react";
 import { Button, NumberInput } from "@heroui/react";
 import { useState } from "react";
 import type { CardImage } from "../types/card";
@@ -55,6 +55,13 @@ export function Card({ card, cardIndex, gridPosition }: CardProps) {
                         borderRadius: "3mm",
                     }}
                 />
+
+                {/* Loading spinner while thumbnail is being generated */}
+                {card.thumbnailLoading && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+                        <Loader2 className="w-12 h-12 text-white animate-spin" />
+                    </div>
+                )}
 
                 {/* Duplicate and Remove Buttons - Fade in/out */}
                 <div

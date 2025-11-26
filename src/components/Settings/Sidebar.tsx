@@ -13,9 +13,11 @@ export function Sidebar({ className = "" }) {
     const {
         cardOrder,
         isGenerating,
+        generationProgress,
         pdfUrl,
         dxfUrl,
         handleFilesSelected,
+        handleGeneratePDF,
         handleDownloadPDF,
         handleDownloadDXF,
         handleRemoveAllCards,
@@ -42,15 +44,26 @@ export function Sidebar({ className = "" }) {
                         />
 
                         <Button
-                            onPress={handleDownloadPDF}
-                            isDisabled={!pdfUrl || isGenerating}
+                            onPress={handleGeneratePDF}
+                            isDisabled={cardOrder.length === 0 || isGenerating}
                             isLoading={isGenerating}
-                            color={(!pdfUrl || isGenerating) ? "warning" : "success"}
+                            color={cardOrder.length === 0 ? "default" : "success"}
                             variant="ghost"
+                            className="relative overflow-hidden"
                         >
-                            <span className="flex items-center justify-center gap-2">
+                            {/* Loading bar fill */}
+                            {isGenerating && (
+                                <div
+                                    className="absolute inset-0 bg-success/30 transition-all duration-300 ease-out"
+                                    style={{
+                                        width: `${generationProgress}%`,
+                                        left: 0,
+                                    }}
+                                />
+                            )}
+                            <span className="flex items-center justify-center gap-2 relative z-10">
                                 <Download className="w-5 h-5" />
-                                Download PDF
+                                Generate PDF
                             </span>
                         </Button>
 
@@ -67,9 +80,8 @@ export function Sidebar({ className = "" }) {
 
                         <Button
                             onPress={handleDownloadDXF}
-                            isDisabled={!dxfUrl || isGenerating}
-                            isLoading={isGenerating}
-                            color={(!dxfUrl || isGenerating) ? "warning" : "success"}
+                            isDisabled={!dxfUrl}
+                            color={!dxfUrl ? "default" : "success"}
                             variant="ghost"
                         >
                             <span className="flex items-center justify-center gap-2">

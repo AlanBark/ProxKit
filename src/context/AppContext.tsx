@@ -31,6 +31,7 @@ interface AppState {
     handleRemoveAllCards: () => void;
     handleUpdateBleed: (cardId: string, bleed: number) => void;
     handleDuplicateCard: (card: CardImage) => void;
+    handleGeneratePDF: () => Promise<void>;
     handleDownloadPDF: () => void;
     handleDownloadDXF: () => void;
     setPageSize: (size: Selection) => void;
@@ -76,63 +77,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
         };
     }, [pageSize, cardWidth, cardHeight]);
 
-    // Auto-generate PDF and DXF whenever cards change
+    // Clear PDF/DXF URLs when cards are removed
     useEffect(() => {
-        const generatePDF = async () => {
-            if (!pdfManagerRef.current || cardOrder.length === 0) {
-                setPdfUrl(null);
-                setDxfUrl(null);
-                setIsGenerating(false);
-                return;
-            }
-
-            setIsGenerating(true);
-            setGenerationProgress(0);
-            try {
-                // Convert map + order back to array for PDF generation
-                const cardsArray = cardOrder.map(id => cardMap.get(id)).filter((card): card is CardImage => card !== undefined);
-                const pdfUrlResult = await pdfManagerRef.current.generatePDF(cardsArray);
-                const dxfUrlResult = pdfManagerRef.current.getCachedDxfUrl();
-                setPdfUrl(pdfUrlResult);
-                setDxfUrl(dxfUrlResult);
-            } catch (error) {
-                console.error("Failed to generate PDF:", error);
-                setPdfUrl(null);
-                setDxfUrl(null);
-            } finally {
-                setIsGenerating(false);
-                setGenerationProgress(0);
-            }
-        };
-
-        generatePDF();
-    }, [cardMap, cardOrder]);
+        if (cardOrder.length === 0) {
+            setPdfUrl(null);
+            setDxfUrl(null);
+            setIsGenerating(false);
+        }
+    }, [cardOrder.length]);
 
     const handleAddCards = async (files: File[]) => {
-        const newCards: CardImage[] = await Promise.all(
-            files.map(async (file) => {
-                const imageUrl = URL.createObjectURL(file);
-                let thumbnailUrl: string | undefined;
+        // Create cards immediately with loading state, don't wait for thumbnails
+        const newCards: CardImage[] = files.map((file) => {
+            const imageUrl = URL.createObjectURL(file);
+            return {
+                id: crypto.randomUUID(),
+                imageUrl,
+                thumbnailUrl: undefined,
+                thumbnailLoading: true,
+                name: file.name,
+                bleed: defaultBleed,
+            };
+        });
 
-                try {
-                    // Create a lower-res thumbnail for UI display with bleed cropped out
-                    thumbnailUrl = await createThumbnail(file, 800, 800, 0.85, defaultBleed, cardWidth, cardHeight);
-                } catch (error) {
-                    console.warn('Failed to create thumbnail, using original:', error);
-                    // Fall back to original if thumbnail creation fails
-                    thumbnailUrl = undefined;
-                }
-
-                return {
-                    id: crypto.randomUUID(),
-                    imageUrl,
-                    thumbnailUrl,
-                    name: file.name,
-                    bleed: defaultBleed,
-                };
-            })
-        );
-
+        // Add cards to state immediately so they appear in UI
         setCardMap((prev) => {
             const newMap = new Map(prev);
             newCards.forEach(card => newMap.set(card.id, card));
@@ -140,6 +108,69 @@ export function AppProvider({ children }: { children: ReactNode }) {
         });
 
         setCardOrder((prev) => [...prev, ...newCards.map(card => card.id)]);
+
+        // Generate thumbnails asynchronously in the background
+        newCards.forEach(async (card, index) => {
+            const file = files[index];
+
+            try {
+                // Use requestIdleCallback to avoid blocking the main thread
+                const generateThumbnail = () => {
+                    return createThumbnail(file, 800, 800, 0.85, defaultBleed, cardWidth, cardHeight);
+                };
+
+                const thumbnailUrl = await new Promise<string>((resolve, reject) => {
+                    if ('requestIdleCallback' in window) {
+                        requestIdleCallback(async () => {
+                            try {
+                                const url = await generateThumbnail();
+                                resolve(url);
+                            } catch (error) {
+                                reject(error);
+                            }
+                        });
+                    } else {
+                        // Fallback for browsers without requestIdleCallback
+                        setTimeout(async () => {
+                            try {
+                                const url = await generateThumbnail();
+                                resolve(url);
+                            } catch (error) {
+                                reject(error);
+                            }
+                        }, 0);
+                    }
+                });
+
+                // Update card with thumbnail once it's ready
+                setCardMap((prev) => {
+                    const newMap = new Map(prev);
+                    const existingCard = newMap.get(card.id);
+                    if (existingCard) {
+                        newMap.set(card.id, {
+                            ...existingCard,
+                            thumbnailUrl,
+                            thumbnailLoading: false
+                        });
+                    }
+                    return newMap;
+                });
+            } catch (error) {
+                console.warn('Failed to create thumbnail for', card.name, ':', error);
+                // Mark as not loading even if failed
+                setCardMap((prev) => {
+                    const newMap = new Map(prev);
+                    const existingCard = newMap.get(card.id);
+                    if (existingCard) {
+                        newMap.set(card.id, {
+                            ...existingCard,
+                            thumbnailLoading: false
+                        });
+                    }
+                    return newMap;
+                });
+            }
+        });
     };
 
     const handleRemoveCard = (cardIndex: number) => {
@@ -186,14 +217,45 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const card = cardMap.get(cardId);
         if (!card) return;
 
+        // Set loading state immediately
+        setCardMap((prev) => {
+            const newMap = new Map(prev);
+            newMap.set(cardId, { ...card, bleed, thumbnailLoading: true });
+            return newMap;
+        });
+
         try {
             // Fetch the original image blob from the blob URL
             const response = await fetch(card.imageUrl);
             const blob = await response.blob();
             const file = new File([blob], card.name || 'image.jpg', { type: blob.type });
 
-            // Regenerate thumbnail with new bleed value
-            const newThumbnailUrl = await createThumbnail(file, 800, 800, 0.85, bleed, cardWidth, cardHeight);
+            // Regenerate thumbnail with new bleed value asynchronously
+            const generateThumbnail = () => {
+                return createThumbnail(file, 800, 800, 0.85, bleed, cardWidth, cardHeight);
+            };
+
+            const newThumbnailUrl = await new Promise<string>((resolve, reject) => {
+                if ('requestIdleCallback' in window) {
+                    requestIdleCallback(async () => {
+                        try {
+                            const url = await generateThumbnail();
+                            resolve(url);
+                        } catch (error) {
+                            reject(error);
+                        }
+                    });
+                } else {
+                    setTimeout(async () => {
+                        try {
+                            const url = await generateThumbnail();
+                            resolve(url);
+                        } catch (error) {
+                            reject(error);
+                        }
+                    }, 0);
+                }
+            });
 
             // Clean up old thumbnail URL if it exists
             if (card.thumbnailUrl) {
@@ -203,15 +265,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
             // Update card with new bleed and thumbnail
             setCardMap((prev) => {
                 const newMap = new Map(prev);
-                newMap.set(cardId, { ...card, bleed, thumbnailUrl: newThumbnailUrl });
+                const currentCard = newMap.get(cardId);
+                if (currentCard) {
+                    newMap.set(cardId, {
+                        ...currentCard,
+                        thumbnailUrl: newThumbnailUrl,
+                        thumbnailLoading: false
+                    });
+                }
                 return newMap;
             });
         } catch (error) {
             console.error('Failed to regenerate thumbnail with new bleed:', error);
-            // Fall back to just updating the bleed value
+            // Fall back to just updating the bleed value and clearing loading state
             setCardMap((prev) => {
                 const newMap = new Map(prev);
-                newMap.set(cardId, { ...card, bleed });
+                const currentCard = newMap.get(cardId);
+                if (currentCard) {
+                    newMap.set(cardId, { ...currentCard, thumbnailLoading: false });
+                }
                 return newMap;
             });
         }
@@ -233,6 +305,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
         });
 
         setCardOrder((prev) => [...prev, newCard.id]);
+    };
+
+    const handleGeneratePDF = async () => {
+        if (!pdfManagerRef.current || cardOrder.length === 0 || isGenerating) {
+            return;
+        }
+
+        setIsGenerating(true);
+        setGenerationProgress(0);
+        try {
+            // Convert map + order back to array for PDF generation
+            const cardsArray = cardOrder.map(id => cardMap.get(id)).filter((card): card is CardImage => card !== undefined);
+            const pdfUrlResult = await pdfManagerRef.current.generatePDF(cardsArray);
+            const dxfUrlResult = pdfManagerRef.current.getCachedDxfUrl();
+            setPdfUrl(pdfUrlResult);
+            setDxfUrl(dxfUrlResult);
+
+            // Auto-download the PDF after generation (PDFManager handles multiple files)
+            // Note: Multiple PDFs are auto-downloaded by PDFManager.generatePDF
+        } catch (error) {
+            console.error("Failed to generate PDF:", error);
+            setPdfUrl(null);
+            setDxfUrl(null);
+        } finally {
+            setIsGenerating(false);
+            setGenerationProgress(0);
+        }
     };
 
     const handleDownloadPDF = () => {
@@ -269,6 +368,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         handleRemoveAllCards,
         handleUpdateBleed,
         handleDuplicateCard,
+        handleGeneratePDF,
         handleDownloadPDF,
         handleDownloadDXF,
         setPageSize,

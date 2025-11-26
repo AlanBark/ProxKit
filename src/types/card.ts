@@ -10,6 +10,7 @@ export interface CardImage {
     id: string;
     imageUrl: string;
     thumbnailUrl?: string; // Lower-res version for UI display
+    thumbnailLoading?: boolean; // Whether thumbnail is being generated
     name?: string;
     bleed: number; // bleed amount in millimeters
 }
