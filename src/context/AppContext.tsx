@@ -24,6 +24,10 @@ interface AppState {
     cardWidth: number;
     cardHeight: number;
     defaultBleed: number;
+    outputBleed: number,
+    enableCardBacks: boolean;
+    defaultCardBackUrl: string | null;
+    groupByCardBacks: boolean;
 
     // Actions
     handleFilesSelected: (files: File[]) => void;
@@ -38,6 +42,10 @@ interface AppState {
     setCardWidth: (width: number) => void;
     setCardHeight: (height: number) => void;
     setDefaultBleed: (bleed: number) => void;
+    setOutputBleed: (bleed: number) => void;
+    setEnableCardBacks: (enabled: boolean) => void;
+    setDefaultCardBackUrl: (url: string | null) => void;
+    setGroupByCardBacks: (group: boolean) => void;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
@@ -53,9 +61,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     // Settings
     const [defaultBleed, setDefaultBleed] = useState<number>(CARD_DIMENSIONS.standardBleed);
+    const [outputBleed, setOutputBleed] = useState<number>(CARD_DIMENSIONS.outputBleed);
     const [cardWidth, setCardWidth] = useState<number>(CARD_DIMENSIONS.width);
     const [cardHeight, setCardHeight] = useState<number>(CARD_DIMENSIONS.height);
     const [pageSize, setPageSize] = useState<Selection>(new Set(["A4"]));
+    const [enableCardBacks, setEnableCardBacks] = useState<boolean>(false);
+    const [defaultCardBackUrl, setDefaultCardBackUrl] = useState<string | null>(null);
+    const [groupByCardBacks, setGroupByCardBacks] = useState<boolean>(false);
 
     // Initialize PDF manager
     useEffect(() => {
@@ -65,7 +77,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             ? { width: selectedPage.width, height: selectedPage.height, margin: 10 }
             : { width: 210, height: 297, margin: 10 };
 
-        pdfManagerRef.current = new PDFManager(pageSettings, cardWidth, cardHeight);
+        pdfManagerRef.current = new PDFManager(pageSettings, cardWidth, cardHeight, outputBleed);
 
         // Set up progress callback
         pdfManagerRef.current.onProgress = (_current, _total, percentage) => {
@@ -75,7 +87,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return () => {
             pdfManagerRef.current?.dispose();
         };
-    }, [pageSize, cardWidth, cardHeight]);
+    }, [pageSize, cardWidth, cardHeight, outputBleed]);
 
     // Clear PDF/DXF URLs when cards are removed
     useEffect(() => {
@@ -363,6 +375,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         cardWidth,
         cardHeight,
         defaultBleed,
+        outputBleed,
+        enableCardBacks,
+        defaultCardBackUrl,
+        groupByCardBacks,
         handleFilesSelected: handleAddCards,
         handleRemoveCard,
         handleRemoveAllCards,
@@ -375,6 +391,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setCardWidth,
         setCardHeight,
         setDefaultBleed,
+        setEnableCardBacks,
+        setDefaultCardBackUrl,
+        setGroupByCardBacks,
+        setOutputBleed,
     };
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

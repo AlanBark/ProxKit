@@ -24,6 +24,7 @@ export interface GeneratePDFRequest {
         pageSettings: PageSettings;
         cardWidth: number;
         cardHeight: number;
+        outputBleed: number; // Output bleed margin in mm
         requestId: string; // Unique ID to match request/response
     };
 }

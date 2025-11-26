@@ -4,6 +4,7 @@ export const CARD_DIMENSIONS = {
     height: 88, // 88mm
     // Standard bleed for MPC fills
     standardBleed: 3, // 3mm standard for MPCFill
+    outputBleed: 0.5
 } as const;
 
 export interface CardImage {

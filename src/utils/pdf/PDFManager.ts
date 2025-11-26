@@ -40,6 +40,7 @@ export class PDFManager {
     private pageSettings: PageSettings;
     private cardWidth: number;
     private cardHeight: number;
+    private outputBleed: number;
 
     /**
      * Optional callback for progress updates
@@ -52,11 +53,13 @@ export class PDFManager {
      * @param pageSettings Page size and margin configuration
      * @param cardWidth Card width in mm
      * @param cardHeight Card height in mm
+     * @param outputBleed Output bleed margin in mm
      */
-    constructor(pageSettings: PageSettings, cardWidth: number, cardHeight: number) {
+    constructor(pageSettings: PageSettings, cardWidth: number, cardHeight: number, outputBleed: number) {
         this.pageSettings = pageSettings;
         this.cardWidth = cardWidth;
         this.cardHeight = cardHeight;
+        this.outputBleed = outputBleed;
     }
 
     /**
@@ -364,6 +367,7 @@ export class PDFManager {
                             pageSettings: this.pageSettings,
                             cardWidth: this.cardWidth,
                             cardHeight: this.cardHeight,
+                            outputBleed: this.outputBleed,
                             requestId: chunkRequestId,
                         },
                     };

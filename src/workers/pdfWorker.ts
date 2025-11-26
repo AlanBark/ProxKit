@@ -19,15 +19,6 @@ import type { CardImage, PageSettings } from "../types/card";
  */
 
 /**
- * Bleed edge margin (in mm)
- * - If bleed is > 0: crop (bleed - BLEED_EDGE_MARGIN) from each side
- * - If bleed is 0: add BLEED_EDGE_MARGIN as an edge
- *
- * Example: If bleed is 3mm and BLEED_EDGE_MARGIN is 1mm, crop 2mm from each side
- */
-const BLEED_EDGE_MARGIN = 0.5;
-
-/**
  * Corner radius for cut file rounded corners (in mm)
  */
 const CUT_CORNER_RADIUS = 2.5;
@@ -77,13 +68,13 @@ function calculateGridLayout(
  * The input image includes bleed area. We need to crop it to get only the card area.
  *
  * Logic:
- * - If bleed > 0: crop (bleed - BLEED_EDGE_MARGIN) from each side
- * - If bleed = 0: add BLEED_EDGE_MARGIN as an edge (negative crop = expand)
+ * - If bleed > 0: crop (bleed - outputBleed) from each side
+ * - If bleed = 0: add outputBleed as an edge (negative crop = expand)
  *
  * For example:
  * - Card dimensions (without bleed): 63mm x 88mm
  * - Bleed: 3mm on all sides
- * - BLEED_EDGE_MARGIN: 1mm
+ * - outputBleed: 1mm
  * - Total image represents: (63 + 3*2) x (88 + 3*2) = 69mm x 94mm
  * - We crop 2mm (3mm - 1mm) from each side to get a 65mm x 90mm result
  *
@@ -93,7 +84,8 @@ async function cropImageBleed(
     imageUrl: string,
     bleed: number,
     cardWidth: number,
-    cardHeight: number
+    cardHeight: number,
+    outputBleed: number
 ): Promise<{ imageBytes: Uint8Array; widthMm: number; heightMm: number }> {
     // Fetch the image
     const response = await fetch(imageUrl);
@@ -110,9 +102,9 @@ async function cropImageBleed(
     const totalCardWidthMm = cardWidth + (bleed * 2);
     const totalCardHeightMm = cardHeight + (bleed * 2);
 
-    // Calculate effective crop amount: bleed - BLEED_EDGE_MARGIN
+    // Calculate effective crop amount: bleed - outputBleed
     // If bleed is 0, this becomes negative, which means we'll expand the image
-    const effectiveCrop = bleed - BLEED_EDGE_MARGIN;
+    const effectiveCrop = bleed - outputBleed;
 
     // Calculate crop percentage
     // For one side: effectiveCrop / totalCardDimension
@@ -173,12 +165,13 @@ async function cropImageBleed(
 
 
 /**
- * 
+ *
  */
 interface PlaceImageParams {
     card: CardImage;
     cardWidth: number;
     cardHeight: number;
+    outputBleed: number;
     pageNumber: number;
     position: {
         col: number;
@@ -205,6 +198,7 @@ async function cropAndPlaceImage({
     card,
     cardWidth,
     cardHeight,
+    outputBleed,
     position,
     gridLayout,
     pdfRef
@@ -215,7 +209,8 @@ async function cropAndPlaceImage({
         card.imageUrl,
         card.bleed,
         cardWidth,
-        cardHeight
+        cardHeight,
+        outputBleed
     );
 
     // Convert cropped image bytes to data URL for jsPDF
@@ -260,6 +255,7 @@ async function generateChunk(
     pageSettings: PageSettings,
     cardWidth: number,
     cardHeight: number,
+    outputBleed: number,
     requestId: string
 ): Promise<{ pdfBytes: Uint8Array; totalPages: number }> {
     // Constants
@@ -280,8 +276,8 @@ async function generateChunk(
     const gridLayout = calculateGridLayout(
         pageSettings.height,  // Landscape width
         pageSettings.width,   // Landscape height
-        cardWidth + (2 * BLEED_EDGE_MARGIN),  // Cell width with margin spacing
-        cardHeight + (2 * BLEED_EDGE_MARGIN)  // Cell height with margin spacing
+        cardWidth + (2 * outputBleed),  // Cell width with margin spacing
+        cardHeight + (2 * outputBleed)  // Cell height with margin spacing
     );
 
     // Load and cache registration background ONCE (not per page)
@@ -345,6 +341,7 @@ async function generateChunk(
                 card,
                 cardWidth,
                 cardHeight,
+                outputBleed,
                 pageNumber: pageNum,
                 position: { col, row },
                 gridLayout,
@@ -386,7 +383,7 @@ self.addEventListener('message', async (event: MessageEvent<PDFWorkerMessage>) =
 
     switch (message.type) {
         case PDFWorkerMessageType.GENERATE_PDF: {
-            const { cards, pageSettings, cardWidth, cardHeight, requestId } = message.payload;
+            const { cards, pageSettings, cardWidth, cardHeight, outputBleed, requestId } = message.payload;
 
             // Store current request ID and reset cancellation flag
             currentRequestId = requestId;
@@ -399,6 +396,7 @@ self.addEventListener('message', async (event: MessageEvent<PDFWorkerMessage>) =
                     pageSettings,
                     cardWidth,
                     cardHeight,
+                    outputBleed,
                     requestId
                 );
 
