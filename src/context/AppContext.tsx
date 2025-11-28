@@ -37,7 +37,7 @@ interface AppState {
     handleRemoveAllCards: () => void;
     handleUpdateBleed: (cardId: string, bleed: number) => void;
     handleUpdateCardBackBleed: (cardId: string, bleed: number) => void;
-    handleDuplicateCard: (card: CardImage, count: number) => void;
+    handleDuplicateCard: (card: CardImage, count: number, insertAtIndex?: number) => void;
     handleUpdateCardBack: (cardId: string, file: File | null) => Promise<void>;
     handleGeneratePDF: () => Promise<void>;
     handleDownloadPDF: () => void;
@@ -454,7 +454,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const handleRemoveCard = (cardIndex: number) => {
 
         let cardId = cardOrder[cardIndex];
-        let cardIdInstances = cardOrder.filter((card) => { card === cardId })
+        let cardIdInstances = cardOrder.filter((card) => card === cardId)
 
         if (cardIdInstances.length === 1) {
             // Remove the card itself if this is the last instance of it being removed
@@ -463,6 +463,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 URL.revokeObjectURL(card.imageUrl);
                 if (card.thumbnailUrl) {
                     URL.revokeObjectURL(card.thumbnailUrl);
+                }
+                if (card.cardBackUrl) {
+                    URL.revokeObjectURL(card.cardBackUrl);
+                }
+                if (card.cardBackThumbnailUrl) {
+                    URL.revokeObjectURL(card.cardBackThumbnailUrl);
                 }
             }
 
@@ -485,6 +491,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
             URL.revokeObjectURL(card.imageUrl);
             if (card.thumbnailUrl) {
                 URL.revokeObjectURL(card.thumbnailUrl);
+            }
+            if (card.cardBackUrl) {
+                URL.revokeObjectURL(card.cardBackUrl);
+            }
+            if (card.cardBackThumbnailUrl) {
+                URL.revokeObjectURL(card.cardBackThumbnailUrl);
             }
         }
         setCardMap(new Map());
@@ -653,37 +665,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
     };
 
-    const handleDuplicateCard = (cardToDuplicate: CardImage, count: number = 1) => {
-        // Create array of new card IDs upfront to minimize state updates
-        const newCardIds: string[] = [];
-        const newCards: CardImage[] = [];
+    const handleDuplicateCard = (cardToDuplicate: CardImage, count: number = 1, insertAtIndex?: number) => {
+        // Duplicates reuse the same card ID - they appear once in cardMap, multiple times in cardOrder
+        // Create array of card IDs (all the same) for the order array
+        const duplicateIds: string[] = new Array(count).fill(cardToDuplicate.id);
 
-        for (let i = 0; i < count; i++) {
-            const newId = crypto.randomUUID();
-            newCardIds.push(newId);
-            newCards.push({
-                id: newId,
-                imageUrl: cardToDuplicate.imageUrl,
-                name: cardToDuplicate.name,
-                bleed: cardToDuplicate.bleed,
-                useCustomBleed: cardToDuplicate.useCustomBleed,
-                thumbnailUrl: cardToDuplicate.thumbnailUrl,
-                cardBackUrl: cardToDuplicate.cardBackUrl,
-                cardBackThumbnailUrl: cardToDuplicate.cardBackThumbnailUrl,
-                cardBackBleed: cardToDuplicate.cardBackBleed,
-                useCustomCardBackBleed: cardToDuplicate.useCustomCardBackBleed
-            });
-        }
+        // No need to update cardMap - the card already exists there
+        // Just update cardOrder to include the duplicate references
 
-        // Single state update for cardMap
-        setCardMap((prev) => {
-            const newMap = new Map(prev);
-            newCards.forEach(card => newMap.set(card.id, card));
-            return newMap;
+        // Single state update for cardOrder - insert at specified index or append to end
+        setCardOrder((prev) => {
+            if (insertAtIndex !== undefined && insertAtIndex >= 0 && insertAtIndex <= prev.length) {
+                // Insert at the specified index
+                const newOrder = [...prev];
+                newOrder.splice(insertAtIndex, 0, ...duplicateIds);
+                return newOrder;
+            } else {
+                // Append to the end
+                return [...prev, ...duplicateIds];
+            }
         });
-
-        // Single state update for cardOrder
-        setCardOrder((prev) => [...prev, ...newCardIds]);
     };
 
     const handleUpdateCardBack = async (cardId: string, file: File | null) => {

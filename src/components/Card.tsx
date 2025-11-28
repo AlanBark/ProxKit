@@ -197,7 +197,7 @@ export function Card({ card, cardIndex, gridPosition }: CardProps) {
                         <Button
                             isIconOnly
                             color="primary"
-                            onPress={() => handleDuplicateCard(card, 1)}
+                            onPress={() => handleDuplicateCard(card, 1, cardIndex + 1)}
                             title="Duplicate card"
                             variant="light"
                         >
@@ -307,7 +307,7 @@ export function Card({ card, cardIndex, gridPosition }: CardProps) {
                                             onPress={() => {
                                                 const count = parseInt(duplicateCount);
                                                 if (!isNaN(count) && count > 0) {
-                                                    handleDuplicateCard(card, count);
+                                                    handleDuplicateCard(card, count, cardIndex + 1);
                                                     setDuplicateCount("");
                                                     setIsOptionsOpen(false);
                                                 }
