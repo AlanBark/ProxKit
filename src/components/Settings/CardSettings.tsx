@@ -120,7 +120,7 @@ function CardSettings() {
                 />
             </div>
 
-            <div className="flex gap-4">
+            {/* <div className="flex gap-4">
                 <NumberInput
                     label="Output Bleed"
                     type="number"
@@ -137,7 +137,7 @@ function CardSettings() {
                         <span className="text-default-400 text-xs pointer-events-none shrink-0">mm</span>
                     }
                 />
-            </div>
+            </div> */}
 
 
             <div className="pt-4 border-t border-default-200 flex gap-4">

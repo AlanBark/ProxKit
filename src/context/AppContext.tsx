@@ -854,7 +854,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         try {
             // Convert map + order back to array for PDF generation
             const cardsArray = cardOrder.map(id => cardMap.get(id)).filter((card): card is CardImage => card !== undefined);
-            const pdfUrlResult = await pdfManagerRef.current.generatePDF(cardsArray);
+            const pdfUrlResult = await pdfManagerRef.current.generatePDF(cardsArray, enableCardBacks, defaultCardBackUrl);
             const dxfUrlResult = pdfManagerRef.current.getCachedDxfUrl();
             setPdfUrl(pdfUrlResult);
             setDxfUrl(dxfUrlResult);

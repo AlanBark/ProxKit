@@ -25,6 +25,8 @@ export interface GeneratePDFRequest {
         cardWidth: number;
         cardHeight: number;
         outputBleed: number; // Output bleed margin in mm
+        enableCardBacks: boolean; // Whether to generate card back pages
+        defaultCardBackUrl: string | null; // Default card back image URL
         requestId: string; // Unique ID to match request/response
     };
 }
