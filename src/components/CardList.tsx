@@ -1,7 +1,7 @@
 import { Card } from "./Card";
 import { Pagination, Button } from "@heroui/react";
 import { textStyles } from "../theme/classNames";
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useApp } from "../context/AppContext";
 import { ImageIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import { Box } from "./Box";
@@ -27,9 +27,6 @@ export function CardList() {
     const totalPages = Math.ceil(cardOrder.length / CARDS_PER_PAGE);
 
     const handleWheel = (e: React.WheelEvent) => {
-        // Prevent multiple rapid scrolls
-        if (isScrolling.current) return;
-
         const delta = e.deltaY;
 
         // Threshold to prevent accidental scrolls

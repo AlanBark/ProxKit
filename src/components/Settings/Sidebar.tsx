@@ -24,7 +24,7 @@ export function Sidebar({ className = "" }) {
     } = useApp();
 
     return (
-        <div className={`${className} backdrop-blur-sm border-(--border) p-6 flex flex-col gap-6 grow`}>
+        <div className={`${className} backdrop-blur-sm border-(--border) p-6 flex flex-col gap-6 grow min-w-96`}>
             {/* Actions */}
             <Box>
                 <div className="flex flex-col gap-3">
@@ -38,7 +38,7 @@ export function Sidebar({ className = "" }) {
                         </a>
                     </div>
                     </div>
-                    <div className="grid grid-cols-1 2xl:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-3">
                         <FileUpload
                             onFilesSelected={handleFilesSelected}
                         />
@@ -115,18 +115,20 @@ export function Sidebar({ className = "" }) {
                 </div>
             </Box>
 
-            <Box>
+            <Box className="grow flex flex-col">
                 {/* File Settings */}
                 <FileSettings />
 
                 {/* Card Settings */}
                 <CardSettings />
-            </Box>
 
-            <div className="grow"></div>
-            <p className={`${textStyles.muted} text-xs text-center opacity-60`}>
+                <div className="grow"></div>
+
+                <p className={`${textStyles.muted}  text-xs text-center opacity-60`}>
                 © {new Date().getFullYear()} Alec Parkes
-            </p>
+                </p>
+            </Box>
+            
         </div>
     );
 }

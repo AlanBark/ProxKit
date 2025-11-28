@@ -193,18 +193,19 @@ export function Card({ card, cardIndex, gridPosition }: CardProps) {
                             if (!open && !isMouseOver) {
                                 setIsHovered(false);
                             }
-                        }}>
+                        }}
+                        >
                             <PopoverTrigger>
                                 <Button isIconOnly color="primary">
-                                    <Menu
-                                    />
+                                    <Menu />
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent>
-                                <div className="flex flex-col gap-2 p-2">
+                                <div className="flex flex-col gap-4 p-2">
                                     {/* Main Image Bleed */}
-                                    <div className="flex items-center gap-2">
                                         <Input
+                                            label="Front Bleed"
+                                            labelPlacement="outside"
                                             type="number"
                                             size="sm"
                                             variant="bordered"
@@ -217,8 +218,32 @@ export function Card({ card, cardIndex, gridPosition }: CardProps) {
                                             }}
                                             step="0.1"
                                             min="0"
+                                            endContent={
+                                                <p className="text-sm text-gray-500">mm</p>
+                                            }
+                                            description="Input bleed - This card only"
                                         />
-                                    </div>
+
+                                        <Input
+                                            label="Back Bleed"
+                                            labelPlacement="outside"
+                                            type="number"
+                                            size="sm"
+                                            variant="bordered"
+                                            value={card.bleed.toString()}
+                                            onChange={(e) => {
+                                                const value = parseFloat(e.target.value);
+                                                if (!isNaN(value) && value >= 0) {
+                                                    handleUpdateBleed(card.id, value);
+                                                }
+                                            }}
+                                            step="0.1"
+                                            min="0"
+                                            endContent={
+                                                <p className="text-sm text-gray-500">mm</p>
+                                            }
+                                            description="Input bleed - This card only"
+                                        />
 
                                     {/* Card Back Image File Select */}
                                     <div className="flex items-center gap-2">
@@ -230,7 +255,7 @@ export function Card({ card, cardIndex, gridPosition }: CardProps) {
                                             className="flex-1"
                                         >
                                             <Upload className="w-4 h-4" />
-                                            {card.cardBackUrl ? 'Change' : 'Upload'}
+                                            {card.cardBackUrl ? 'Change Card Back' : 'Upload Card Back'}
                                         </Button>
                                         {card.cardBackUrl && (
                                             <Button
@@ -246,9 +271,9 @@ export function Card({ card, cardIndex, gridPosition }: CardProps) {
                                     </div>
 
                                     {/* Multiple Duplicate */}
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center">
                                         <Input
-                                            placeholder="Count"
+                                            placeholder="Add X Copies"
                                             size="sm"
                                             variant="bordered"
                                             classNames={{ inputWrapper: ["rounded-r-none"] }}
