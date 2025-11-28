@@ -12,10 +12,13 @@ function CardSettings() {
         setCardHeight,
         defaultBleed,
         setDefaultBleed,
+        defaultCardBackBleed,
+        setDefaultCardBackBleed,
         enableCardBacks,
         setEnableCardBacks,
         defaultCardBackUrl,
-        setDefaultCardBackUrl,
+        defaultCardBackThumbnailUrl,
+        handleUpdateDefaultCardBack,
         groupByCardBacks,
         setGroupByCardBacks,
         outputBleed,
@@ -28,8 +31,7 @@ function CardSettings() {
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (file) {
-            const url = URL.createObjectURL(file);
-            setDefaultCardBackUrl(url);
+            handleUpdateDefaultCardBack(file);
             // Reset input
             if (fileInputRef.current) {
                 fileInputRef.current.value = "";
@@ -42,7 +44,7 @@ function CardSettings() {
     };
 
     const handleDeleteCardBack = () => {
-        setDefaultCardBackUrl(null);
+        handleUpdateDefaultCardBack(null);
     };
 
     return (
@@ -84,7 +86,7 @@ function CardSettings() {
             </div>
             <div className="flex gap-4">
                 <NumberInput
-                    label="Input Bleed"
+                    label="Front Input Bleed"
                     type="number"
                     value={defaultBleed}
                     onValueChange={(value) => setDefaultBleed(value)}
@@ -100,6 +102,25 @@ function CardSettings() {
                     }
                 />
 
+                <NumberInput
+                    label="Back Input Bleed"
+                    type="number"
+                    value={defaultCardBackBleed}
+                    onValueChange={(value) => setDefaultCardBackBleed(value)}
+                    min={0}
+                    max={10}
+                    step={0.1}
+                    size="sm"
+                    variant="flat"
+                    radius="sm"
+                    labelPlacement="outside"
+                    endContent={
+                        <span className="text-default-400 text-xs pointer-events-none shrink-0">mm</span>
+                    }
+                />
+            </div>
+
+            <div className="flex gap-4">
                 <NumberInput
                     label="Output Bleed"
                     type="number"
@@ -156,7 +177,7 @@ function CardSettings() {
                         {defaultCardBackUrl ? (
                             <>
                                 <img
-                                    src={defaultCardBackUrl}
+                                    src={defaultCardBackThumbnailUrl || defaultCardBackUrl}
                                     alt="Default card back"
                                     className="w-full h-full object-contain rounded"
                                 />

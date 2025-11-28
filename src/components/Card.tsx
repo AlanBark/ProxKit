@@ -22,7 +22,7 @@ export function Card({ card, cardIndex, gridPosition }: CardProps) {
     const [duplicateCount, setDuplicateCount] = useState("");
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const { handleRemoveCard, handleUpdateBleed, handleDuplicateCard, handleUpdateCardBack, defaultCardBackUrl } = useApp()
+    const { handleRemoveCard, handleUpdateBleed, handleUpdateCardBackBleed, handleDuplicateCard, handleUpdateCardBack, defaultCardBackUrl, defaultCardBackThumbnailUrl } = useApp()
 
     // Return empty div if no card
     if (!card) {
@@ -36,29 +36,37 @@ export function Card({ card, cardIndex, gridPosition }: CardProps) {
         }
     };
 
-    // Determine what to show on the back
-    const cardBackImage = card.cardBackUrl || defaultCardBackUrl;
+    // Determine what to show on the back - use thumbnail if available, otherwise original
+    const cardBackImage = card.cardBackThumbnailUrl || card.cardBackUrl || defaultCardBackThumbnailUrl || defaultCardBackUrl;
 
     return (
-        <div
-            onMouseEnter={() => {
-                setIsHovered(true);
-                setIsMouseOver(true);
-            }}
-            onMouseLeave={() => {
-                setIsMouseOver(false);
-                if (!isOptionsOpen) {
-                    setIsHovered(false);
-                }
-            }}
-            className="relative flex flex-col overflow-hidden justify-center"
-            style={{
-                width: '100%',
-                height: '100%',
-                aspectRatio: cardWidth / cardHeight,
-                perspective: '1000px',
-            }}
-        >
+        <>
+            <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                className="hidden"
+            />
+            <div
+                onMouseEnter={() => {
+                    setIsHovered(true);
+                    setIsMouseOver(true);
+                }}
+                onMouseLeave={() => {
+                    setIsMouseOver(false);
+                    if (!isOptionsOpen) {
+                        setIsHovered(false);
+                    }
+                }}
+                className="relative flex flex-col overflow-hidden justify-center"
+                style={{
+                    width: '100%',
+                    height: '100%',
+                    aspectRatio: cardWidth / cardHeight,
+                    perspective: '1000px',
+                }}
+            >
             {/* Card flip container */}
             <div
                 className="relative w-full h-full transition-transform duration-500"
@@ -108,18 +116,26 @@ export function Card({ card, cardIndex, gridPosition }: CardProps) {
                     }}
                 >
                     {cardBackImage ? (
-                        <img
-                            src={cardBackImage}
-                            alt="Card back"
-                            className="w-full h-full"
-                            loading="eager"
-                            decoding="async"
-                            style={{
-                                objectFit: 'contain',
-                                objectPosition: 'center',
-                                borderRadius: "3mm",
-                            }}
-                        />
+                        <>
+                            <img
+                                src={cardBackImage}
+                                alt="Card back"
+                                className="w-full h-full"
+                                loading="eager"
+                                decoding="async"
+                                style={{
+                                    objectFit: 'contain',
+                                    objectPosition: 'center',
+                                    borderRadius: "3mm",
+                                }}
+                            />
+                            {/* Loading spinner while card back thumbnail is being generated */}
+                            {card.cardBackThumbnailLoading && (
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+                                    <Loader2 className="w-12 h-12 text-white animate-spin" />
+                                </div>
+                            )}
+                        </>
                     ) : (
                         <div className="w-full h-full flex items-center justify-center bg-gray-300" style={{ borderRadius: "3mm" }}>
                             <span className="text-gray-600 text-sm">No card back</span>
@@ -230,11 +246,11 @@ export function Card({ card, cardIndex, gridPosition }: CardProps) {
                                             type="number"
                                             size="sm"
                                             variant="bordered"
-                                            value={card.bleed.toString()}
+                                            value={card.cardBackBleed.toString()}
                                             onChange={(e) => {
                                                 const value = parseFloat(e.target.value);
                                                 if (!isNaN(value) && value >= 0) {
-                                                    handleUpdateBleed(card.id, value);
+                                                    handleUpdateCardBackBleed(card.id, value);
                                                 }
                                             }}
                                             step="0.1"
@@ -246,7 +262,7 @@ export function Card({ card, cardIndex, gridPosition }: CardProps) {
                                         />
 
                                     {/* Card Back Image File Select */}
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center">
                                         <Button
                                             size="sm"
                                             color="primary"
@@ -307,5 +323,6 @@ export function Card({ card, cardIndex, gridPosition }: CardProps) {
                 </div>
             </div>
         </div>
+        </>
     );
 }
