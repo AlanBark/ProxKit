@@ -57,23 +57,26 @@ export function MPCFillProvider({ children }: { children: ReactNode }) {
                 name: card.name
             }));
 
-            // Download front card images with callback for each completed download
-            await downloadMultipleImages(
-                frontFiles,
-                (file, _id, index) => {
-                    onFileDownloaded(file, index);
-                }
-            );
+            // Prepare card back file if present
+            const cardBackFile = order.cardback
+                ? [{ id: order.cardback, name: 'card-back.jpg' }]
+                : [];
 
-            // Download card back if present
-            if (order.cardback) {
-                await downloadMultipleImages(
-                    [{ id: order.cardback, name: 'card-back.jpg' }],
-                    (file) => {
+            const allFiles = [...frontFiles, ...cardBackFile];
+            const frontCount = frontFiles.length;
+
+            await downloadMultipleImages(
+                allFiles,
+                (file, _id, index) => {
+                    if (index < frontCount) {
+                        // front
+                        onFileDownloaded(file, index);
+                    } else {
+                        // back
                         onCardBackDownloaded(file);
                     }
-                );
-            }
+                }
+            );
 
             setIsImporting(false);
 
