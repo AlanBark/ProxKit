@@ -245,9 +245,11 @@ export class PDFManager {
      * - Main thread merges PDFs using pdf-lib
      *
      * @param cards Array of cards (null = blank placeholder)
+     * @param enableCardBacks Whether to generate card back pages
+     * @param defaultCardBackUrl Default card back image URL
      * @returns Promise resolving to blob URL of generated PDF
      */
-    public async generatePDF(cards: (CardImage | null)[]): Promise<string> {
+    public async generatePDF(cards: (CardImage | null)[], enableCardBacks: boolean = false, defaultCardBackUrl: string | null = null): Promise<string> {
         const startTime = performance.now();
         console.log(`[PDFManager] Starting PDF generation for ${cards.length} cards`);
 
@@ -368,6 +370,8 @@ export class PDFManager {
                             cardWidth: this.cardWidth,
                             cardHeight: this.cardHeight,
                             outputBleed: this.outputBleed,
+                            enableCardBacks: enableCardBacks,
+                            defaultCardBackUrl: defaultCardBackUrl,
                             requestId: chunkRequestId,
                         },
                     };
@@ -476,10 +480,10 @@ export class PDFManager {
      * Invalidate cached PDF and DXF (forces regeneration on next request)
      */
     public invalidateCache(): void {
-        if (this.cachedPdfUrl) {
-            URL.revokeObjectURL(this.cachedPdfUrl);
-            this.cachedPdfUrl = null;
+        for (const url of this.cachedPdfUrls) {
+            URL.revokeObjectURL(url);
         }
+        this.cachedPdfUrls = [];
         if (this.cachedDxfUrl) {
             URL.revokeObjectURL(this.cachedDxfUrl);
             this.cachedDxfUrl = null;
@@ -498,7 +502,7 @@ export class PDFManager {
      * Get currently cached PDF URL (if available)
      */
     public getCachedUrl(): string | null {
-        return this.cachedPdfUrl;
+        return this.cachedPdfUrls.length > 0 ? this.cachedPdfUrls[0] : null;
     }
 
     /**
