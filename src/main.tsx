@@ -5,6 +5,7 @@ import App from './App.tsx'
 import { initTheme } from './theme/initTheme'
 
 import {HeroUIProvider} from "@heroui/react";
+import { MPCFillProvider } from './context/MPCFillContext';
 
 // Initialize theme colors
 initTheme()
@@ -12,7 +13,9 @@ initTheme()
 createRoot(document.getElementById('root')!).render(
     <StrictMode>
         <HeroUIProvider>
-            <App />
+            <MPCFillProvider>
+                <App />
+            </MPCFillProvider>
         </HeroUIProvider>
     </StrictMode>,
 )

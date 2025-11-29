@@ -18,20 +18,8 @@ import type { CardImage, PageSettings } from "../types/card";
  *  Merges are done with this worker as well to keep off the main thread + not have to spin a new one up
  */
 
-/**
- * Corner radius for cut file rounded corners (in mm)
- */
-const CUT_CORNER_RADIUS = 2.5;
-
 let currentRequestId: string | null = null;
 let isCancelled = false;
-
-/**
- * Convert millimeters to PDF points (1 point = 1/72 inch)
- */
-function mmToPoints(mm: number): number {
-    return (mm / 25.4) * 72;
-}
 
 /**
  * Calculate grid layout for 4x2 card arrangement

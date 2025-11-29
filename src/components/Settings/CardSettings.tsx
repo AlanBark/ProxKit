@@ -1,5 +1,4 @@
 import { NumberInput, Checkbox, Button } from "@heroui/react";
-import { Box } from "../Box";
 import { useApp } from "../../context/AppContext";
 import { useRef, useState } from "react";
 import { Upload, Trash2 } from "lucide-react";
@@ -23,8 +22,6 @@ function CardSettings() {
         setGroupByCardBacks,
         showAllCardBacks,
         setShowAllCardBacks,
-        outputBleed,
-        setOutputBleed
     } = useApp();
 
     const fileInputRef = useRef<HTMLInputElement>(null);
