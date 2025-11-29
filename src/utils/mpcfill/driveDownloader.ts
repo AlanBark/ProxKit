@@ -6,7 +6,16 @@ function getMpcImageUri(fileId: string): string {
 }
 
 function base64ToBlob(base64String: string, contentType: string): Blob {
-    const byteCharacters = atob(base64String);
+    // Remove data URI prefix if present (e.g., "data:image/jpeg;base64,")
+    let cleanBase64 = base64String;
+    if (cleanBase64.includes(',')) {
+        cleanBase64 = cleanBase64.split(',')[1];
+    }
+
+    // Remove whitespace, newlines, and other non-base64 characters
+    cleanBase64 = cleanBase64.replace(/[^A-Za-z0-9+/=]/g, '');
+
+    const byteCharacters = atob(cleanBase64);
     const byteNumbers = new Array(byteCharacters.length);
 
     for (let i = 0; i < byteCharacters.length; i++) {
@@ -18,10 +27,17 @@ function base64ToBlob(base64String: string, contentType: string): Blob {
 }
 
 function detectMimeType(base64String: string): string {
-    if (base64String.startsWith('/9j/')) return 'image/jpeg';
-    if (base64String.startsWith('iVBORw0KGgo')) return 'image/png';
-    if (base64String.startsWith('UklGR')) return 'image/webp';
-    if (base64String.startsWith('R0lGOD')) return 'image/gif';
+    // Clean the base64 string first to remove data URI prefix and whitespace
+    let cleanBase64 = base64String;
+    if (cleanBase64.includes(',')) {
+        cleanBase64 = cleanBase64.split(',')[1];
+    }
+    cleanBase64 = cleanBase64.replace(/[^A-Za-z0-9+/=]/g, '');
+
+    if (cleanBase64.startsWith('/9j/')) return 'image/jpeg';
+    if (cleanBase64.startsWith('iVBORw0KGgo')) return 'image/png';
+    if (cleanBase64.startsWith('UklGR')) return 'image/webp';
+    if (cleanBase64.startsWith('R0lGOD')) return 'image/gif';
     return 'image/jpeg';
 }
 
