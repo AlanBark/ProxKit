@@ -53,6 +53,8 @@ interface AppState {
     handleUpdateDefaultCardBack: (file: File | null) => Promise<void>;
     setGroupByCardBacks: (group: boolean) => void;
     setShowAllCardBacks: (show: boolean) => void;
+    setCardMap: (map: Map<string, CardImage> | ((prev: Map<string, CardImage>) => Map<string, CardImage>)) => void;
+    setCardOrder: (order: string[] | ((prev: string[]) => string[])) => void;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
@@ -1001,6 +1003,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setGroupByCardBacks,
         setShowAllCardBacks,
         setOutputBleed,
+        setCardMap,
+        setCardOrder,
     };
 
     return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

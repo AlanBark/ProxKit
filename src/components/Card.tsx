@@ -1,5 +1,5 @@
-import { Trash2, Plus, ChevronUp, Loader2, RotateCcw, Upload, ChevronDown, Menu } from "lucide-react";
-import { Button, ButtonGroup, Dropdown, DropdownItem, DropdownMenu, DropdownTrigger, Input, NumberInput, Popover, PopoverContent, PopoverTrigger } from "@heroui/react";
+import { Trash2, Plus, Loader2, RotateCcw, Upload, Menu } from "lucide-react";
+import { Button, ButtonGroup, Input, Popover, PopoverContent, PopoverTrigger } from "@heroui/react";
 import { useState, useRef, useEffect } from "react";
 import type { CardImage } from "../types/card";
 import { useApp } from "../context/AppContext";
@@ -10,7 +10,7 @@ interface CardProps {
     gridPosition: number
 }
 
-export function Card({ card, cardIndex, gridPosition }: CardProps) {
+export function Card({ card, cardIndex }: CardProps) {
 
     const { cardWidth, cardHeight, showAllCardBacks } = useApp();
     const [isHovered, setIsHovered] = useState(false);
@@ -86,25 +86,41 @@ export function Card({ card, cardIndex, gridPosition }: CardProps) {
                         WebkitBackfaceVisibility: 'hidden',
                     }}
                 >
-                    <img
-                        src={card.thumbnailUrl || card.imageUrl}
-                        alt={card.name || `Card ${card.id}`}
-                        className="w-full h-full"
-                        loading="eager"
-                        decoding="async"
-                        style={{
-                            objectFit: 'contain',
-                            objectPosition: 'center',
-                            contentVisibility: 'auto',
-                            imageRendering: 'auto',
-                            borderRadius: "3mm",
-                        }}
-                    />
+                    {card.imageUrl ? (
+                        <>
+                            <img
+                                src={card.thumbnailUrl || card.imageUrl}
+                                alt={card.name || `Card ${card.id}`}
+                                className="w-full h-full"
+                                loading="eager"
+                                decoding="async"
+                                style={{
+                                    objectFit: 'contain',
+                                    objectPosition: 'center',
+                                    contentVisibility: 'auto',
+                                    imageRendering: 'auto',
+                                    borderRadius: "3mm",
+                                }}
+                            />
 
-                    {/* Loading spinner while thumbnail is being generated */}
-                    {card.thumbnailLoading && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-                            <Loader2 className="w-12 h-12 text-white animate-spin" />
+                            {/* Loading spinner while thumbnail is being generated */}
+                            {card.thumbnailLoading && (
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+                                    <Loader2 className="w-12 h-12 text-white animate-spin" />
+                                </div>
+                            )}
+                        </>
+                    ) : (
+                        /* Skeleton loading state for downloading images */
+                        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-200 to-gray-300 animate-pulse">
+                            <div className="flex flex-col items-center gap-2">
+                                <Loader2 className="w-12 h-12 text-gray-500 animate-spin" />
+                                {card.name && (
+                                    <p className="text-xs text-gray-600 text-center px-2 max-w-full overflow-hidden text-ellipsis">
+                                        {card.name}
+                                    </p>
+                                )}
+                            </div>
                         </div>
                     )}
                 </div>

@@ -62,27 +62,51 @@ export async function downloadImageFromDrive(
 
 /**
  * Downloads multiple images from Google Drive with progress tracking
+ * Downloads in parallel with concurrency limit and staggered starts
  */
 export async function downloadMultipleImages(
     fileIds: { id: string; name: string }[],
-    onProgress?: (current: number, total: number, currentFileName: string) => void
+    onFileDownloaded?: (file: File, id: string, index: number) => void
 ): Promise<{ file: File; id: string }[]> {
+    const CONCURRENCY_LIMIT = 20;
+    const STAGGER_DELAY_MS = 50;
+
     const results: { file: File; id: string }[] = [];
-    const total = fileIds.length;
+    const queue = [...fileIds];
+    const activeDownloads = new Set<Promise<void>>();
 
-    for (let i = 0; i < total; i++) {
-        const { id, name } = fileIds[i];
+    const downloadFile = async ({ id, name }: { id: string; name: string }, index: number) => {
+        const file = await downloadImageFromDrive(id, name);
+        results[index] = { file, id };
 
-        if (onProgress) {
-            onProgress(i, total, name);
+        if (onFileDownloaded) {
+            onFileDownloaded(file, id, index);
+        }
+    };
+
+    let currentIndex = 0;
+    while (queue.length > 0 || activeDownloads.size > 0) {
+        // Start new downloads up to concurrency limit
+        while (activeDownloads.size < CONCURRENCY_LIMIT && queue.length > 0) {
+            const fileInfo = queue.shift()!;
+            const index = currentIndex++;
+
+            const downloadPromise = downloadFile(fileInfo, index).finally(() => {
+                activeDownloads.delete(downloadPromise);
+            });
+
+            activeDownloads.add(downloadPromise);
+
+            // Stagger the next download start
+            if (queue.length > 0) {
+                await new Promise(resolve => setTimeout(resolve, STAGGER_DELAY_MS));
+            }
         }
 
-        const file = await downloadImageFromDrive(id, name);
-        results.push({ file, id });
-    }
-
-    if (onProgress) {
-        onProgress(total, total, '');
+        // Wait for at least one download to complete before continuing
+        if (activeDownloads.size > 0) {
+            await Promise.race(activeDownloads);
+        }
     }
 
     return results;

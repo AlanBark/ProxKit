@@ -1,5 +1,4 @@
 import { Select, SelectItem } from "@heroui/react";
-import { Box } from "../Box";
 import { useApp, PAGE_SIZE_OPTIONS } from "../../context/AppContext";
 
 function FileSettings() {

@@ -1,8 +1,5 @@
 import { Sidebar } from "./components/Settings/Sidebar";
 import { AppProvider } from "./context/AppContext";
-import { backgroundStyles, textStyles } from "./theme/classNames";
-
-import githubLogo from './assets/github-mark-white.svg';
 import { CardList } from "./components/CardList";
 
 function App() {

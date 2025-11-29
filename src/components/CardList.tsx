@@ -1,7 +1,7 @@
 import { Card } from "./Card";
 import { Pagination, Button } from "@heroui/react";
 import { textStyles } from "../theme/classNames";
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useApp } from "../context/AppContext";
 import { ImageIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import { Box } from "./Box";

@@ -1,9 +1,10 @@
-import { Download, Trash, Save, ArchiveRestore } from "lucide-react";
+import { Download, Save, ArchiveRestore } from "lucide-react";
 import { FileUpload } from "../FileUpload";
 import { XMLUpload } from "../XMLUpload";
 import { Box } from "../Box";
-import { backgroundStyles, buttonStyles, textStyles } from "../../theme/classNames";
+import { textStyles } from "../../theme/classNames";
 import { useApp } from "../../context/AppContext";
+import { useMPCFill } from "../../context/MPCFillContext";
 import { Button } from '@heroui/react';
 import FileSettings from "./FileSettings";
 import CardSettings from "./CardSettings";
@@ -15,14 +16,19 @@ export function Sidebar({ className = "" }) {
         cardOrder,
         isGenerating,
         generationProgress,
-        pdfUrl,
         dxfUrl,
         handleFilesSelected,
         handleGeneratePDF,
-        handleDownloadPDF,
         handleDownloadDXF,
-        handleRemoveAllCards,
+        cardMap,
     } = useApp();
+
+    const { isImporting } = useMPCFill();
+
+    // Check if any cards are still loading
+    const hasLoadingCards = Array.from(cardMap.values()).some(
+        card => card.thumbnailLoading || !card.imageUrl
+    );
 
     return (
         <div className={`${className} backdrop-blur-sm border-(--border) p-6 flex flex-col gap-6 grow min-w-96`}>
@@ -46,7 +52,7 @@ export function Sidebar({ className = "" }) {
 
                         <Button
                             onPress={handleGeneratePDF}
-                            isDisabled={cardOrder.length === 0 || isGenerating}
+                            isDisabled={cardOrder.length === 0 || isGenerating || isImporting || hasLoadingCards}
                             isLoading={isGenerating}
                             color={cardOrder.length === 0 ? "default" : "success"}
                             variant="ghost"
