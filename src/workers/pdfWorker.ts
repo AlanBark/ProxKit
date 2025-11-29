@@ -78,6 +78,7 @@ function calculateGridLayout(
  * - Total image represents: (63 + 3*2) x (88 + 3*2) = 69mm x 94mm
  * - We crop 2mm (3mm - 1mm) from each side to get a 65mm x 90mm result
  *
+ * @param flipHorizontal If true, flip the image horizontally (for card backs)
  * @returns Object containing the cropped image bytes and actual dimensions in mm
  */
 async function cropImageBleed(
@@ -85,7 +86,8 @@ async function cropImageBleed(
     bleed: number,
     cardWidth: number,
     cardHeight: number,
-    outputBleed: number
+    outputBleed: number,
+    flipHorizontal: boolean = false
 ): Promise<{ imageBytes: Uint8Array; widthMm: number; heightMm: number }> {
     // Fetch the image
     const response = await fetch(imageUrl);
@@ -124,6 +126,12 @@ async function cropImageBleed(
     const ctx = canvas.getContext('2d');
     if (!ctx) {
         throw new Error('Failed to get canvas context');
+    }
+
+    // Apply horizontal flip if needed (for card backs)
+    if (flipHorizontal) {
+        ctx.translate(croppedWidth, 0);
+        ctx.scale(-1, 1);
     }
 
     // Handle both positive crop (remove pixels) and negative crop (add padding)
@@ -183,7 +191,73 @@ interface PlaceImageParams {
         cellWidth: number;
         cellHeight: number;
     };
-    pdfRef: jsPDF
+    pdfRef: jsPDF;
+    flipHorizontal?: boolean;
+}
+
+/**
+ * Places a card back image on the PDF
+ * Uses the card's custom back if available, otherwise uses the default
+ * If no back is available at all, doesn't place anything
+ */
+async function cropAndPlaceCardBack({
+    card,
+    cardWidth,
+    cardHeight,
+    outputBleed,
+    position,
+    gridLayout,
+    pdfRef,
+    defaultCardBackUrl
+}: PlaceImageParams & { defaultCardBackUrl: string | null }): Promise<void> {
+    // Determine which card back to use
+    const cardBackUrl = card.cardBackUrl || defaultCardBackUrl;
+
+    // If no card back exists, don't place anything
+    if (!cardBackUrl) {
+        return;
+    }
+
+    // Get the appropriate bleed value for the back
+    const backBleed = card.cardBackUrl ? card.cardBackBleed : card.cardBackBleed;
+
+    // Crop the card back image (NO flip - only positions are mirrored)
+    const croppedImage = await cropImageBleed(
+        cardBackUrl,
+        backBleed,
+        cardWidth,
+        cardHeight,
+        outputBleed,
+        false // Don't flip individual images - only positions are mirrored on the page
+    );
+
+    // Convert cropped image bytes to data URL for jsPDF
+    const imageBlob = new Blob([croppedImage.imageBytes.buffer as ArrayBuffer], { type: 'image/png' });
+    const imageDataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error('Failed to read image data'));
+        reader.readAsDataURL(imageBlob);
+    });
+
+    // Calculate position in mm
+    const cellX = gridLayout.x + position.col * gridLayout.cellWidth;
+    const cellY = gridLayout.y + position.row * gridLayout.cellHeight;
+
+    // Center the cropped image within its cell
+    const offsetX = cellX + (gridLayout.cellWidth - croppedImage.widthMm) / 2;
+    const offsetY = cellY + (gridLayout.cellHeight - croppedImage.heightMm) / 2;
+
+    // jsPDF uses top-left origin in landscape mode
+    pdfRef.addImage(
+        imageDataUrl,
+        'PNG',
+        offsetX,
+        offsetY,
+        croppedImage.widthMm,
+        croppedImage.heightMm,
+        `card_back_${card.id}`,  // Alias for potential reuse
+    );
 }
 
 /**
@@ -201,7 +275,8 @@ async function cropAndPlaceImage({
     outputBleed,
     position,
     gridLayout,
-    pdfRef
+    pdfRef,
+    flipHorizontal = false
 }: PlaceImageParams): Promise<void> {
 
     // Crop the image to remove bleed
@@ -210,7 +285,8 @@ async function cropAndPlaceImage({
         card.bleed,
         cardWidth,
         cardHeight,
-        outputBleed
+        outputBleed,
+        flipHorizontal
     );
 
     // Convert cropped image bytes to data URL for jsPDF
@@ -256,6 +332,8 @@ async function generateChunk(
     cardWidth: number,
     cardHeight: number,
     outputBleed: number,
+    enableCardBacks: boolean,
+    defaultCardBackUrl: string | null,
     requestId: string
 ): Promise<{ pdfBytes: Uint8Array; totalPages: number }> {
     // Constants
@@ -293,6 +371,7 @@ async function generateChunk(
 
     // Process each page
     let imageCount = 0;
+    let actualPageNum = 0; // Track actual page number including backs
 
     for (let pageNum = 0; pageNum < totalPages; pageNum++) {
 
@@ -302,7 +381,7 @@ async function generateChunk(
         }
 
         // Add a new page for each page after the first
-        if (pageNum > 0) {
+        if (actualPageNum > 0) {
             pdf.addPage([pageSettings.height, pageSettings.width], 'landscape');
         }
 
@@ -325,7 +404,7 @@ async function generateChunk(
         const endIdx = Math.min(startIdx + CARDS_PER_PAGE, cards.length);
         const pageCards = cards.slice(startIdx, endIdx);
 
-        // Place each card on the page
+        // Place each card FRONT on the page
         for (let i = 0; i < pageCards.length; i++) {
             const card = pageCards[i];
 
@@ -336,7 +415,7 @@ async function generateChunk(
             const col = i % COLS;
             const row = Math.floor(i / COLS);
 
-            // Place the card image
+            // Place the card front image
             await cropAndPlaceImage({
                 card,
                 cardWidth,
@@ -362,6 +441,60 @@ async function generateChunk(
                 }
             } satisfies PDFWorkerMessage);
         }
+
+        actualPageNum++;
+
+        // If card backs are enabled, add a back page immediately after this front page
+        if (enableCardBacks) {
+            // Add a new page for the backs
+            pdf.addPage([pageSettings.height, pageSettings.width], 'landscape');
+
+            // Add registration background for back page
+            if (bgDataUrl) {
+                pdf.addImage(
+                    bgDataUrl,
+                    'JPEG',
+                    0,
+                    0,
+                    pageSettings.height,
+                    pageSettings.width,
+                    undefined,
+                    'FAST'
+                );
+            }
+
+            // Place each card BACK on the page
+            // For double-sided printing, we mirror positions horizontally
+            // This way when you flip the paper over, the backs align with the fronts
+            for (let i = 0; i < pageCards.length; i++) {
+                const card = pageCards[i];
+
+                // Skip null cards
+                if (!card) continue;
+
+                // Calculate MIRRORED grid position for proper alignment when page is flipped
+                // Mirror horizontally: column 0 becomes 3, 1 becomes 2, 2 becomes 1, 3 becomes 0
+                // Images themselves are NOT flipped, only their positions
+                const originalCol = i % COLS;
+                const col = (COLS - 1) - originalCol;
+                const row = Math.floor(i / COLS);
+
+                // Place the card back image at mirrored position
+                await cropAndPlaceCardBack({
+                    card,
+                    cardWidth,
+                    cardHeight,
+                    outputBleed,
+                    pageNumber: actualPageNum,
+                    position: { col, row },
+                    gridLayout,
+                    pdfRef: pdf,
+                    defaultCardBackUrl
+                });
+            }
+
+            actualPageNum++;
+        }
     }
 
     // Convert PDF to Uint8Array for transferable ArrayBuffer
@@ -370,7 +503,7 @@ async function generateChunk(
     const pdfBytes = new Uint8Array(pdfArrayBuffer);
 
     return {
-        totalPages,
+        totalPages: actualPageNum, // Return actual page count including backs
         pdfBytes
     };
 }
@@ -383,7 +516,7 @@ self.addEventListener('message', async (event: MessageEvent<PDFWorkerMessage>) =
 
     switch (message.type) {
         case PDFWorkerMessageType.GENERATE_PDF: {
-            const { cards, pageSettings, cardWidth, cardHeight, outputBleed, requestId } = message.payload;
+            const { cards, pageSettings, cardWidth, cardHeight, outputBleed, enableCardBacks, defaultCardBackUrl, requestId } = message.payload;
 
             // Store current request ID and reset cancellation flag
             currentRequestId = requestId;
@@ -397,6 +530,8 @@ self.addEventListener('message', async (event: MessageEvent<PDFWorkerMessage>) =
                     cardWidth,
                     cardHeight,
                     outputBleed,
+                    enableCardBacks,
+                    defaultCardBackUrl,
                     requestId
                 );
 
