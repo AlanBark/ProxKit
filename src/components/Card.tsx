@@ -1,6 +1,6 @@
 import { Trash2, Plus, ChevronUp, Loader2, RotateCcw, Upload, ChevronDown, Menu } from "lucide-react";
 import { Button, ButtonGroup, Dropdown, DropdownItem, DropdownMenu, DropdownTrigger, Input, NumberInput, Popover, PopoverContent, PopoverTrigger } from "@heroui/react";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import type { CardImage } from "../types/card";
 import { useApp } from "../context/AppContext";
 
@@ -10,11 +10,9 @@ interface CardProps {
     gridPosition: number
 }
 
-type MenuState = "NONE" | "HOVER" | "ACTIVE"
-
 export function Card({ card, cardIndex, gridPosition }: CardProps) {
 
-    const { cardWidth, cardHeight } = useApp();
+    const { cardWidth, cardHeight, showAllCardBacks } = useApp();
     const [isHovered, setIsHovered] = useState(false);
     const [isMouseOver, setIsMouseOver] = useState(false);
     const [isFlipped, setIsFlipped] = useState(false);
@@ -22,7 +20,12 @@ export function Card({ card, cardIndex, gridPosition }: CardProps) {
     const [duplicateCount, setDuplicateCount] = useState("");
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const { handleRemoveCard, handleUpdateBleed, handleUpdateCardBackBleed, handleDuplicateCard, handleUpdateCardBack, defaultCardBackUrl, defaultCardBackThumbnailUrl } = useApp()
+    const { handleRemoveCard, handleUpdateBleed, handleUpdateCardBackBleed, handleDuplicateCard, handleUpdateCardBack, defaultCardBackUrl, defaultCardBackThumbnailUrl } = useApp();
+
+    // Flip card when showAllCardBacks is toggled
+    useEffect(() => {
+        setIsFlipped(showAllCardBacks);
+    }, [showAllCardBacks]);
 
     // Return empty div if no card
     if (!card) {

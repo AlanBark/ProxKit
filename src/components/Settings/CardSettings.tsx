@@ -21,6 +21,8 @@ function CardSettings() {
         handleUpdateDefaultCardBack,
         groupByCardBacks,
         setGroupByCardBacks,
+        showAllCardBacks,
+        setShowAllCardBacks,
         outputBleed,
         setOutputBleed
     } = useApp();
@@ -155,6 +157,13 @@ function CardSettings() {
                         size="sm"
                     >
                         Group by Card Backs
+                    </Checkbox>
+                    <Checkbox
+                        isSelected={showAllCardBacks}
+                        onValueChange={setShowAllCardBacks}
+                        size="sm"
+                    >
+                        Show All Card Backs
                     </Checkbox>
                 </div>
                 <div className="flex-1 flex items-center justify-center min-h-[200px]">

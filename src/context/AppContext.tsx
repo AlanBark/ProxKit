@@ -30,6 +30,7 @@ interface AppState {
     defaultCardBackUrl: string | null;
     defaultCardBackThumbnailUrl: string | null;
     groupByCardBacks: boolean;
+    showAllCardBacks: boolean;
 
     // Actions
     handleFilesSelected: (files: File[]) => void;
@@ -51,6 +52,7 @@ interface AppState {
     setEnableCardBacks: (enabled: boolean) => void;
     handleUpdateDefaultCardBack: (file: File | null) => Promise<void>;
     setGroupByCardBacks: (group: boolean) => void;
+    setShowAllCardBacks: (show: boolean) => void;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
@@ -75,6 +77,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const [defaultCardBackUrl, setDefaultCardBackUrl] = useState<string | null>(null);
     const [defaultCardBackThumbnailUrl, setDefaultCardBackThumbnailUrl] = useState<string | null>(null);
     const [groupByCardBacks, setGroupByCardBacks] = useState<boolean>(false);
+    const [showAllCardBacks, setShowAllCardBacks] = useState<boolean>(false);
 
     // Track previous bleed values to detect changes
     const prevDefaultBleedRef = useRef<number>(defaultBleed);
@@ -82,6 +85,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     // Store the original default card back file for thumbnail regeneration
     const defaultCardBackFileRef = useRef<File | null>(null);
+
+    // Track the state when PDF was last generated
+    const lastGeneratedStateRef = useRef<string | null>(null);
 
     // Initialize PDF manager
     useEffect(() => {
@@ -109,6 +115,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             setPdfUrl(null);
             setDxfUrl(null);
             setIsGenerating(false);
+            lastGeneratedStateRef.current = null;
         }
     }, [cardOrder.length]);
 
@@ -360,6 +367,34 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
         regenerateDefaultCardBackThumbnail();
     }, [defaultCardBackBleed, cardWidth, cardHeight]);
+
+    // Reorder cards when groupByCardBacks is toggled
+    useEffect(() => {
+        if (!groupByCardBacks || cardOrder.length === 0) return;
+
+        // Group cards: custom backs first, then default backs
+        const reorderedCards = [...cardOrder].sort((aId, bId) => {
+            const cardA = cardMap.get(aId);
+            const cardB = cardMap.get(bId);
+
+            if (!cardA || !cardB) return 0;
+
+            const aHasCustomBack = cardA.cardBackUrl !== undefined;
+            const bHasCustomBack = cardB.cardBackUrl !== undefined;
+
+            // If both have custom backs or both use default, maintain relative order
+            if (aHasCustomBack === bHasCustomBack) return 0;
+
+            // Custom backs come first
+            return aHasCustomBack ? -1 : 1;
+        });
+
+        // Only update if the order actually changed
+        const orderChanged = reorderedCards.some((id, index) => id !== cardOrder[index]);
+        if (orderChanged) {
+            setCardOrder(reorderedCards);
+        }
+    }, [groupByCardBacks, cardMap, cardOrder]);
 
     const handleAddCards = async (files: File[]) => {
         // Create cards immediately with loading state, don't wait for thumbnails
@@ -844,11 +879,47 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
     };
 
+    // Compute a state fingerprint to detect changes
+    const computeCurrentState = () => {
+        const cardsArray = cardOrder.map(id => cardMap.get(id)).filter((card): card is CardImage => card !== undefined);
+
+        // Create a fingerprint of the current state
+        const stateObj = {
+            cardOrder,
+            cards: cardsArray.map(card => ({
+                id: card.id,
+                imageUrl: card.imageUrl,
+                bleed: card.bleed,
+                cardBackUrl: card.cardBackUrl,
+                cardBackBleed: card.cardBackBleed,
+            })),
+            enableCardBacks,
+            defaultCardBackUrl,
+            cardWidth,
+            cardHeight,
+            outputBleed,
+            pageSize: Array.from(pageSize)[0],
+        };
+
+        return JSON.stringify(stateObj);
+    };
+
     const handleGeneratePDF = async () => {
         if (!pdfManagerRef.current || cardOrder.length === 0 || isGenerating) {
             return;
         }
 
+        // Check if state has changed since last generation
+        const currentState = computeCurrentState();
+        const hasChanges = currentState !== lastGeneratedStateRef.current;
+
+        // If no changes and PDF already exists, just download it
+        if (!hasChanges && pdfUrl) {
+            handleDownloadPDF();
+            return;
+        }
+
+        // State has changed or no PDF exists, regenerate
         setIsGenerating(true);
         setGenerationProgress(0);
         try {
@@ -858,6 +929,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
             const dxfUrlResult = pdfManagerRef.current.getCachedDxfUrl();
             setPdfUrl(pdfUrlResult);
             setDxfUrl(dxfUrlResult);
+
+            // Store the current state as the last generated state
+            lastGeneratedStateRef.current = currentState;
 
             // Auto-download the PDF after generation (PDFManager handles multiple files)
             // Note: Multiple PDFs are auto-downloaded by PDFManager.generatePDF
@@ -906,6 +980,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         defaultCardBackUrl,
         defaultCardBackThumbnailUrl,
         groupByCardBacks,
+        showAllCardBacks,
         handleFilesSelected: handleAddCards,
         handleRemoveCard,
         handleRemoveAllCards,
@@ -924,6 +999,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setEnableCardBacks,
         handleUpdateDefaultCardBack,
         setGroupByCardBacks,
+        setShowAllCardBacks,
         setOutputBleed,
     };
 
