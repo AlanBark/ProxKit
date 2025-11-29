@@ -1,5 +1,6 @@
-import { Download, Trash, Upload, FileDown, Save, ArchiveRestore } from "lucide-react";
+import { Download, Trash, Save, ArchiveRestore } from "lucide-react";
 import { FileUpload } from "../FileUpload";
+import { XMLUpload } from "../XMLUpload";
 import { Box } from "../Box";
 import { backgroundStyles, buttonStyles, textStyles } from "../../theme/classNames";
 import { useApp } from "../../context/AppContext";
@@ -67,16 +68,7 @@ export function Sidebar({ className = "" }) {
                             </span>
                         </Button>
 
-                        <Button
-                            onPress={() => {/* TODO: Implement upload XML */}}
-                            isDisabled={true}
-                            variant="flat"
-                        >
-                            <span className="flex items-center justify-center gap-2">
-                                <Upload className="w-5 h-5" />
-                                Upload MPCFill XML
-                            </span>
-                        </Button>
+                        <XMLUpload />
 
                         <Button
                             onPress={handleDownloadDXF}
