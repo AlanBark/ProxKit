@@ -6,7 +6,6 @@ export default heroui({
     themes: {
         dark: {
             colors: {
-                // Using your existing theme colors as the single source of truth
                 primary: {
                     DEFAULT: colors.primary,
                     foreground: "#ffffff",

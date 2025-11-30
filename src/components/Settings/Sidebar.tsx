@@ -1,4 +1,4 @@
-import { Download, Save, ArchiveRestore } from "lucide-react";
+import { Download } from "lucide-react";
 import { FileUpload } from "../FileUpload";
 import { XMLUpload } from "../XMLUpload";
 import { Box } from "../Box";
@@ -85,28 +85,6 @@ export function Sidebar({ className = "" }) {
                             <span className="flex items-center justify-center gap-2">
                                 <Download className="w-5 h-5" />
                                 Download Cut File
-                            </span>
-                        </Button>
-
-                        <Button
-                            onPress={() => {/* TODO: Implement download XML */}}
-                            isDisabled={cardOrder.length === 0}
-                            variant="flat"
-                        >
-                            <span className="flex items-center justify-center gap-2">
-                                <Save className="w-5 h-5" />
-                                Save Project
-                            </span>
-                        </Button>
-
-                       <Button
-                            onPress={() => {/* TODO: Implement upload my own XML */}}
-                            isDisabled={true}
-                            variant="flat"
-                        >
-                            <span className="flex items-center justify-center gap-2">
-                                <ArchiveRestore className="w-5 h-5" />
-                                Restore Project
                             </span>
                         </Button>
                     </div>
