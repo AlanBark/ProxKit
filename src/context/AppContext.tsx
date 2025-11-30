@@ -934,9 +934,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
             // Store the current state as the last generated state
             lastGeneratedStateRef.current = currentState;
-
-            // Auto-download the PDF after generation (PDFManager handles multiple files)
-            // Note: Multiple PDFs are auto-downloaded by PDFManager.generatePDF
         } catch (error) {
             console.error("Failed to generate PDF:", error);
             setPdfUrl(null);
