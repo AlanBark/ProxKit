@@ -5,6 +5,7 @@ import type { MPCFillOrder } from '../utils/mpcfill/types';
 
 interface MPCFillState {
     isImporting: boolean;
+    importProgress: number;
     error: string | null;
     lastImportedOrder: MPCFillOrder | null;
 
@@ -20,6 +21,7 @@ const MPCFillContext = createContext<MPCFillState | undefined>(undefined);
 
 export function MPCFillProvider({ children }: { children: ReactNode }) {
     const [isImporting, setIsImporting] = useState(false);
+    const [importProgress, setImportProgress] = useState(0);
     const [error, setError] = useState<string | null>(null);
     const [lastImportedOrder, setLastImportedOrder] = useState<MPCFillOrder | null>(null);
 
@@ -29,6 +31,7 @@ export function MPCFillProvider({ children }: { children: ReactNode }) {
         onCardBackDownloaded: (file: File) => void
     ) => {
         setIsImporting(true);
+        setImportProgress(0);
         setError(null);
 
         try {
@@ -64,10 +67,15 @@ export function MPCFillProvider({ children }: { children: ReactNode }) {
 
             const allFiles = [...frontFiles, ...cardBackFile];
             const frontCount = frontFiles.length;
+            const totalFiles = allFiles.length;
 
             await downloadMultipleImages(
                 allFiles,
                 (file, _id, index) => {
+                    // Update progress
+                    const progress = Math.round(((index + 1) / totalFiles) * 100);
+                    setImportProgress(progress);
+
                     if (index < frontCount) {
                         // front
                         onFileDownloaded(file, index);
@@ -79,11 +87,13 @@ export function MPCFillProvider({ children }: { children: ReactNode }) {
             );
 
             setIsImporting(false);
+            setImportProgress(100);
 
         } catch (err) {
             const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
             setError(errorMessage);
             setIsImporting(false);
+            setImportProgress(0);
             console.error('MPCFill import error:', err);
         }
     };
@@ -94,6 +104,7 @@ export function MPCFillProvider({ children }: { children: ReactNode }) {
 
     const value: MPCFillState = {
         isImporting,
+        importProgress,
         error,
         lastImportedOrder,
         handleXMLImport,

@@ -9,7 +9,7 @@ import { createThumbnail } from "../utils/imageUtils";
 
 export function XMLUpload() {
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const { handleXMLImport, isImporting, error, clearError } = useMPCFill();
+    const { handleXMLImport, isImporting, importProgress, error, clearError } = useMPCFill();
     const { handleUpdateDefaultCardBack, setEnableCardBacks, defaultBleed, defaultCardBackBleed, cardWidth, cardHeight, cardMap, cardOrder, setCardMap, setCardOrder } = useApp();
 
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -151,12 +151,23 @@ export function XMLUpload() {
 
             <Button
                 onPress={handleButtonClick}
-                className="w-full"
+                className="w-full relative overflow-hidden"
                 color="secondary"
                 variant="ghost"
                 isDisabled={isImporting}
+                isLoading={isImporting}
             >
-                <span className="flex items-center justify-center gap-2">
+                {/* Loading bar fill */}
+                {isImporting && (
+                    <div
+                        className="absolute inset-0 bg-secondary/30 transition-all duration-300 ease-out"
+                        style={{
+                            width: `${importProgress}%`,
+                            left: 0,
+                        }}
+                    />
+                )}
+                <span className="flex items-center justify-center gap-2 relative z-10">
                     <FileUp className="w-5 h-5" />
                     Import MPCFill XML
                 </span>
