@@ -23,7 +23,7 @@ export const colors = {
     bgDropdown: '#19232d',
 
     // Borders
-    border: 'rgba(34, 181, 201, 0.38)', 
+    border: 'rgba(150, 200, 255, 0.25)', 
     borderHover: 'rgba(6, 182, 212, 0.6)', // Stronger hover
     borderFocus: '#06b6d4',
 
