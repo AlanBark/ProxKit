@@ -218,10 +218,11 @@ function CardSettings() {
                         ) : (
                             /* Upload Icon when no image */
                             <div
-                                className="w-full h-full flex items-center justify-center"
+                                className="w-full h-full flex items-center justify-center flex-col gap-4"
                                 onClick={handleUploadClick}
                             >
                                 <Upload className="w-[20%] h-[20%] text-default-400" />
+                                Upload Card Back
                             </div>
                         )}
                     </div>
