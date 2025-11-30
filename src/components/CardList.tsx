@@ -62,8 +62,8 @@ export function CardList() {
     const aspectRatio = (4 * cardWidth) / (2 * cardHeight);
 
     return (
-        <div className="flex h-full">
-            <div className="my-6 mr-6 flex-1 flex items-center justify-center gap-4">
+        <div className="flex h-auto">
+            <div className="flex-1 flex items-center justify-center gap-4">
                 <Box className="h-full flex flex-col justify-between">
                     <div className="flex-1 flex items-center justify-center ">
                         <Button
@@ -96,8 +96,8 @@ export function CardList() {
                             {cardOrder.length === 0 || !cardOrder ? (
                                 <div className={`flex flex-col items-center justify-center ${textStyles.muted}`}
                                     style={{
-                                        width: `min(90vw, calc((100vh - 12rem) * ${aspectRatio}))`,
-                                        height: `calc(min(90vw, calc((100vh - 12rem) * ${aspectRatio})) / ${aspectRatio})`,
+                                        width: `min((90vw - 6rem), calc((100vh - 12rem) * ${aspectRatio}))`,
+                                        height: `calc(min(90vw - 6rem, calc((100vh - 12rem) * ${aspectRatio})) / ${aspectRatio})`,
                                     }}>
                                     <ImageIcon className="w-24 h-24 mb-4 opacity-30" />
                                     <p className="text-lg">No cards yet</p>

@@ -6,8 +6,8 @@ function App() {
     return (
         <AppProvider>
             <div 
-                className="flex"
-                style={{ height: "98dvh" }}
+                className="flex flex-col-reverse lg:flex-row gap-6 p-6"
+                style={{ minHeight: "98dvh" }}
             >
                 <Sidebar />
                 <CardList />

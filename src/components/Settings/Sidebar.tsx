@@ -31,7 +31,7 @@ export function Sidebar({ className = "" }) {
     );
 
     return (
-        <div className={`${className} backdrop-blur-sm border-(--border) p-6 flex flex-col gap-6 grow min-w-96`}>
+        <div className={`${className} backdrop-blur-sm border-(--border) flex flex-col gap-6 grow min-w-96`}>
             {/* Actions */}
             <Box>
                 <div className="flex flex-col gap-3">

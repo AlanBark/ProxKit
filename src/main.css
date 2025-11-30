@@ -18,16 +18,20 @@
     -moz-osx-font-smoothing: grayscale;
 }
 
-html, body {
+html {
     height: 100%;
     margin: 0;
     padding: 0;
 }
 
 body {
-    background: #000000;  /* fallback for old browsers */
-    background: -webkit-linear-gradient(125deg, #000000, #000000 35%, #114357);
+    background: #114357;  /* fallback for old browsers */
+    background: -webkit-linear-gradient(125deg, #000000, #114357 55%, #8f6976);
     background: linear-gradient(125deg, #000000, #114357 55%, #8f6976);
 
     background-attachment: fixed;
+    min-height: 100%;
+    margin: 0;
+    padding: 0;
+    min-width: fit-content;
 }
