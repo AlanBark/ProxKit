@@ -1,5 +1,4 @@
 import { Select, SelectItem } from "@heroui/react";
-import { Box } from "../Box";
 import { useApp, PAGE_SIZE_OPTIONS } from "../../context/AppContext";
 
 function FileSettings() {
@@ -9,7 +8,7 @@ function FileSettings() {
     } = useApp();
 
     return (
-        <Box>
+        <div className="mb-3">
             <Select
                 label="Page Size"
                 selectedKeys={pageSize}
@@ -29,7 +28,7 @@ function FileSettings() {
                     </SelectItem>
                 ))}
             </Select>
-        </Box>
+        </div>
     );
 }
 

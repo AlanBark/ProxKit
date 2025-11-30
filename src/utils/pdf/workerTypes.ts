@@ -9,6 +9,12 @@ export const PDFWorkerMessageType = {
     GENERATE_PDF_ERROR: "GENERATE_PDF_ERROR",
     GENERATE_PDF_PROGRESS: "GENERATE_PDF_PROGRESS",
     CANCEL_GENERATION: "CANCEL_GENERATION",
+    INIT_PDF: "INIT_PDF",
+    INIT_PDF_SUCCESS: "INIT_PDF_SUCCESS",
+    INIT_PDF_ERROR: "INIT_PDF_ERROR",
+    PLACE_IMAGE: "PLACE_IMAGE",
+    PLACE_IMAGE_SUCCESS: "PLACE_IMAGE_SUCCESS",
+    PLACE_IMAGE_ERROR: "PLACE_IMAGE_ERROR",
 } as const;
 
 /**
@@ -21,6 +27,9 @@ export interface GeneratePDFRequest {
         pageSettings: PageSettings;
         cardWidth: number;
         cardHeight: number;
+        outputBleed: number; // Output bleed margin in mm
+        enableCardBacks: boolean; // Whether to generate card back pages
+        defaultCardBackUrl: string | null; // Default card back image URL
         requestId: string; // Unique ID to match request/response
     };
 }
@@ -80,7 +89,13 @@ export type PDFWorkerMessage =
     | GeneratePDFSuccess
     | GeneratePDFError
     | GeneratePDFProgress
-    | CancelGenerationRequest;
+    | CancelGenerationRequest
+    | InitPDFRequest
+    | InitPDFSuccess
+    | InitPDFError
+    | PlaceImageRequest
+    | PlaceImageSuccess
+    | PlaceImageError;
 
 /**
  * Cached page data for incremental generation
@@ -89,4 +104,90 @@ export interface CachedPageData {
     pageNumber: number;
     pdfBytes: Uint8Array;
     cardIds: string[]; // IDs of cards on this page
+}
+
+// ===== New Worker Function Types =====
+
+/**
+ * Request to initialize a new PDF document with a page and registration background
+ */
+export interface InitPDFRequest {
+    type: typeof PDFWorkerMessageType.INIT_PDF;
+    payload: {
+        pageSettings: PageSettings;
+        pageNumber: number;
+        pdfBytesBase64?: string; // Optional: Base64 encoded existing PDF to add page to
+        requestId: string;
+    };
+}
+
+/**
+ * Success response for PDF initialization
+ */
+export interface InitPDFSuccess {
+    type: typeof PDFWorkerMessageType.INIT_PDF_SUCCESS;
+    payload: {
+        requestId: string;
+        pageNumber: number;
+        pdfBytesBase64: string; // Base64 encoded PDF document bytes with registration background
+    };
+}
+
+/**
+ * Error response for PDF initialization
+ */
+export interface InitPDFError {
+    type: typeof PDFWorkerMessageType.INIT_PDF_ERROR;
+    payload: {
+        error: string;
+        requestId: string;
+    };
+}
+
+/**
+ * Request to place an image on the PDF
+ */
+export interface PlaceImageRequest {
+    type: typeof PDFWorkerMessageType.PLACE_IMAGE;
+    payload: {
+        cardId: string;
+        imageUrl: string;
+        cardWidth: number;
+        cardHeight: number;
+        bleed: number;
+        outputBleed: number;
+        pageNumber: number;
+        position: {
+            col: number;
+            row: number;
+        };
+        pdfBytesBase64: string; // Base64 encoded existing PDF to add image to
+        requestId: string;
+    };
+}
+
+/**
+ * Success response for placing image
+ */
+export interface PlaceImageSuccess {
+    type: typeof PDFWorkerMessageType.PLACE_IMAGE_SUCCESS;
+    payload: {
+        requestId: string;
+        cardId: string;
+        pageNumber: number;
+        pdfBytesBase64: string; // Base64 encoded updated PDF document bytes
+        cutPathDXF: string; // DXF cut path for this card
+    };
+}
+
+/**
+ * Error response for placing image
+ */
+export interface PlaceImageError {
+    type: typeof PDFWorkerMessageType.PLACE_IMAGE_ERROR;
+    payload: {
+        error: string;
+        requestId: string;
+        cardId?: string;
+    };
 }

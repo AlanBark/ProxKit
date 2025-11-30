@@ -4,14 +4,22 @@ export const CARD_DIMENSIONS = {
     height: 88, // 88mm
     // Standard bleed for MPC fills
     standardBleed: 3, // 3mm standard for MPCFill
+    outputBleed: 0.5
 } as const;
 
 export interface CardImage {
     id: string;
     imageUrl: string;
     thumbnailUrl?: string; // Lower-res version for UI display
+    thumbnailLoading?: boolean; // Whether thumbnail is being generated
     name?: string;
-    bleed: number; // bleed amount in millimeters
+    bleed: number; // bleed amount in millimeters for front image
+    useCustomBleed: boolean; // true if user manually set a custom bleed for this card
+    cardBackUrl?: string; // Custom back image for this specific card (original blob URL)
+    cardBackThumbnailUrl?: string; // Lower-res version of card back for UI display
+    cardBackThumbnailLoading?: boolean; // Whether card back thumbnail is being generated
+    cardBackBleed: number; // bleed amount in millimeters for back image
+    useCustomCardBackBleed: boolean; // true if user manually set a custom back bleed for this card
 }
 
 export interface PageSettings {

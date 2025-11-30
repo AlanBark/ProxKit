@@ -1,8 +1,10 @@
-import { Download, Trash, Upload, FileDown, Save, ArchiveRestore } from "lucide-react";
+import { Download, Save, ArchiveRestore } from "lucide-react";
 import { FileUpload } from "../FileUpload";
+import { XMLUpload } from "../XMLUpload";
 import { Box } from "../Box";
-import { backgroundStyles, buttonStyles, textStyles } from "../../theme/classNames";
+import { textStyles } from "../../theme/classNames";
 import { useApp } from "../../context/AppContext";
+import { useMPCFill } from "../../context/MPCFillContext";
 import { Button } from '@heroui/react';
 import FileSettings from "./FileSettings";
 import CardSettings from "./CardSettings";
@@ -13,16 +15,23 @@ export function Sidebar({ className = "" }) {
     const {
         cardOrder,
         isGenerating,
-        pdfUrl,
+        generationProgress,
         dxfUrl,
         handleFilesSelected,
-        handleDownloadPDF,
+        handleGeneratePDF,
         handleDownloadDXF,
-        handleRemoveAllCards,
+        cardMap,
     } = useApp();
 
+    const { isImporting } = useMPCFill();
+
+    // Check if any cards are still loading
+    const hasLoadingCards = Array.from(cardMap.values()).some(
+        card => card.thumbnailLoading || !card.imageUrl
+    );
+
     return (
-        <div className={`${className} backdrop-blur-sm border-(--border) p-6 flex flex-col gap-6 grow`}>
+        <div className={`${className} backdrop-blur-sm border-(--border) p-6 flex flex-col gap-6 grow min-w-96`}>
             {/* Actions */}
             <Box>
                 <div className="flex flex-col gap-3">
@@ -36,40 +45,41 @@ export function Sidebar({ className = "" }) {
                         </a>
                     </div>
                     </div>
-                    <div className="grid grid-cols-1 2xl:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-3">
                         <FileUpload
                             onFilesSelected={handleFilesSelected}
                         />
 
                         <Button
-                            onPress={handleDownloadPDF}
-                            isDisabled={!pdfUrl || isGenerating}
+                            onPress={handleGeneratePDF}
+                            isDisabled={cardOrder.length === 0 || isGenerating || isImporting || hasLoadingCards}
                             isLoading={isGenerating}
-                            color={(!pdfUrl || isGenerating) ? "warning" : "success"}
+                            color={cardOrder.length === 0 ? "default" : "success"}
                             variant="ghost"
+                            className="relative overflow-hidden"
                         >
-                            <span className="flex items-center justify-center gap-2">
+                            {/* Loading bar fill */}
+                            {isGenerating && (
+                                <div
+                                    className="absolute inset-0 bg-success/30 transition-all duration-300 ease-out"
+                                    style={{
+                                        width: `${generationProgress}%`,
+                                        left: 0,
+                                    }}
+                                />
+                            )}
+                            <span className="flex items-center justify-center gap-2 relative z-10">
                                 <Download className="w-5 h-5" />
-                                Download PDF
+                                Generate PDF
                             </span>
                         </Button>
 
-                        <Button
-                            onPress={() => {/* TODO: Implement upload XML */}}
-                            isDisabled={true}
-                            variant="flat"
-                        >
-                            <span className="flex items-center justify-center gap-2">
-                                <Upload className="w-5 h-5" />
-                                Upload MPCFill XML
-                            </span>
-                        </Button>
+                        <XMLUpload />
 
                         <Button
                             onPress={handleDownloadDXF}
-                            isDisabled={!dxfUrl || isGenerating}
-                            isLoading={isGenerating}
-                            color={(!dxfUrl || isGenerating) ? "warning" : "success"}
+                            isDisabled={!dxfUrl}
+                            color={!dxfUrl ? "default" : "success"}
                             variant="ghost"
                         >
                             <span className="flex items-center justify-center gap-2">
@@ -103,16 +113,20 @@ export function Sidebar({ className = "" }) {
                 </div>
             </Box>
 
-            {/* File Settings */}
-            <FileSettings />
+            <Box className="grow flex flex-col">
+                {/* File Settings */}
+                <FileSettings />
 
-            {/* Card Settings */}
-            <CardSettings />
+                {/* Card Settings */}
+                <CardSettings />
 
-            <div className="grow"></div>
-            <p className={`${textStyles.muted} text-xs text-center opacity-60`}>
+                <div className="grow"></div>
+
+                <p className={`${textStyles.muted}  text-xs text-center opacity-60`}>
                 © {new Date().getFullYear()} Alec Parkes
-            </p>
+                </p>
+            </Box>
+            
         </div>
     );
 }

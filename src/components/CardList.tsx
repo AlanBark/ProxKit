@@ -27,9 +27,6 @@ export function CardList() {
     const totalPages = Math.ceil(cardOrder.length / CARDS_PER_PAGE);
 
     const handleWheel = (e: React.WheelEvent) => {
-        // Prevent multiple rapid scrolls
-        if (isScrolling.current) return;
-
         const delta = e.deltaY;
 
         // Threshold to prevent accidental scrolls

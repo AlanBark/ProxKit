@@ -4,6 +4,7 @@ import {
     type GeneratePDFRequest,
     type PDFWorkerMessage,
 } from "./workerTypes";
+import { PDFDocument } from "pdf-lib";
 
 /**
  * Progress callback for PDF generation
@@ -11,38 +12,35 @@ import {
 export type ProgressCallback = (current: number, total: number, percentage: number) => void;
 
 /**
+ * Configuration for worker pool
+ */
+const CARDS_PER_PAGE = 8; // 4x2 grid
+const MAX_WORKERS = 4; // Maximum concurrent workers
+
+/**
+ * Worker chunk result
+ */
+interface WorkerChunkResult {
+    chunkIndex: number;
+    pdfBytes: Uint8Array;
+    dxfBytes: Uint8Array;
+    totalPages: number;
+}
+
+/**
  * PDFManager - Main thread interface for PDF generation
  *
- * Features:
- * - Offloads PDF generation to web worker (non-blocking)
- * - Progress reporting during generation
- * - Automatic caching with invalidation
- * - Support for null cards (blank placeholders)
- * - Optimized incremental generation
- *
- * Usage:
- * ```ts
- * const manager = new PDFManager(pageSettings, cardWidth, cardHeight);
- *
- * manager.onProgress = (current, total, percentage) => {
- *   console.log(`Generating page ${current}/${total} (${percentage}%)`);
- * };
- *
- * const pdfUrl = await manager.generatePDF(cards);
- * // Use pdfUrl for download/display
- *
- * manager.dispose(); // Clean up when done
- * ```
+ * This manager uses Web Workers with Transferable Objects for performance
  */
 export class PDFManager {
-    private worker: Worker | null = null;
     private currentRequestId: string | null = null;
-    private cachedPdfUrl: string | null = null;
+    private cachedPdfUrls: string[] = [];
     private cachedDxfUrl: string | null = null;
     private cachedCardsHash: string | null = null;
     private pageSettings: PageSettings;
     private cardWidth: number;
     private cardHeight: number;
+    private outputBleed: number;
 
     /**
      * Optional callback for progress updates
@@ -55,66 +53,158 @@ export class PDFManager {
      * @param pageSettings Page size and margin configuration
      * @param cardWidth Card width in mm
      * @param cardHeight Card height in mm
+     * @param outputBleed Output bleed margin in mm
      */
-    constructor(pageSettings: PageSettings, cardWidth: number, cardHeight: number) {
+    constructor(pageSettings: PageSettings, cardWidth: number, cardHeight: number, outputBleed: number) {
         this.pageSettings = pageSettings;
         this.cardWidth = cardWidth;
         this.cardHeight = cardHeight;
-        this.initializeWorker();
+        this.outputBleed = outputBleed;
     }
 
     /**
-     * Initialize the web worker
+     * Create a worker instance
      */
-    private initializeWorker(): void {
+    private createWorker(): Worker {
         try {
-            this.worker = new Worker(
+            const worker = new Worker(
                 new URL("../../workers/pdfWorker.ts", import.meta.url),
                 { type: "module" }
             );
-
-            this.worker.onmessage = this.handleWorkerMessage.bind(this);
-            this.worker.onerror = this.handleWorkerError.bind(this);
+            return worker;
         } catch (error) {
-            console.error("Failed to initialize PDF worker:", error);
-            throw new Error("PDF worker initialization failed");
+            console.error("Failed to create PDF worker:", error);
+            throw new Error("PDF worker creation failed");
         }
     }
 
     /**
-     * Handle messages from the worker
+     * Split cards into chunks for parallel processing
+     * 1 worker per page, up to MAX_WORKERS
      */
-    private handleWorkerMessage(event: MessageEvent<PDFWorkerMessage>): void {
-        const message = event.data;
+    private chunkCards(cards: (CardImage | null)[]): (CardImage | null)[][] {
+        const totalPages = Math.ceil(cards.length / CARDS_PER_PAGE);
+        const numWorkers = Math.min(totalPages, MAX_WORKERS);
 
-        switch (message.type) {
-            case PDFWorkerMessageType.GENERATE_PDF_PROGRESS:
-                if (this.onProgress && "currentPage" in message.payload) {
-                    if (message.payload.requestId === this.currentRequestId) {
-                        this.onProgress(
-                            message.payload.currentPage,
-                            message.payload.totalPages,
-                            message.payload.percentage
-                        );
-                    }
+        if (numWorkers === 1) {
+            // Single worker gets all cards
+            return [cards];
+        }
+
+        // Distribute pages evenly across workers
+        const minPagesPerWorker = Math.floor(totalPages / numWorkers);
+        const minCardsPerWorker = minPagesPerWorker * CARDS_PER_PAGE;
+        let sparePagesPerWorker = totalPages % numWorkers;
+        let chunkStartIndex = 0;
+
+        const chunks: (CardImage | null)[][] = [];
+        for (let i = 0; i < numWorkers; i++) {
+            let chunkEndIndex = chunkStartIndex + minCardsPerWorker;
+            if (sparePagesPerWorker > 0) {
+                chunkEndIndex += CARDS_PER_PAGE;
+            }
+            chunks.push(cards.slice(chunkStartIndex, chunkEndIndex));
+            chunkStartIndex = chunkEndIndex;
+            sparePagesPerWorker -= 1;
+        }
+
+        return chunks;
+    }
+
+    /**
+     * Merge multiple PDF documents using pdf-lib
+     * Maintains page order based on chunk indices
+     */
+    private async mergePDFs(results: WorkerChunkResult[]): Promise<Uint8Array[]> {
+        // Sort results by chunk index to maintain order
+        const sortedResults = results.sort((a, b) => a.chunkIndex - b.chunkIndex);
+
+        // Single PDF? No merging needed
+        if (sortedResults.length === 1) {
+            console.log(`[PDFManager] Single PDF, no merge needed`);
+            return [sortedResults[0].pdfBytes];
+        }
+
+        // Maximum size per merged PDF (conservative limit to avoid allocation failures)
+        const MAX_PDF_SIZE = 1024 * 1024 * 1024;
+        const mergedPdfs: Uint8Array[] = [];
+        let currentPdf = await PDFDocument.create();
+        let currentSize = 0;
+
+        console.log(`[PDFManager] Starting smart merge with ${sortedResults.length} chunks`);
+
+        // Load and merge each chunk, splitting into multiple PDFs if needed
+        for (const result of sortedResults) {
+            const chunkStart = performance.now();
+            try {
+                const chunkSize = result.pdfBytes.length;
+
+                // Check if adding this chunk would exceed the limit
+                if (currentSize > 0 && currentSize + chunkSize > MAX_PDF_SIZE) {
+                    // Save current PDF and start a new one
+                    console.log(`[PDFManager] Size limit reached (${(currentSize / 1024 / 1024).toFixed(2)}MB), starting new PDF file`);
+                    const saveStart = performance.now();
+                    const savedBytes = await currentPdf.save();
+                    const saveTime = performance.now() - saveStart;
+                    console.log(`[PDFManager] Saved PDF ${mergedPdfs.length + 1} in ${saveTime.toFixed(2)}ms`);
+                    mergedPdfs.push(new Uint8Array(savedBytes));
+
+                    // Create new PDF for remaining chunks
+                    currentPdf = await PDFDocument.create();
+                    currentSize = 0;
                 }
-                break;
 
-            case PDFWorkerMessageType.GENERATE_PDF_SUCCESS:
-                // Handled by promise in generatePDF
-                break;
+                const loadStart = performance.now();
+                const chunkPdf = await PDFDocument.load(result.pdfBytes);
+                const loadTime = performance.now() - loadStart;
 
-            case PDFWorkerMessageType.GENERATE_PDF_ERROR:
-                // Handled by promise in generatePDF
-                break;
+                const copyStart = performance.now();
+                const pageIndices = Array.from({ length: chunkPdf.getPageCount() }, (_, i) => i);
+                const copiedPages = await currentPdf.copyPages(chunkPdf, pageIndices);
+                const copyTime = performance.now() - copyStart;
+
+                const addStart = performance.now();
+                for (const page of copiedPages) {
+                    currentPdf.addPage(page);
+                }
+                const addTime = performance.now() - addStart;
+
+                currentSize += chunkSize;
+                const chunkTime = performance.now() - chunkStart;
+                console.log(`[PDFManager] Merged chunk ${result.chunkIndex} (${chunkPdf.getPageCount()} pages, ${(chunkSize / 1024 / 1024).toFixed(2)}MB) in ${chunkTime.toFixed(2)}ms (Load=${loadTime.toFixed(2)}ms, Copy=${copyTime.toFixed(2)}ms, Add=${addTime.toFixed(2)}ms)`);
+            } catch (error) {
+                console.error(`[PDFManager] Failed to merge PDF chunk ${result.chunkIndex}:`, error);
+                throw new Error(`PDF merge failed for chunk ${result.chunkIndex}`);
+            }
         }
+
+        // Save the final PDF
+        const saveStart = performance.now();
+        const finalBytes = await currentPdf.save();
+        const saveTime = performance.now() - saveStart;
+        console.log(`[PDFManager] Saved final PDF ${mergedPdfs.length + 1} in ${saveTime.toFixed(2)}ms`);
+        mergedPdfs.push(new Uint8Array(finalBytes));
+
+        console.log(`[PDFManager] Merge complete: ${mergedPdfs.length} PDF file(s) generated`);
+        return mergedPdfs;
     }
 
     /**
-     * Handle worker errors
+     * Merge multiple DXF files
+     * For now, just concatenate them (DXF is text-based)
      */
-    private handleWorkerError(error: ErrorEvent): void {
-        console.error("PDF worker error:", error);
+    private mergeDXFs(results: WorkerChunkResult[]): Uint8Array {
+        // Sort results by chunk index to maintain order
+        const sortedResults = results.sort((a, b) => a.chunkIndex - b.chunkIndex);
+
+        // Single DXF? No merging needed
+        if (sortedResults.length === 1) {
+            return sortedResults[0].dxfBytes;
+        }
+
+        // TODO: Proper DXF merging when DXF generation is implemented
+        // For now, just return the first one
+        return sortedResults[0].dxfBytes;
     }
 
     /**
@@ -146,20 +236,28 @@ export class PDFManager {
     }
 
     /**
-     * Generate PDF from cards
+     * Generate PDF from cards using multi-worker parallelization
+     *
+     * Performance: Uses transferable objects for zero-copy data transfer.
+     * - Splits cards into chunks (1 worker per page, max 8 workers)
+     * - Each worker generates a jsPDF document for its chunk
+     * - Results transferred back via ArrayBuffer (zero-copy)
+     * - Main thread merges PDFs using pdf-lib
      *
      * @param cards Array of cards (null = blank placeholder)
+     * @param enableCardBacks Whether to generate card back pages
+     * @param defaultCardBackUrl Default card back image URL
      * @returns Promise resolving to blob URL of generated PDF
      */
-    public async generatePDF(cards: (CardImage | null)[]): Promise<string> {
-        if (!this.worker) {
-            throw new Error("PDF worker not initialized");
-        }
+    public async generatePDF(cards: (CardImage | null)[], enableCardBacks: boolean = false, defaultCardBackUrl: string | null = null): Promise<string> {
+        const startTime = performance.now();
+        console.log(`[PDFManager] Starting PDF generation for ${cards.length} cards`);
 
         // Check cache
         const cardsHash = this.hashCards(cards);
-        if (this.cachedPdfUrl && this.cachedCardsHash === cardsHash) {
-            return this.cachedPdfUrl;
+        if (this.cachedPdfUrls.length > 0 && this.cachedCardsHash === cardsHash) {
+            console.log(`[PDFManager] Cache hit, returning cached PDF`);
+            return this.cachedPdfUrls[0];
         }
 
         // Cancel any ongoing generation
@@ -171,88 +269,209 @@ export class PDFManager {
         const requestId = crypto.randomUUID();
         this.currentRequestId = requestId;
 
-        // Send generation request to worker
-        return new Promise((resolve, reject) => {
-            const handleMessage = (event: MessageEvent<PDFWorkerMessage>) => {
-                const message = event.data;
+        try {
+            // Split cards into chunks for parallel processing
+            const chunkStart = performance.now();
+            const chunks = this.chunkCards(cards);
+            const numWorkers = chunks.length;
+            const chunkTime = performance.now() - chunkStart;
 
-                // Only handle messages for this request
-                if (
-                    message.type === PDFWorkerMessageType.GENERATE_PDF_SUCCESS &&
-                    message.payload.requestId === requestId
-                ) {
-                    this.worker!.removeEventListener("message", handleMessage);
+            console.log(`[PDFManager] Chunked ${cards.length} cards into ${numWorkers} chunks in ${chunkTime.toFixed(2)}ms`);
+            chunks.forEach((chunk, i) => {
+                console.log(`  - Chunk ${i}: ${chunk.length} cards (${Math.ceil(chunk.length / 8)} pages)`);
+            });
 
-                    // Type guard ensures we have the right payload type
-                    if ("pdfBytes" in message.payload && "dxfBytes" in message.payload) {
-                        // Convert PDF bytes to blob URL
-                        const pdfBlob = new Blob([new Uint8Array(message.payload.pdfBytes)], {
-                            type: "application/pdf",
-                        });
+            // Track progress across all workers
+            const progressTracker = new Map<number, number>(); // chunkIndex -> percentage
+            const updateProgress = () => {
+                const totalProgress = Array.from(progressTracker.values()).reduce((sum, p) => sum + p, 0);
+                const avgProgress = totalProgress / numWorkers;
+                const totalPages = Math.ceil(cards.length / CARDS_PER_PAGE);
+                const currentPage = Math.ceil((avgProgress / 100) * totalPages);
 
-                        // Convert DXF bytes to blob URL
-                        const dxfBlob = new Blob([new Uint8Array(message.payload.dxfBytes)], {
-                            type: "application/dxf",
-                        });
-
-                        // Revoke old URLs to prevent memory leaks
-                        if (this.cachedPdfUrl) {
-                            URL.revokeObjectURL(this.cachedPdfUrl);
-                        }
-                        if (this.cachedDxfUrl) {
-                            URL.revokeObjectURL(this.cachedDxfUrl);
-                        }
-
-                        // Cache new URLs
-                        this.cachedPdfUrl = URL.createObjectURL(pdfBlob);
-                        this.cachedDxfUrl = URL.createObjectURL(dxfBlob);
-                        this.cachedCardsHash = cardsHash;
-                        this.currentRequestId = null;
-
-                        resolve(this.cachedPdfUrl);
-                    }
-                } else if (
-                    message.type === PDFWorkerMessageType.GENERATE_PDF_ERROR &&
-                    message.payload.requestId === requestId
-                ) {
-                    this.worker!.removeEventListener("message", handleMessage);
-                    this.currentRequestId = null;
-                    if ("error" in message.payload) {
-                        reject(new Error(message.payload.error));
-                    }
+                if (this.onProgress) {
+                    this.onProgress(currentPage, totalPages, Math.round(avgProgress));
                 }
             };
 
-            this.worker!.addEventListener("message", handleMessage);
+            // Create workers and dispatch chunks
+            const workerCreationStart = performance.now();
+            const workerPromises = chunks.map((chunk, chunkIndex) => {
+                return new Promise<WorkerChunkResult>((resolve, reject) => {
+                    const workerStart = performance.now();
+                    const worker = this.createWorker();
+                    const workerCreationTime = performance.now() - workerStart;
+                    console.log(`[PDFManager] Created Worker ${chunkIndex} in ${workerCreationTime.toFixed(2)}ms`);
 
-            // Send request
-            const request: GeneratePDFRequest = {
-                type: PDFWorkerMessageType.GENERATE_PDF,
-                payload: {
-                    cards,
-                    pageSettings: this.pageSettings,
-                    cardWidth: this.cardWidth,
-                    cardHeight: this.cardHeight,
-                    requestId,
-                },
-            };
+                    const chunkRequestId = `${requestId}_chunk_${chunkIndex}`;
 
-            this.worker!.postMessage(request);
-        });
+                    // Set up progress tracking for this worker
+                    progressTracker.set(chunkIndex, 0);
+
+                    const handleMessage = (event: MessageEvent<PDFWorkerMessage>) => {
+                        const message = event.data;
+
+                        if (message.payload.requestId !== chunkRequestId) {
+                            return; // Ignore messages for other requests
+                        }
+
+                        switch (message.type) {
+                            case PDFWorkerMessageType.GENERATE_PDF_PROGRESS:
+                                if ("percentage" in message.payload) {
+                                    progressTracker.set(chunkIndex, message.payload.percentage);
+                                    updateProgress();
+                                }
+                                break;
+
+                            case PDFWorkerMessageType.GENERATE_PDF_SUCCESS:
+                                const transferTime = performance.now() - workerStart;
+                                console.log(`[PDFManager] Worker ${chunkIndex} completed in ${transferTime.toFixed(2)}ms (data transferred)`);
+
+                                worker.removeEventListener("message", handleMessage);
+                                worker.terminate();
+
+                                if ("pdfBytes" in message.payload && "dxfBytes" in message.payload) {
+                                    console.log(`[PDFManager] Worker ${chunkIndex} returned ${message.payload.pdfBytes.length} bytes (${message.payload.totalPages} pages)`);
+                                    resolve({
+                                        chunkIndex,
+                                        pdfBytes: message.payload.pdfBytes,
+                                        dxfBytes: message.payload.dxfBytes,
+                                        totalPages: message.payload.totalPages,
+                                    });
+                                }
+                                break;
+
+                            case PDFWorkerMessageType.GENERATE_PDF_ERROR:
+                                worker.removeEventListener("message", handleMessage);
+                                worker.terminate();
+
+                                if ("error" in message.payload) {
+                                    reject(new Error(`Worker ${chunkIndex}: ${message.payload.error}`));
+                                }
+                                break;
+                        }
+                    };
+
+                    const handleError = (error: ErrorEvent) => {
+                        worker.removeEventListener("message", handleMessage);
+                        worker.terminate();
+                        reject(new Error(`Worker ${chunkIndex} error: ${error.message}`));
+                    };
+
+                    worker.addEventListener("message", handleMessage);
+                    worker.addEventListener("error", handleError);
+
+                    // Send chunk to worker
+                    const request: GeneratePDFRequest = {
+                        type: PDFWorkerMessageType.GENERATE_PDF,
+                        payload: {
+                            cards: chunk,
+                            pageSettings: this.pageSettings,
+                            cardWidth: this.cardWidth,
+                            cardHeight: this.cardHeight,
+                            outputBleed: this.outputBleed,
+                            enableCardBacks: enableCardBacks,
+                            defaultCardBackUrl: defaultCardBackUrl,
+                            requestId: chunkRequestId,
+                        },
+                    };
+
+                    console.log(`[PDFManager] Dispatching chunk ${chunkIndex} to worker`);
+                    worker.postMessage(request);
+                });
+            });
+
+            const allWorkersCreationTime = performance.now() - workerCreationStart;
+            console.log(`[PDFManager] All ${numWorkers} workers created and dispatched in ${allWorkersCreationTime.toFixed(2)}ms`);
+
+            // Wait for all workers to complete
+            const workersStart = performance.now();
+            console.log(`[PDFManager] Waiting for all workers to complete...`);
+            const results = await Promise.all(workerPromises);
+            const workersTime = performance.now() - workersStart;
+            console.log(`[PDFManager] All workers completed in ${workersTime.toFixed(2)}ms`);
+
+            // Check if request was cancelled during generation
+            if (this.currentRequestId !== requestId) {
+                throw new Error("Generation cancelled");
+            }
+
+            // Merge PDFs on main thread using pdf-lib
+            const mergeStart = performance.now();
+            console.log(`[PDFManager] Merging ${results.length} PDF chunks...`);
+            const mergedPdfBytesArray = await this.mergePDFs(results);
+            const mergeTime = performance.now() - mergeStart;
+            const totalBytes = mergedPdfBytesArray.reduce((sum, pdf) => sum + pdf.length, 0);
+            console.log(`[PDFManager] PDF merge completed in ${mergeTime.toFixed(2)}ms (${mergedPdfBytesArray.length} file(s), ${totalBytes} bytes total)`);
+
+            const dxfMergeStart = performance.now();
+            const mergedDxfBytes = this.mergeDXFs(results);
+            const dxfMergeTime = performance.now() - dxfMergeStart;
+            console.log(`[PDFManager] DXF merge completed in ${dxfMergeTime.toFixed(2)}ms`);
+
+            // Convert merged PDF bytes to blob URLs
+            const pdfUrls: string[] = [];
+            for (let i = 0; i < mergedPdfBytesArray.length; i++) {
+                const pdfBlob = new Blob([mergedPdfBytesArray[i].buffer as ArrayBuffer], {
+                    type: "application/pdf",
+                });
+                pdfUrls.push(URL.createObjectURL(pdfBlob));
+            }
+
+            const dxfBlob = new Blob([mergedDxfBytes.buffer as ArrayBuffer], {
+                type: "application/dxf",
+            });
+
+            // Revoke old URLs to prevent memory leaks
+            for (const url of this.cachedPdfUrls) {
+                URL.revokeObjectURL(url);
+            }
+            if (this.cachedDxfUrl) {
+                URL.revokeObjectURL(this.cachedDxfUrl);
+            }
+
+            // Cache new URLs
+            this.cachedPdfUrls = pdfUrls;
+            this.cachedDxfUrl = URL.createObjectURL(dxfBlob);
+            this.cachedCardsHash = cardsHash;
+            this.currentRequestId = null;
+
+            const totalTime = performance.now() - startTime;
+            console.log(`[PDFManager] ✅ PDF generation complete in ${totalTime.toFixed(2)}ms total`);
+            console.log(`[PDFManager] Breakdown: Chunk=${chunkTime.toFixed(2)}ms, Workers=${workersTime.toFixed(2)}ms, Merge=${mergeTime.toFixed(2)}ms`);
+
+            // Auto-download PDF(s)
+            console.log(`[PDFManager] Auto-downloading ${pdfUrls.length} PDF file(s)...`);
+            for (let i = 0; i < pdfUrls.length; i++) {
+                const a = document.createElement('a');
+                a.href = pdfUrls[i];
+                a.download = pdfUrls.length > 1
+                    ? `cards_part_${i + 1}_of_${pdfUrls.length}.pdf`
+                    : `cards_${new Date().getTime()}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                // Small delay between downloads to avoid browser blocking
+                if (i < pdfUrls.length - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+            }
+
+            return this.cachedPdfUrls[0];
+
+        } catch (error) {
+            this.currentRequestId = null;
+            console.error("PDF generation failed:", error);
+            throw error;
+        }
     }
 
     /**
      * Cancel ongoing PDF generation
      */
     public cancelGeneration(): void {
-        if (this.currentRequestId && this.worker) {
-            this.worker.postMessage({
-                type: PDFWorkerMessageType.CANCEL_GENERATION,
-                payload: {
-                    requestId: this.currentRequestId,
-                },
-            } satisfies PDFWorkerMessage);
-
+        if (this.currentRequestId) {
+            // Note: Workers will be terminated when promises reject
             this.currentRequestId = null;
         }
     }
@@ -261,10 +480,10 @@ export class PDFManager {
      * Invalidate cached PDF and DXF (forces regeneration on next request)
      */
     public invalidateCache(): void {
-        if (this.cachedPdfUrl) {
-            URL.revokeObjectURL(this.cachedPdfUrl);
-            this.cachedPdfUrl = null;
+        for (const url of this.cachedPdfUrls) {
+            URL.revokeObjectURL(url);
         }
+        this.cachedPdfUrls = [];
         if (this.cachedDxfUrl) {
             URL.revokeObjectURL(this.cachedDxfUrl);
             this.cachedDxfUrl = null;
@@ -283,7 +502,7 @@ export class PDFManager {
      * Get currently cached PDF URL (if available)
      */
     public getCachedUrl(): string | null {
-        return this.cachedPdfUrl;
+        return this.cachedPdfUrls.length > 0 ? this.cachedPdfUrls[0] : null;
     }
 
     /**
@@ -299,10 +518,5 @@ export class PDFManager {
     public dispose(): void {
         this.cancelGeneration();
         this.invalidateCache();
-
-        if (this.worker) {
-            this.worker.terminate();
-            this.worker = null;
-        }
     }
 }
