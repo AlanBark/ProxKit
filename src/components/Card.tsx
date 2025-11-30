@@ -29,7 +29,7 @@ export function Card({ card, cardIndex }: CardProps) {
 
     // Return empty div if no card
     if (!card) {
-        return <div className="relative w-full h-full bg-gray-100" />;
+        return <div className="relative w-full h-full bg-(--bg-input)" />;
     }
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -112,11 +112,11 @@ export function Card({ card, cardIndex }: CardProps) {
                         </>
                     ) : (
                         /* Skeleton loading state for downloading images */
-                        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-200 to-gray-300 animate-pulse">
+                        <div className="absolute inset-0 flex items-center justify-center bg-(--bg-input) animate-pulse">
                             <div className="flex flex-col items-center gap-2">
-                                <Loader2 className="w-12 h-12 text-gray-500 animate-spin" />
+                                <Loader2 className="w-12 h-12 text-(--text-secondary) animate-spin" />
                                 {card.name && (
-                                    <p className="text-xs text-gray-600 text-center px-2 max-w-full overflow-hidden text-ellipsis">
+                                    <p className="text-xs text-(--text-muted) text-center px-2 max-w-full overflow-hidden text-ellipsis">
                                         {card.name}
                                     </p>
                                 )}
@@ -156,8 +156,8 @@ export function Card({ card, cardIndex }: CardProps) {
                             )}
                         </>
                     ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-gray-300" style={{ borderRadius: "3mm" }}>
-                            <span className="text-gray-600 text-sm">No card back</span>
+                        <div className="w-full h-full flex items-center justify-center bg-(--bg-input)" style={{ borderRadius: "3mm" }}>
+                            <span className="text-(--text-muted) text-sm">No card back</span>
                         </div>
                     )}
                 </div>
@@ -203,12 +203,10 @@ export function Card({ card, cardIndex }: CardProps) {
 
                     <div className="flex gap-1 items-center pb-4">
                             <div
-                                className="w-2 h-2 rounded-full transition-colors duration-300"
-                                style={{ backgroundColor: !isFlipped ? '#9333ea' : '#6b7280' }}
+                                className={`w-2 h-2 rounded-full transition-colors duration-300 ${!isFlipped ? 'bg-(--primary)' : 'bg-(--text-muted)'}`}
                             />
                             <div
-                                className="w-2 h-2 rounded-full transition-colors duration-300"
-                                style={{ backgroundColor: isFlipped ? '#9333ea' : '#6b7280' }}
+                                className={`w-2 h-2 rounded-full transition-colors duration-300 ${isFlipped ? 'bg-(--primary)' : 'bg-(--text-muted)'}`}
                             />
                         </div>
 
@@ -254,7 +252,7 @@ export function Card({ card, cardIndex }: CardProps) {
                                             step="0.1"
                                             min="0"
                                             endContent={
-                                                <p className="text-sm text-gray-500">mm</p>
+                                                <p className="text-sm text-(--text-secondary)">mm</p>
                                             }
                                             description="Input bleed - This card only"
                                         />
@@ -275,7 +273,7 @@ export function Card({ card, cardIndex }: CardProps) {
                                             step="0.1"
                                             min="0"
                                             endContent={
-                                                <p className="text-sm text-gray-500">mm</p>
+                                                <p className="text-sm text-(--text-secondary)">mm</p>
                                             }
                                             description="Input bleed - This card only"
                                         />

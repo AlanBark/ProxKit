@@ -4,31 +4,6 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-    /* Theme Colors - ONE per use case */
-    --primary: #ff1100;
-    --primary-hover: #e20000;
-    --danger: #ef4444;
-    --danger-hover: #dc2626;
-    --success: #22c55e;
-    --warning: #eab308;
-
-    --bg-app: #ff00bf;
-    --bg-surface: rgba(130, 230, 0, 0.5);
-    --bg-elevated: rgba(17, 24, 39, 0.5);
-    --bg-input: #1f2937;
-    --bg-hover: rgba(55, 65, 81, 0.5);
-
-    --border: rgba(208, 211, 33, 0.5);
-    --border-hover: rgba(75, 85, 99, 0.5);
-    --border-focus: #2563eb;
-
-    --text-primary: #ffffff;
-    --text-secondary: #9ca3af;
-    --text-muted: #6b7280;
-
-    --overlay-dark: rgba(0, 0, 0, 0.8);
-    --overlay-light: rgba(0, 0, 0, 0.6);
-
     /* Font settings */
     font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
     line-height: 1.5;
@@ -41,4 +16,18 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+}
+
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background: #000000;  /* fallback for old browsers */
+    background: -webkit-linear-gradient(125deg, #000000, #000000 35%, #114357);
+    background: linear-gradient(125deg, #000000, #114357 55%, #8f6976);
+
+    background-attachment: fixed;
 }

@@ -87,28 +87,6 @@ export function Sidebar({ className = "" }) {
                                 Download Cut File
                             </span>
                         </Button>
-
-                        <Button
-                            onPress={() => {/* TODO: Implement download XML */}}
-                            isDisabled={cardOrder.length === 0}
-                            variant="flat"
-                        >
-                            <span className="flex items-center justify-center gap-2">
-                                <Save className="w-5 h-5" />
-                                Save Project
-                            </span>
-                        </Button>
-
-                       <Button
-                            onPress={() => {/* TODO: Implement upload my own XML */}}
-                            isDisabled={true}
-                            variant="flat"
-                        >
-                            <span className="flex items-center justify-center gap-2">
-                                <ArchiveRestore className="w-5 h-5" />
-                                Restore Project
-                            </span>
-                        </Button>
                     </div>
                 </div>
             </Box>
