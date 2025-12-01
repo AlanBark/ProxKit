@@ -1,7 +1,8 @@
 import { NumberInput, Checkbox, Button } from "@heroui/react";
 import { useApp } from "../../context/AppContext";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Upload, Trash2 } from "lucide-react";
+import { createImageUploadAdapter, type ImageUploadAdapter } from "../../adapters";
 
 function CardSettings() {
     const {
@@ -24,22 +25,25 @@ function CardSettings() {
         setShowAllCardBacks,
     } = useApp();
 
-    const fileInputRef = useRef<HTMLInputElement>(null);
+    const adapterRef = useRef<ImageUploadAdapter | null>(null);
     const [isHovered, setIsHovered] = useState(false);
 
-    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (file) {
-            handleUpdateDefaultCardBack(file);
-            // Reset input
-            if (fileInputRef.current) {
-                fileInputRef.current.value = "";
-            }
-        }
-    };
+    // Initialize adapter
+    useEffect(() => {
+        adapterRef.current = createImageUploadAdapter();
+    }, []);
 
-    const handleUploadClick = () => {
-        fileInputRef.current?.click();
+    const handleUploadClick = async () => {
+        if (!adapterRef.current) return;
+
+        try {
+            const files = await adapterRef.current.selectImages(false); // single file
+            if (files.length > 0) {
+                handleUpdateDefaultCardBack(files[0]);
+            }
+        } catch (error) {
+            console.error('Failed to select default card back:', error);
+        }
     };
 
     const handleDeleteCardBack = () => {
@@ -164,13 +168,6 @@ function CardSettings() {
                     </Checkbox>
                 </div>
                 <div className="flex-1 flex items-center justify-center min-h-[200px]">
-                    <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        onChange={handleFileChange}
-                        className="hidden"
-                    />
                     <div
                         className="p-3 relative rounded border-2 border-dashed border-default-300 cursor-pointer hover:border-default-400 transition-colors w-full h-full"
                         onMouseEnter={() => setIsHovered(true)}

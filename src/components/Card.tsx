@@ -3,6 +3,7 @@ import { Button, ButtonGroup, Input, Popover, PopoverContent, PopoverTrigger } f
 import { useState, useRef, useEffect } from "react";
 import type { CardImage } from "../types/card";
 import { useApp } from "../context/AppContext";
+import { createImageUploadAdapter, type ImageUploadAdapter } from "../adapters";
 
 interface CardProps {
     cardIndex: number,
@@ -18,9 +19,14 @@ export function Card({ card, cardIndex }: CardProps) {
     const [isFlipped, setIsFlipped] = useState(false);
     const [isOptionsOpen, setIsOptionsOpen] = useState(false);
     const [duplicateCount, setDuplicateCount] = useState("");
-    const fileInputRef = useRef<HTMLInputElement>(null);
+    const adapterRef = useRef<ImageUploadAdapter | null>(null);
 
     const { handleRemoveCard, handleUpdateBleed, handleUpdateCardBackBleed, handleDuplicateCard, handleUpdateCardBack, defaultCardBackUrl, defaultCardBackThumbnailUrl } = useApp();
+
+    // Initialize adapter
+    useEffect(() => {
+        adapterRef.current = createImageUploadAdapter();
+    }, []);
 
     // Flip card when showAllCardBacks is toggled
     useEffect(() => {
@@ -32,10 +38,16 @@ export function Card({ card, cardIndex }: CardProps) {
         return <div className="relative w-full h-full bg-(--bg-input)" />;
     }
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            handleUpdateCardBack(card.id, file);
+    const handleUploadCardBack = async () => {
+        if (!adapterRef.current) return;
+
+        try {
+            const files = await adapterRef.current.selectImages(false); // single file
+            if (files.length > 0) {
+                handleUpdateCardBack(card.id, files[0]);
+            }
+        } catch (error) {
+            console.error('Failed to select card back image:', error);
         }
     };
 
@@ -44,13 +56,6 @@ export function Card({ card, cardIndex }: CardProps) {
 
     return (
         <>
-            <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleFileChange}
-                className="hidden"
-            />
             <div
                 onMouseEnter={() => {
                     setIsHovered(true);
@@ -284,7 +289,7 @@ export function Card({ card, cardIndex }: CardProps) {
                                             size="sm"
                                             color="primary"
                                             variant="flat"
-                                            onPress={() => fileInputRef.current?.click()}
+                                            onPress={handleUploadCardBack}
                                             className="flex-1"
                                         >
                                             <Upload className="w-4 h-4" />

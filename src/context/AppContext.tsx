@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useRef, useEffect, type ReactNode } from "react";
-import { PDFManager } from "../utils/pdf/PDFManager";
+import { createPDFGenerationAdapter, type PDFGenerationAdapter } from "../adapters";
 import type { CardImage } from "../types/card";
 import { CARD_DIMENSIONS } from "../types/card";
 import type { Selection } from "@heroui/react";
@@ -66,7 +66,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const [dxfUrl, setDxfUrl] = useState<string | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
     const [generationProgress, setGenerationProgress] = useState<number>(0);
-    const pdfManagerRef = useRef<PDFManager | null>(null);
+    const pdfAdapterRef = useRef<PDFGenerationAdapter | null>(null);
 
     // Settings
     const [defaultBleed, setDefaultBleed] = useState<number>(CARD_DIMENSIONS.standardBleed);
@@ -91,25 +91,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // Track the state when PDF was last generated
     const lastGeneratedStateRef = useRef<string | null>(null);
 
-    // Initialize PDF manager
+    // Initialize PDF adapter
     useEffect(() => {
-        const selectedKey = Array.from(pageSize)[0] as string;
-        const selectedPage = PAGE_SIZE_OPTIONS.find(p => p.key === selectedKey);
-        const pageSettings = selectedPage
-            ? { width: selectedPage.width, height: selectedPage.height, margin: 10 }
-            : { width: 210, height: 297, margin: 10 };
-
-        pdfManagerRef.current = new PDFManager(pageSettings, cardWidth, cardHeight, outputBleed);
-
-        // Set up progress callback
-        pdfManagerRef.current.onProgress = (_current, _total, percentage) => {
-            setGenerationProgress(percentage);
-        };
+        pdfAdapterRef.current = createPDFGenerationAdapter();
 
         return () => {
-            pdfManagerRef.current?.dispose();
+            pdfAdapterRef.current?.dispose();
         };
-    }, [pageSize, cardWidth, cardHeight, outputBleed]);
+    }, []);
 
     // Clear PDF/DXF URLs when cards are removed
     useEffect(() => {
@@ -907,7 +896,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
 
     const handleGeneratePDF = async () => {
-        if (!pdfManagerRef.current || cardOrder.length === 0 || isGenerating) {
+        if (!pdfAdapterRef.current || cardOrder.length === 0 || isGenerating) {
             return;
         }
 
@@ -927,8 +916,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
         try {
             // Convert map + order back to array for PDF generation
             const cardsArray = cardOrder.map(id => cardMap.get(id)).filter((card): card is CardImage => card !== undefined);
-            const pdfUrlResult = await pdfManagerRef.current.generatePDF(cardsArray, enableCardBacks, defaultCardBackUrl);
-            const dxfUrlResult = pdfManagerRef.current.getCachedDxfUrl();
+
+            // Get page settings
+            const selectedKey = Array.from(pageSize)[0] as string;
+            const selectedPage = PAGE_SIZE_OPTIONS.find(p => p.key === selectedKey);
+            const pageSettings = selectedPage
+                ? { width: selectedPage.width, height: selectedPage.height, margin: 10 }
+                : { width: 210, height: 297, margin: 10 };
+
+            // Generate PDF using adapter
+            const pdfUrlResult = await pdfAdapterRef.current.generatePDF(
+                cardsArray,
+                {
+                    pageSettings,
+                    cardWidth,
+                    cardHeight,
+                    outputBleed,
+                    enableCardBacks,
+                    defaultCardBackUrl,
+                },
+                (_current, _total, percentage) => {
+                    setGenerationProgress(percentage);
+                }
+            );
+
+            const dxfUrlResult = pdfAdapterRef.current.getCachedUrl();
             setPdfUrl(pdfUrlResult);
             setDxfUrl(dxfUrlResult);
 

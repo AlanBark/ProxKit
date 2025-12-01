@@ -1,6 +1,7 @@
-import { useRef } from "react";
+import { useRef, useEffect } from "react";
 import { Upload } from "lucide-react";
 import { Button } from "@heroui/react";
+import { createImageUploadAdapter, type ImageUploadAdapter } from "../adapters";
 
 interface FileUploadProps {
     onFilesSelected: (files: File[]) => void;
@@ -8,33 +9,28 @@ interface FileUploadProps {
 }
 
 export function FileUpload({ onFilesSelected, multiple = true }: FileUploadProps) {
-    const fileInputRef = useRef<HTMLInputElement>(null);
+    const adapterRef = useRef<ImageUploadAdapter | null>(null);
 
-    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const files = event.target.files;
-        if (files && files.length > 0) {
-            onFilesSelected(Array.from(files));
-            // Reset input to allow selecting the same files again
-            if (fileInputRef.current) {
-                fileInputRef.current.value = "";
+    // Initialize adapter
+    useEffect(() => {
+        adapterRef.current = createImageUploadAdapter();
+    }, []);
+
+    const handleButtonClick = async () => {
+        if (!adapterRef.current) return;
+
+        try {
+            const files = await adapterRef.current.selectImages(multiple);
+            if (files.length > 0) {
+                onFilesSelected(files);
             }
+        } catch (error) {
+            console.error('Failed to select images:', error);
         }
-    };
-
-    const handleButtonClick = () => {
-        fileInputRef.current?.click();
     };
 
     return (
         <div>
-            <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                multiple={multiple}
-                onChange={handleFileChange}
-                className="hidden"
-            />
             <Button
                 onPress={handleButtonClick}
                 className={`w-full`}

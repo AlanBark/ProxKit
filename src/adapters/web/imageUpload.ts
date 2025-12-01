@@ -16,8 +16,13 @@ export class WebImageUploadAdapter implements ImageUploadAdapter {
       input.multiple = multiple;
       input.style.display = "none";
 
+      let isHandled = false;
+
       // Handle file selection
       const handleChange = () => {
+        if (isHandled) return;
+        isHandled = true;
+
         const files = input.files;
         if (files && files.length > 0) {
           resolve(Array.from(files));
@@ -27,16 +32,23 @@ export class WebImageUploadAdapter implements ImageUploadAdapter {
         cleanup();
       };
 
-      // Handle cancellation
+      // Handle cancellation - use a timeout to avoid race condition
       const handleCancel = () => {
-        resolve([]);
-        cleanup();
+        setTimeout(() => {
+          if (!isHandled) {
+            isHandled = true;
+            resolve([]);
+            cleanup();
+          }
+        }, 100);
       };
 
       const cleanup = () => {
         input.removeEventListener("change", handleChange);
         window.removeEventListener("focus", handleCancel);
-        document.body.removeChild(input);
+        if (input.parentNode) {
+          document.body.removeChild(input);
+        }
       };
 
       // Detect when user cancels (window regains focus without file selection)

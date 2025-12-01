@@ -1,6 +1,6 @@
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import { createContext, useContext, useState, useRef, useEffect, type ReactNode } from 'react';
+import { createMPCFillImportAdapter, type MPCFillImportAdapter } from '../adapters';
 import { parseMPCFillXML } from '../utils/mpcfill/xmlParser';
-import { downloadMultipleImages } from '../utils/mpcfill/driveDownloader';
 import type { MPCFillOrder } from '../utils/mpcfill/types';
 
 interface MPCFillState {
@@ -24,12 +24,23 @@ export function MPCFillProvider({ children }: { children: ReactNode }) {
     const [importProgress, setImportProgress] = useState(0);
     const [error, setError] = useState<string | null>(null);
     const [lastImportedOrder, setLastImportedOrder] = useState<MPCFillOrder | null>(null);
+    const adapterRef = useRef<MPCFillImportAdapter | null>(null);
+
+    // Initialize adapter
+    useEffect(() => {
+        adapterRef.current = createMPCFillImportAdapter();
+    }, []);
 
     const handleXMLImport = async (
         file: File,
         onFileDownloaded: (file: File, index: number) => void,
         onCardBackDownloaded: (file: File) => void
     ) => {
+        if (!adapterRef.current) {
+            setError('Adapter not initialized');
+            return;
+        }
+
         setIsImporting(true);
         setImportProgress(0);
         setError(null);
@@ -55,36 +66,32 @@ export function MPCFillProvider({ children }: { children: ReactNode }) {
 
             setLastImportedOrder(order);
 
-            const frontFiles = order.fronts.map(card => ({
-                id: card.id,
-                name: card.name
-            }));
+            // Collect all Drive IDs (fronts + optional card back)
+            const frontIds = order.fronts.map(card => card.id);
+            const cardBackIds = order.cardback ? [order.cardback] : [];
+            const allIds = [...frontIds, ...cardBackIds];
+            const frontCount = frontIds.length;
+            const totalFiles = allIds.length;
 
-            // Prepare card back file if present
-            const cardBackFile = order.cardback
-                ? [{ id: order.cardback, name: 'card-back.jpg' }]
-                : [];
-
-            const allFiles = [...frontFiles, ...cardBackFile];
-            const frontCount = frontFiles.length;
-            const totalFiles = allFiles.length;
-
-            await downloadMultipleImages(
-                allFiles,
-                (file, _id, index) => {
-                    // Update progress
-                    const progress = Math.round(((index + 1) / totalFiles) * 100);
+            // Download images using adapter
+            const downloadedFiles = await adapterRef.current.downloadImages(
+                allIds,
+                (current, _total, _percentage) => {
+                    const progress = Math.round((current / totalFiles) * 100);
                     setImportProgress(progress);
-
-                    if (index < frontCount) {
-                        // front
-                        onFileDownloaded(file, index);
-                    } else {
-                        // back
-                        onCardBackDownloaded(file);
-                    }
                 }
             );
+
+            // Process downloaded files
+            downloadedFiles.forEach((file, index) => {
+                if (index < frontCount) {
+                    // front
+                    onFileDownloaded(file, index);
+                } else {
+                    // back
+                    onCardBackDownloaded(file);
+                }
+            });
 
             setIsImporting(false);
             setImportProgress(100);
