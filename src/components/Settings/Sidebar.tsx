@@ -3,8 +3,10 @@ import { FileUpload } from "../FileUpload";
 import { XMLUpload } from "../XMLUpload";
 import { Box } from "../Box";
 import { textStyles } from "../../theme/classNames";
-import { useApp } from "../../context/AppContext";
-import { useMPCFill } from "../../context/MPCFillContext";
+import { usePrintAndCutStore } from "../../stores/printAndCutStore";
+import { useCardFileHandling } from "../../hooks/useCardFileHandling";
+import { usePDFGeneration } from "../../hooks/usePDFGeneration";
+import { useMPCFillImport } from "../../hooks/useMPCFillImport";
 import { Button } from '@heroui/react';
 import FileSettings from "./FileSettings";
 import CardSettings from "./CardSettings";
@@ -12,18 +14,23 @@ import gitHubLogo from "../../assets/github-mark-white.svg"
 
 export function Sidebar({ className = "" }) {
 
+    // Get card state from store
+    const cardOrder = usePrintAndCutStore((state) => state.cardOrder);
+    const cardMap = usePrintAndCutStore((state) => state.cardMap);
+
+    // Get card file handling hook
+    const { handleFilesSelected } = useCardFileHandling();
+
+    // Get PDF state and actions
     const {
-        cardOrder,
         isGenerating,
         generationProgress,
         dxfUrl,
-        handleFilesSelected,
         handleGeneratePDF,
         handleDownloadDXF,
-        cardMap,
-    } = useApp();
+    } = usePDFGeneration();
 
-    const { isImporting } = useMPCFill();
+    const { isImporting } = useMPCFillImport();
 
     // Check if any cards are still loading
     const hasLoadingCards = Array.from(cardMap.values()).some(
@@ -37,7 +44,7 @@ export function Sidebar({ className = "" }) {
                 <div className="flex flex-col gap-3">
                     <div className={`text-xl flex justify-between`}>
                         <h1 className={`mb-4 font-bold ${textStyles.primary}`}>
-                            Proxy Print and Cut
+                            Print and Cut
                         </h1>
                         <div className="">
                         <a href="https://github.com/AlanBark/proxy-print-and-cut" target="_blank" rel="noopener noreferrer">
@@ -99,10 +106,6 @@ export function Sidebar({ className = "" }) {
                 <CardSettings />
 
                 <div className="grow"></div>
-
-                <p className={`${textStyles.muted}  text-xs text-center opacity-60`}>
-                © {new Date().getFullYear()} Alec Parkes
-                </p>
             </Box>
             
         </div>

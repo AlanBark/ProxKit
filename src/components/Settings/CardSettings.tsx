@@ -1,49 +1,47 @@
 import { NumberInput, Checkbox, Button } from "@heroui/react";
-import { useApp } from "../../context/AppContext";
-import { useRef, useState, useEffect } from "react";
+import { usePrintAndCutStore } from "../../stores/printAndCutStore";
+import { useCardBackManagement } from "../../hooks/useCardBackManagement";
+import { useRef, useState } from "react";
 import { Upload, Trash2 } from "lucide-react";
-import { createImageUploadAdapter, type ImageUploadAdapter } from "../../adapters";
 
 function CardSettings() {
-    const {
-        cardWidth,
-        setCardWidth,
-        cardHeight,
-        setCardHeight,
-        defaultBleed,
-        setDefaultBleed,
-        defaultCardBackBleed,
-        setDefaultCardBackBleed,
-        enableCardBacks,
-        setEnableCardBacks,
-        defaultCardBackUrl,
-        defaultCardBackThumbnailUrl,
-        handleUpdateDefaultCardBack,
-        groupByCardBacks,
-        setGroupByCardBacks,
-        showAllCardBacks,
-        setShowAllCardBacks,
-    } = useApp();
+    // Get settings from Zustand store
+    const cardWidth = usePrintAndCutStore((state) => state.cardWidth);
+    const setCardWidth = usePrintAndCutStore((state) => state.setCardWidth);
+    const cardHeight = usePrintAndCutStore((state) => state.cardHeight);
+    const setCardHeight = usePrintAndCutStore((state) => state.setCardHeight);
+    const defaultBleed = usePrintAndCutStore((state) => state.defaultBleed);
+    const setDefaultBleed = usePrintAndCutStore((state) => state.setDefaultBleed);
+    const defaultCardBackBleed = usePrintAndCutStore((state) => state.defaultCardBackBleed);
+    const setDefaultCardBackBleed = usePrintAndCutStore((state) => state.setDefaultCardBackBleed);
+    const enableCardBacks = usePrintAndCutStore((state) => state.enableCardBacks);
+    const setEnableCardBacks = usePrintAndCutStore((state) => state.setEnableCardBacks);
+    const defaultCardBackUrl = usePrintAndCutStore((state) => state.defaultCardBackUrl);
+    const defaultCardBackThumbnailUrl = usePrintAndCutStore((state) => state.defaultCardBackThumbnailUrl);
+    const groupByCardBacks = usePrintAndCutStore((state) => state.groupByCardBacks);
+    const setGroupByCardBacks = usePrintAndCutStore((state) => state.setGroupByCardBacks);
+    const showAllCardBacks = usePrintAndCutStore((state) => state.showAllCardBacks);
+    const setShowAllCardBacks = usePrintAndCutStore((state) => state.setShowAllCardBacks);
 
-    const adapterRef = useRef<ImageUploadAdapter | null>(null);
+    // Get card back management hook
+    const { handleUpdateDefaultCardBack } = useCardBackManagement();
+
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const [isHovered, setIsHovered] = useState(false);
 
-    // Initialize adapter
-    useEffect(() => {
-        adapterRef.current = createImageUploadAdapter();
-    }, []);
-
-    const handleUploadClick = async () => {
-        if (!adapterRef.current) return;
-
-        try {
-            const files = await adapterRef.current.selectImages(false); // single file
-            if (files.length > 0) {
-                handleUpdateDefaultCardBack(files[0]);
-            }
-        } catch (error) {
-            console.error('Failed to select default card back:', error);
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const files = event.target.files;
+        if (files && files.length > 0) {
+            handleUpdateDefaultCardBack(files[0]);
         }
+        // Reset input
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
+    };
+
+    const handleUploadClick = () => {
+        fileInputRef.current?.click();
     };
 
     const handleDeleteCardBack = () => {
@@ -52,6 +50,13 @@ function CardSettings() {
 
     return (
         <div className="space-y-4">
+            <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                className="hidden"
+            />
             <div className="flex gap-4">
                 <NumberInput
                     label="Width"

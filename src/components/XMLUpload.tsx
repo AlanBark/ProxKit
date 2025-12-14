@@ -1,16 +1,30 @@
 import { useRef } from "react";
 import { FileUp } from "lucide-react";
 import { Button, Card, CardBody } from "@heroui/react";
-import { useMPCFill } from "../context/MPCFillContext";
-import { useApp } from "../context/AppContext";
+import { useMPCFillImport } from "../hooks/useMPCFillImport";
+import { usePrintAndCutStore } from "../stores/printAndCutStore";
+import { useCardBackManagement } from "../hooks/useCardBackManagement";
 import { parseMPCFillXML } from "../utils/mpcfill/xmlParser";
 import type { CardImage } from "../types/card";
-import { createThumbnail } from "../utils/imageUtils";
+import { generateThumbnailAsync } from "../utils/asyncThumbnailGeneration";
 
 export function XMLUpload() {
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const { handleXMLImport, isImporting, importProgress, error, clearError } = useMPCFill();
-    const { handleUpdateDefaultCardBack, setEnableCardBacks, defaultBleed, defaultCardBackBleed, cardWidth, cardHeight, cardMap, cardOrder, setCardMap, setCardOrder } = useApp();
+    const { handleXMLImport, isImporting, importProgress, error, clearError } = useMPCFillImport();
+
+    // Get settings and state from store
+    const defaultBleed = usePrintAndCutStore((state) => state.defaultBleed);
+    const defaultCardBackBleed = usePrintAndCutStore((state) => state.defaultCardBackBleed);
+    const cardWidth = usePrintAndCutStore((state) => state.cardWidth);
+    const cardHeight = usePrintAndCutStore((state) => state.cardHeight);
+    const cardMap = usePrintAndCutStore((state) => state.cardMap);
+    const cardOrder = usePrintAndCutStore((state) => state.cardOrder);
+    const setCardMap = usePrintAndCutStore((state) => state.setCardMap);
+    const setCardOrder = usePrintAndCutStore((state) => state.setCardOrder);
+    const setEnableCardBacks = usePrintAndCutStore((state) => state.setEnableCardBacks);
+
+    // Get card back management hook
+    const { handleUpdateDefaultCardBack } = useCardBackManagement();
 
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -66,35 +80,17 @@ export function XMLUpload() {
 
                 const imageUrl = URL.createObjectURL(downloadedFile);
 
-                // Generate thumbnail
-                const generateThumbnailFn = () => {
-                    return createThumbnail(downloadedFile, 800, 800, 0.85, defaultBleed, cardWidth, cardHeight);
-                };
-
-                const thumbnailPromise = 'requestIdleCallback' in window
-                    ? new Promise<string>((resolve, reject) => {
-                        requestIdleCallback(async () => {
-                            try {
-                                const url = await generateThumbnailFn();
-                                resolve(url);
-                            } catch (error) {
-                                reject(error);
-                            }
-                        });
-                    })
-                    : new Promise<string>((resolve, reject) => {
-                        setTimeout(async () => {
-                            try {
-                                const url = await generateThumbnailFn();
-                                resolve(url);
-                            } catch (error) {
-                                reject(error);
-                            }
-                        }, 0);
-                    });
-
+                // Generate thumbnail asynchronously
                 try {
-                    const thumbnailUrl = await thumbnailPromise;
+                    const thumbnailUrl = await generateThumbnailAsync(
+                        downloadedFile,
+                        800,
+                        800,
+                        0.85,
+                        defaultBleed,
+                        cardWidth,
+                        cardHeight
+                    );
                     setCardMap((prev: Map<string, CardImage>) => {
                         const updated = new Map(prev);
                         const card = updated.get(cardId);

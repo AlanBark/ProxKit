@@ -1,0 +1,161 @@
+import { useState, useRef, useEffect } from "react";
+import { PDFManager } from "../utils/pdf/PDFManager";
+import type { CardImage } from "../types/card";
+import { usePrintAndCutStore, PAGE_SIZE_OPTIONS } from "../stores/printAndCutStore";
+
+/**
+ * Hook for managing PDF and DXF generation from card data.
+ *
+ * Features:
+ * - Generates PDF sheets with card layout
+ * - Generates DXF cut files for cutting machines
+ * - Tracks generation progress
+ * - Detects state changes to avoid redundant generation
+ * - Auto-clears URLs when cards are removed
+ */
+export function usePDFGeneration() {
+    const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+    const [dxfUrl, setDxfUrl] = useState<string | null>(null);
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [generationProgress, setGenerationProgress] = useState<number>(0);
+    const pdfManagerRef = useRef<PDFManager | null>(null);
+
+    // Track the state when PDF was last generated
+    const lastGeneratedStateRef = useRef<string | null>(null);
+
+    // Get card and settings from store
+    const cardMap = usePrintAndCutStore((state) => state.cardMap);
+    const cardOrder = usePrintAndCutStore((state) => state.cardOrder);
+    const pageSize = usePrintAndCutStore((state) => state.pageSize);
+    const cardWidth = usePrintAndCutStore((state) => state.cardWidth);
+    const cardHeight = usePrintAndCutStore((state) => state.cardHeight);
+    const outputBleed = usePrintAndCutStore((state) => state.outputBleed);
+    const enableCardBacks = usePrintAndCutStore((state) => state.enableCardBacks);
+    const defaultCardBackUrl = usePrintAndCutStore((state) => state.defaultCardBackUrl);
+
+    // Initialize PDF manager when settings change
+    useEffect(() => {
+        const selectedKey = Array.from(pageSize)[0] as string;
+        const selectedPage = PAGE_SIZE_OPTIONS.find(p => p.key === selectedKey);
+        const pageSettings = selectedPage
+            ? { width: selectedPage.width, height: selectedPage.height, margin: 10 }
+            : { width: 210, height: 297, margin: 10 };
+
+        pdfManagerRef.current = new PDFManager(
+            pageSettings,
+            cardWidth,
+            cardHeight,
+            outputBleed
+        );
+
+        return () => {
+            pdfManagerRef.current?.dispose();
+        };
+    }, [pageSize, cardWidth, cardHeight, outputBleed]);
+
+    // Clear PDF/DXF URLs when cards are removed
+    useEffect(() => {
+        if (cardOrder.length === 0) {
+            setPdfUrl(null);
+            setDxfUrl(null);
+            setIsGenerating(false);
+            lastGeneratedStateRef.current = null;
+        }
+    }, [cardOrder.length]);
+
+    // Compute a state fingerprint to detect changes
+    const computeCurrentState = () => {
+        const cardsArray = cardOrder.map(id => cardMap.get(id)).filter((card): card is CardImage => card !== undefined);
+
+        const stateObj = {
+            cardOrder,
+            cards: cardsArray.map(card => ({
+                id: card.id,
+                imageUrl: card.imageUrl,
+                bleed: card.bleed,
+                cardBackUrl: card.cardBackUrl,
+                cardBackBleed: card.cardBackBleed,
+            })),
+            enableCardBacks,
+            defaultCardBackUrl,
+            cardWidth,
+            cardHeight,
+            outputBleed,
+            pageSize: Array.from(pageSize)[0],
+        };
+
+        return JSON.stringify(stateObj);
+    };
+
+    const handleGeneratePDF = async () => {
+        if (!pdfManagerRef.current || cardOrder.length === 0 || isGenerating) {
+            return;
+        }
+
+        const currentState = computeCurrentState();
+        const hasChanges = currentState !== lastGeneratedStateRef.current;
+
+        if (!hasChanges && pdfUrl) {
+            handleDownloadPDF();
+            return;
+        }
+
+        setIsGenerating(true);
+        setGenerationProgress(0);
+        try {
+            const cardsArray = cardOrder.map(id => cardMap.get(id)).filter((card): card is CardImage => card !== undefined);
+
+            // Set progress callback
+            pdfManagerRef.current.onProgress = (_current: number, _total: number, percentage: number) => {
+                setGenerationProgress(percentage);
+            };
+
+            const pdfUrlResult = await pdfManagerRef.current.generatePDF(
+                cardsArray,
+                enableCardBacks,
+                defaultCardBackUrl
+            );
+
+            const dxfUrlResult = pdfManagerRef.current.getCachedUrl();
+            setPdfUrl(pdfUrlResult);
+            setDxfUrl(dxfUrlResult);
+
+            lastGeneratedStateRef.current = currentState;
+        } catch (error) {
+            console.error("Failed to generate PDF:", error);
+            setPdfUrl(null);
+            setDxfUrl(null);
+        } finally {
+            setIsGenerating(false);
+            setGenerationProgress(0);
+        }
+    };
+
+    const handleDownloadPDF = () => {
+        if (!pdfUrl) return;
+
+        const link = document.createElement("a");
+        link.href = pdfUrl;
+        link.download = `card-sheet-${new Date().getTime()}.pdf`;
+        link.click();
+    };
+
+    const handleDownloadDXF = () => {
+        if (!dxfUrl) return;
+
+        const link = document.createElement("a");
+        link.href = dxfUrl;
+        link.download = `cut-file-${new Date().getTime()}.dxf`;
+        link.click();
+    };
+
+    return {
+        pdfUrl,
+        dxfUrl,
+        isGenerating,
+        generationProgress,
+        handleGeneratePDF,
+        handleDownloadPDF,
+        handleDownloadDXF,
+    };
+}

@@ -2,7 +2,7 @@ import { Card } from "./Card";
 import { Pagination, Button } from "@heroui/react";
 import { textStyles } from "../theme/classNames";
 import { useState, useMemo, useRef } from "react";
-import { useApp } from "../context/AppContext";
+import { usePrintAndCutStore } from "../stores/printAndCutStore";
 import { ImageIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import { Box } from "./Box";
 import { motion, AnimatePresence } from "framer-motion";
@@ -17,12 +17,11 @@ export function CardList() {
     const [currentPage, setCurrentPage] = useState(1);
     const [direction, setDirection] = useState(0); // -1 for left, 1 for right
     const isScrolling = useRef(false);
-    const {
-        cardMap,
-        cardOrder,
-        cardWidth,
-        cardHeight
-    } = useApp();
+
+    const cardMap = usePrintAndCutStore((state) => state.cardMap);
+    const cardOrder = usePrintAndCutStore((state) => state.cardOrder);
+    const cardWidth = usePrintAndCutStore((state) => state.cardWidth);
+    const cardHeight = usePrintAndCutStore((state) => state.cardHeight);
 
     const totalPages = Math.ceil(cardOrder.length / CARDS_PER_PAGE);
 

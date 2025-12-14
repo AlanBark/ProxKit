@@ -1,9 +1,11 @@
 import { Trash2, Plus, Loader2, RotateCcw, Upload, Menu } from "lucide-react";
 import { Button, ButtonGroup, Input, Popover, PopoverContent, PopoverTrigger } from "@heroui/react";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import type { CardImage } from "../types/card";
-import { useApp } from "../context/AppContext";
-import { createImageUploadAdapter, type ImageUploadAdapter } from "../adapters";
+import { usePrintAndCutStore } from "../stores/printAndCutStore";
+import { useCardBleedUpdates } from "../hooks/useCardBleedUpdates";
+import { useCardBackManagement } from "../hooks/useCardBackManagement";
+import { removeCard, duplicateCard } from "../utils/cardOperations";
 
 interface CardProps {
     cardIndex: number,
@@ -13,20 +15,39 @@ interface CardProps {
 
 export function Card({ card, cardIndex }: CardProps) {
 
-    const { cardWidth, cardHeight, showAllCardBacks } = useApp();
+    // Get settings from store
+    const cardWidth = usePrintAndCutStore((state) => state.cardWidth);
+    const cardHeight = usePrintAndCutStore((state) => state.cardHeight);
+    const showAllCardBacks = usePrintAndCutStore((state) => state.showAllCardBacks);
+    const defaultCardBackUrl = usePrintAndCutStore((state) => state.defaultCardBackUrl);
+    const defaultCardBackThumbnailUrl = usePrintAndCutStore((state) => state.defaultCardBackThumbnailUrl);
+    const cardMap = usePrintAndCutStore((state) => state.cardMap);
+    const cardOrder = usePrintAndCutStore((state) => state.cardOrder);
+    const setCardMap = usePrintAndCutStore((state) => state.setCardMap);
+    const setCardOrder = usePrintAndCutStore((state) => state.setCardOrder);
+
+    // Get hooks for card operations
+    const { handleUpdateBleed, handleUpdateCardBackBleed } = useCardBleedUpdates();
+    const { handleUpdateCardBack } = useCardBackManagement();
+
     const [isHovered, setIsHovered] = useState(false);
     const [isMouseOver, setIsMouseOver] = useState(false);
     const [isFlipped, setIsFlipped] = useState(false);
     const [isOptionsOpen, setIsOptionsOpen] = useState(false);
     const [duplicateCount, setDuplicateCount] = useState("");
-    const adapterRef = useRef<ImageUploadAdapter | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const { handleRemoveCard, handleUpdateBleed, handleUpdateCardBackBleed, handleDuplicateCard, handleUpdateCardBack, defaultCardBackUrl, defaultCardBackThumbnailUrl } = useApp();
+    // Create handlers using the utility functions
+    const handleRemoveCard = useCallback((cardIndex: number) => {
+        const { cardMap: newCardMap, cardOrder: newCardOrder } = removeCard(cardIndex, cardMap, cardOrder);
+        setCardMap(newCardMap);
+        setCardOrder(newCardOrder);
+    }, [cardMap, cardOrder, setCardMap, setCardOrder]);
 
-    // Initialize adapter
-    useEffect(() => {
-        adapterRef.current = createImageUploadAdapter();
-    }, []);
+    const handleDuplicateCard = useCallback((card: CardImage, count: number = 1, insertAtIndex?: number) => {
+        const newCardOrder = duplicateCard(card.id, count, cardOrder, insertAtIndex);
+        setCardOrder(newCardOrder);
+    }, [cardOrder, setCardOrder]);
 
     // Flip card when showAllCardBacks is toggled
     useEffect(() => {
@@ -38,17 +59,19 @@ export function Card({ card, cardIndex }: CardProps) {
         return <div className="relative w-full h-full bg-(--bg-input)" />;
     }
 
-    const handleUploadCardBack = async () => {
-        if (!adapterRef.current) return;
-
-        try {
-            const files = await adapterRef.current.selectImages(false); // single file
-            if (files.length > 0) {
-                handleUpdateCardBack(card.id, files[0]);
-            }
-        } catch (error) {
-            console.error('Failed to select card back image:', error);
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const files = event.target.files;
+        if (files && files.length > 0) {
+            handleUpdateCardBack(card.id, files[0]);
         }
+        // Reset input
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
+    };
+
+    const handleUploadCardBack = () => {
+        fileInputRef.current?.click();
     };
 
     // Determine what to show on the back - use thumbnail if available, otherwise original
@@ -56,6 +79,13 @@ export function Card({ card, cardIndex }: CardProps) {
 
     return (
         <>
+            <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                className="hidden"
+            />
             <div
                 onMouseEnter={() => {
                     setIsHovered(true);

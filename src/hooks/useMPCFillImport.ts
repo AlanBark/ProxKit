@@ -1,46 +1,29 @@
-import { createContext, useContext, useState, useRef, useEffect, type ReactNode } from 'react';
-import { createMPCFillImportAdapter, type MPCFillImportAdapter } from '../adapters';
+import { useState } from 'react';
 import { parseMPCFillXML } from '../utils/mpcfill/xmlParser';
+import { downloadMultipleImages } from '../utils/mpcfill/driveDownloader';
 import type { MPCFillOrder } from '../utils/mpcfill/types';
 
-interface MPCFillState {
-    isImporting: boolean;
-    importProgress: number;
-    error: string | null;
-    lastImportedOrder: MPCFillOrder | null;
-
-    handleXMLImport: (
-        file: File,
-        onFileDownloaded: (file: File, index: number) => void,
-        onCardBackDownloaded: (file: File) => void
-    ) => Promise<void>;
-    clearError: () => void;
-}
-
-const MPCFillContext = createContext<MPCFillState | undefined>(undefined);
-
-export function MPCFillProvider({ children }: { children: ReactNode }) {
+/**
+ * Hook for importing card orders from MPCFill XML files.
+ *
+ * Features:
+ * - Parses MPCFill XML format
+ * - Downloads card images from Google Drive
+ * - Tracks import progress
+ * - Handles errors gracefully
+ * - Provides callbacks for processed files
+ */
+export function useMPCFillImport() {
     const [isImporting, setIsImporting] = useState(false);
     const [importProgress, setImportProgress] = useState(0);
     const [error, setError] = useState<string | null>(null);
     const [lastImportedOrder, setLastImportedOrder] = useState<MPCFillOrder | null>(null);
-    const adapterRef = useRef<MPCFillImportAdapter | null>(null);
-
-    // Initialize adapter
-    useEffect(() => {
-        adapterRef.current = createMPCFillImportAdapter();
-    }, []);
 
     const handleXMLImport = async (
         file: File,
         onFileDownloaded: (file: File, index: number) => void,
         onCardBackDownloaded: (file: File) => void
     ) => {
-        if (!adapterRef.current) {
-            setError('Adapter not initialized');
-            return;
-        }
-
         setIsImporting(true);
         setImportProgress(0);
         setError(null);
@@ -69,29 +52,35 @@ export function MPCFillProvider({ children }: { children: ReactNode }) {
             // Collect all Drive IDs (fronts + optional card back)
             const frontIds = order.fronts.map(card => card.id);
             const cardBackIds = order.cardback ? [order.cardback] : [];
-            const allIds = [...frontIds, ...cardBackIds];
             const frontCount = frontIds.length;
-            const totalFiles = allIds.length;
 
-            // Download images using adapter
-            const downloadedFiles = await adapterRef.current.downloadImages(
-                allIds,
-                (current, _total, _percentage) => {
-                    const progress = Math.round((current / totalFiles) * 100);
+            // Prepare file info for download
+            const allFileInfos = [
+                ...frontIds.map((id, index) => ({ id, name: `card_front_${index + 1}.jpg` })),
+                ...cardBackIds.map(id => ({ id, name: 'card_back.jpg' }))
+            ];
+
+            let completedCount = 0;
+            const totalFiles = allFileInfos.length;
+
+            // Download images with per-file callback
+            await downloadMultipleImages(
+                allFileInfos,
+                (file, _id, index) => {
+                    completedCount++;
+                    const progress = Math.round((completedCount / totalFiles) * 100);
                     setImportProgress(progress);
+
+                    // Call appropriate callback as each file downloads
+                    if (index < frontCount) {
+                        // front card
+                        onFileDownloaded(file, index);
+                    } else {
+                        // back card
+                        onCardBackDownloaded(file);
+                    }
                 }
             );
-
-            // Process downloaded files
-            downloadedFiles.forEach((file, index) => {
-                if (index < frontCount) {
-                    // front
-                    onFileDownloaded(file, index);
-                } else {
-                    // back
-                    onCardBackDownloaded(file);
-                }
-            });
 
             setIsImporting(false);
             setImportProgress(100);
@@ -109,7 +98,7 @@ export function MPCFillProvider({ children }: { children: ReactNode }) {
         setError(null);
     };
 
-    const value: MPCFillState = {
+    return {
         isImporting,
         importProgress,
         error,
@@ -117,18 +106,4 @@ export function MPCFillProvider({ children }: { children: ReactNode }) {
         handleXMLImport,
         clearError
     };
-
-    return (
-        <MPCFillContext.Provider value={value}>
-            {children}
-        </MPCFillContext.Provider>
-    );
-}
-
-export function useMPCFill() {
-    const context = useContext(MPCFillContext);
-    if (context === undefined) {
-        throw new Error('useMPCFill must be used within an MPCFillProvider');
-    }
-    return context;
 }
