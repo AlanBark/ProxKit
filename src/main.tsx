@@ -9,6 +9,13 @@ import { BrowserRouter } from "react-router";
 // Initialize theme colors
 initTheme()
 
+// Appeasing typescript
+declare global {
+    interface Window {
+        __TAURI_INTERNALS__ : Record<string, unknown>;
+    }
+}
+
 createRoot(document.getElementById('root')!).render(
     <StrictMode>
         <BrowserRouter>

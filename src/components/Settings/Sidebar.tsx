@@ -1,4 +1,4 @@
-import { Download } from "lucide-react";
+import { Download, ChevronRight } from "lucide-react";
 import { FileUpload } from "../FileUpload";
 import { XMLUpload } from "../XMLUpload";
 import { Box } from "../Box";
@@ -11,8 +11,10 @@ import { Button } from '@heroui/react';
 import FileSettings from "./FileSettings";
 import CardSettings from "./CardSettings";
 import gitHubLogo from "../../assets/github-mark-white.svg"
+import { useNavigate } from "react-router"
 
 export function Sidebar({ className = "" }) {
+    const navigate = useNavigate();
 
     // Get card state from store
     const cardOrder = usePrintAndCutStore((state) => state.cardOrder);
@@ -42,10 +44,20 @@ export function Sidebar({ className = "" }) {
             {/* Actions */}
             <Box>
                 <div className="flex flex-col gap-3">
-                    <div className={`text-xl flex justify-between`}>
-                        <h1 className={`mb-4 font-bold ${textStyles.primary}`}>
-                            Print and Cut
-                        </h1>
+                    <div className={`flex justify-between items-center mb-4`}>
+                        {/* Breadcrumb */}
+                        <div className="flex items-center gap-2 text-lg">
+                            <button
+                                onClick={() => navigate('/')}
+                                className="hover:opacity-70 transition cursor-pointer"
+                            >
+                                <span className={textStyles.primary}>ProxKit</span>
+                            </button>
+                            <ChevronRight className="w-4 h-4 opacity-50" />
+                            <h1 className={`font-bold ${textStyles.primary}`}>
+                                Print and Cut
+                            </h1>
+                        </div>
                         <div className="">
                         <a href="https://github.com/AlanBark/proxy-print-and-cut" target="_blank" rel="noopener noreferrer">
                             <img src={gitHubLogo} alt="GitHub" className="w-6 h-6 opacity-50 hover:opacity-100 transition" />

@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from "react";
 import { PDFManager } from "../utils/pdf/PDFManager";
 import type { CardImage } from "../types/card";
 import { usePrintAndCutStore, PAGE_SIZE_OPTIONS } from "../stores/printAndCutStore";
+import { save } from '@tauri-apps/plugin-dialog';
+import { invoke } from '@tauri-apps/api/core';
 
 /**
  * Hook for managing PDF and DXF generation from card data.
@@ -103,24 +105,54 @@ export function usePDFGeneration() {
         setIsGenerating(true);
         setGenerationProgress(0);
         try {
-            const cardsArray = cardOrder.map(id => cardMap.get(id)).filter((card): card is CardImage => card !== undefined);
+            if (window.__TAURI_INTERNALS__) {
+                // Tauri: User Dialogue for file selection
+                // Then dispatch to rust for gen and file save
 
-            // Set progress callback
-            pdfManagerRef.current.onProgress = (_current: number, _total: number, percentage: number) => {
-                setGenerationProgress(percentage);
-            };
+                // Get save path
+                const path = await save({
+                    title: 'Save Cards',
+                    defaultPath: `cards-${new Date().getTime()}.pdf`,
+                    filters: [
+                        {
+                            name: 'PDF',
+                            extensions: ['pdf'],
+                        },
+                    ],
+                });
+                
+                // path is null if user cancels dialogue
+                if (path !== null)
+                {
+                    const result = await invoke<string>('generate_pdf', {
+                        filePath: path
+                    });
+                    console.log('PDF generated:', result);
+                    lastGeneratedStateRef.current = currentState;
+                }
 
-            const pdfUrlResult = await pdfManagerRef.current.generatePDF(
-                cardsArray,
-                enableCardBacks,
-                defaultCardBackUrl
-            );
+            } else {
+                // Web: Generate and auto-download PDF
+                // The audo download happens within the pdfManager
+                const cardsArray = cardOrder.map(id => cardMap.get(id)).filter((card): card is CardImage => card !== undefined);
 
-            const dxfUrlResult = pdfManagerRef.current.getCachedUrl();
-            setPdfUrl(pdfUrlResult);
-            setDxfUrl(dxfUrlResult);
+                // Set progress callback
+                pdfManagerRef.current.onProgress = (_current: number, _total: number, percentage: number) => {
+                    setGenerationProgress(percentage);
+                };
 
-            lastGeneratedStateRef.current = currentState;
+                const pdfUrlResult = await pdfManagerRef.current.generatePDF(
+                    cardsArray,
+                    enableCardBacks,
+                    defaultCardBackUrl
+                );
+
+                const dxfUrlResult = pdfManagerRef.current.getCachedUrl();
+                setPdfUrl(pdfUrlResult);
+                setDxfUrl(dxfUrlResult);
+
+                lastGeneratedStateRef.current = currentState;
+            }
         } catch (error) {
             console.error("Failed to generate PDF:", error);
             setPdfUrl(null);
