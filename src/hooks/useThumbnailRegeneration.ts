@@ -35,6 +35,8 @@ export function useThumbnailRegeneration() {
         prevDefaultBleedRef.current = defaultBleed;
 
         cardsToUpdate.forEach(async (card) => {
+            if (!card) return;
+
             try {
                 setCardMap((prev) => {
                     const newMap = new Map(prev);
@@ -107,7 +109,7 @@ export function useThumbnailRegeneration() {
         prevDefaultCardBackBleedRef.current = defaultCardBackBleed;
 
         cardsToUpdate.forEach(async (card) => {
-            if (!card.cardBackUrl) return;
+            if (!card || !card.cardBackUrl) return;
 
             try {
                 setCardMap((prev) => {
