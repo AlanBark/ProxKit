@@ -322,6 +322,7 @@ async function generateChunk(
     outputBleed: number,
     enableCardBacks: boolean,
     defaultCardBackUrl: string | null,
+    skipSlots: number[],
     requestId: string
 ): Promise<{ pdfBytes: Uint8Array; totalPages: number }> {
     // Constants
@@ -396,6 +397,9 @@ async function generateChunk(
         for (let i = 0; i < pageCards.length; i++) {
             const card = pageCards[i];
 
+            // Skip if this slot should be skipped
+            if (skipSlots.includes(i)) continue;
+
             // Skip null cards (blank placeholders)
             if (!card) continue;
 
@@ -457,6 +461,9 @@ async function generateChunk(
             for (let i = 0; i < pageCards.length; i++) {
                 const card = pageCards[i];
 
+                // Skip if this slot should be skipped
+                if (skipSlots.includes(i)) continue;
+
                 // Skip null cards
                 if (!card) continue;
 
@@ -504,7 +511,7 @@ self.addEventListener('message', async (event: MessageEvent<PDFWorkerMessage>) =
 
     switch (message.type) {
         case PDFWorkerMessageType.GENERATE_PDF: {
-            const { cards, pageSettings, cardWidth, cardHeight, outputBleed, enableCardBacks, defaultCardBackUrl, requestId } = message.payload;
+            const { cards, pageSettings, cardWidth, cardHeight, outputBleed, enableCardBacks, defaultCardBackUrl, skipSlots, requestId } = message.payload;
 
             // Store current request ID and reset cancellation flag
             currentRequestId = requestId;
@@ -520,6 +527,7 @@ self.addEventListener('message', async (event: MessageEvent<PDFWorkerMessage>) =
                     outputBleed,
                     enableCardBacks,
                     defaultCardBackUrl,
+                    skipSlots,
                     requestId
                 );
 

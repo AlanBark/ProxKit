@@ -1,4 +1,4 @@
-import { Trash2, Plus, Loader2, RotateCcw, Upload, Menu } from "lucide-react";
+import { Trash2, Plus, Loader2, RotateCcw, Upload, Menu, Ban } from "lucide-react";
 import { Button, ButtonGroup, Input, Popover, PopoverContent, PopoverTrigger } from "@heroui/react";
 import { useState, useRef, useEffect, useCallback } from "react";
 import type { CardImage } from "../types/card";
@@ -13,7 +13,7 @@ interface CardProps {
     gridPosition: number
 }
 
-export function Card({ card, cardIndex }: CardProps) {
+export function Card({ card, cardIndex, gridPosition }: CardProps) {
 
     // Get settings from store
     const cardWidth = usePrintAndCutStore((state) => state.cardWidth);
@@ -25,6 +25,8 @@ export function Card({ card, cardIndex }: CardProps) {
     const cardOrder = usePrintAndCutStore((state) => state.cardOrder);
     const setCardMap = usePrintAndCutStore((state) => state.setCardMap);
     const setCardOrder = usePrintAndCutStore((state) => state.setCardOrder);
+    const skipSlots = usePrintAndCutStore((state) => state.skipSlots);
+    const toggleSkipSlot = usePrintAndCutStore((state) => state.toggleSkipSlot);
 
     // Get hooks for card operations
     const { handleUpdateBleed, handleUpdateCardBackBleed } = useCardBleedUpdates();
@@ -366,6 +368,24 @@ export function Card({ card, cardIndex }: CardProps) {
                                             }}
                                         >
                                             <Plus />
+                                        </Button>
+                                    </div>
+
+                                    {/* Skip Slot */}
+                                    <div className="">
+                                        <Button
+                                            size="sm"
+                                            color="warning"
+                                            variant="flat"
+                                            onPress={() => {
+                                                toggleSkipSlot(gridPosition);
+                                                setIsOptionsOpen(false);
+                                            }}
+                                            className="w-full"
+                                            isDisabled={skipSlots.size >= 7 && !skipSlots.has(gridPosition)}
+                                        >
+                                            <Ban className="w-4 h-4" />
+                                            Skip This Slot
                                         </Button>
                                     </div>
                                 </div>

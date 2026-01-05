@@ -34,6 +34,7 @@ export function usePDFGeneration() {
     const outputBleed = usePrintAndCutStore((state) => state.outputBleed);
     const enableCardBacks = usePrintAndCutStore((state) => state.enableCardBacks);
     const defaultCardBackUrl = usePrintAndCutStore((state) => state.defaultCardBackUrl);
+    const skipSlots = usePrintAndCutStore((state) => state.skipSlots);
 
     // Initialize PDF manager when settings change
     useEffect(() => {
@@ -103,15 +104,36 @@ export function usePDFGeneration() {
                 // The audo download happens within the pdfManager
                 const cardsArray = cardOrder.map(id => cardMap.get(id)).filter((card): card is CardImage => card !== undefined);
 
+                // Transform cards array to include nulls for skipped slots
+                const skipSlotsArray = Array.from(skipSlots).sort((a, b) => a - b);
+                const CARDS_PER_PAGE = 8;
+                const availableSlotsPerPage = CARDS_PER_PAGE - skipSlotsArray.length;
+                const totalPages = Math.ceil(cardsArray.length / availableSlotsPerPage);
+
+                const cardsWithSkippedSlots: (CardImage | null)[] = [];
+                let cardIdx = 0;
+
+                for (let page = 0; page < totalPages; page++) {
+                    for (let slot = 0; slot < CARDS_PER_PAGE; slot++) {
+                        if (skipSlotsArray.includes(slot)) {
+                            cardsWithSkippedSlots.push(null);
+                        } else if (cardIdx < cardsArray.length) {
+                            cardsWithSkippedSlots.push(cardsArray[cardIdx]);
+                            cardIdx++;
+                        }
+                    }
+                }
+
                 // Set progress callback
                 pdfManagerRef.current.onProgress = (_current: number, _total: number, percentage: number) => {
                     setGenerationProgress(percentage);
                 };
 
                 const pdfUrlResult = await pdfManagerRef.current.generatePDF(
-                    cardsArray,
+                    cardsWithSkippedSlots,
                     enableCardBacks,
-                    defaultCardBackUrl
+                    defaultCardBackUrl,
+                    Array.from(skipSlots)
                 );
 
                 const dxfUrlResult = pdfManagerRef.current.getCachedUrl();

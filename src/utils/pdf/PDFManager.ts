@@ -247,9 +247,10 @@ export class PDFManager {
      * @param cards Array of cards (null = blank placeholder)
      * @param enableCardBacks Whether to generate card back pages
      * @param defaultCardBackUrl Default card back image URL
+     * @param skipSlots Array of slot indices to skip (0-7 for 8-card grid)
      * @returns Promise resolving to blob URL of generated PDF
      */
-    public async generatePDF(cards: (CardImage | null)[], enableCardBacks: boolean = false, defaultCardBackUrl: string | null = null): Promise<string> {
+    public async generatePDF(cards: (CardImage | null)[], enableCardBacks: boolean = false, defaultCardBackUrl: string | null = null, skipSlots: number[] = []): Promise<string> {
         const startTime = performance.now();
         console.log(`[PDFManager] Starting PDF generation for ${cards.length} cards`);
 
@@ -372,6 +373,7 @@ export class PDFManager {
                             outputBleed: this.outputBleed,
                             enableCardBacks: enableCardBacks,
                             defaultCardBackUrl: defaultCardBackUrl,
+                            skipSlots: skipSlots,
                             requestId: chunkRequestId,
                         },
                     };

@@ -30,6 +30,7 @@ export interface GeneratePDFRequest {
         outputBleed: number; // Output bleed margin in mm
         enableCardBacks: boolean; // Whether to generate card back pages
         defaultCardBackUrl: string | null; // Default card back image URL
+        skipSlots: number[]; // Array of slot indices to skip (0-7 for 8-card grid)
         requestId: string; // Unique ID to match request/response
     };
 }

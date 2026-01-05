@@ -29,6 +29,9 @@ interface PrintAndCutState {
     groupByCardBacks: boolean;
     showAllCardBacks: boolean;
 
+    // Skip slots settings
+    skipSlots: Set<number>;
+
     // Card actions
     setCardMap: (map: Map<string, CardImage> | ((prev: Map<string, CardImage>) => Map<string, CardImage>)) => void;
     setCardOrder: (order: string[] | ((prev: string[]) => string[])) => void;
@@ -45,6 +48,8 @@ interface PrintAndCutState {
     setDefaultCardBackThumbnailUrl: (url: string | null) => void;
     setGroupByCardBacks: (group: boolean) => void;
     setShowAllCardBacks: (show: boolean) => void;
+    setSkipSlots: (slots: Set<number> | ((prev: Set<number>) => Set<number>)) => void;
+    toggleSkipSlot: (slotIndex: number) => void;
 }
 
 export const usePrintAndCutStore = create<PrintAndCutState>((set) => ({
@@ -64,6 +69,7 @@ export const usePrintAndCutStore = create<PrintAndCutState>((set) => ({
     defaultCardBackThumbnailUrl: null,
     groupByCardBacks: false,
     showAllCardBacks: false,
+    skipSlots: new Set(),
 
     // Card actions
     setCardMap: (map) => set((state) => ({
@@ -85,4 +91,24 @@ export const usePrintAndCutStore = create<PrintAndCutState>((set) => ({
     setDefaultCardBackThumbnailUrl: (url) => set({ defaultCardBackThumbnailUrl: url }),
     setGroupByCardBacks: (group) => set({ groupByCardBacks: group }),
     setShowAllCardBacks: (show) => set({ showAllCardBacks: show }),
+    setSkipSlots: (slots) => set((state) => ({
+        skipSlots: typeof slots === 'function' ? slots(state.skipSlots) : slots
+    })),
+    toggleSkipSlot: (slotIndex) => set((state) => {
+        const newSkipSlots = new Set(state.skipSlots);
+        if (newSkipSlots.has(slotIndex)) {
+            newSkipSlots.delete(slotIndex);
+        } else {
+            // Validate: ensure at least 1 slot per page is not skipped
+            // Maximum slots per page is 8 (indices 0-7)
+            const MAX_SLOTS = 8;
+            if (newSkipSlots.size >= MAX_SLOTS - 1) {
+                // Already skipping 7 slots, can't skip the 8th
+                console.warn(`Cannot skip slot ${slotIndex}: at least 1 slot per page must remain active`);
+                return state; // Return unchanged state
+            }
+            newSkipSlots.add(slotIndex);
+        }
+        return { skipSlots: newSkipSlots };
+    }),
 }));
