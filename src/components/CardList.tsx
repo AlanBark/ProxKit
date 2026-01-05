@@ -3,7 +3,7 @@ import { Pagination, Button } from "@heroui/react";
 import { textStyles } from "../theme/classNames";
 import { useState, useMemo, useRef } from "react";
 import { usePrintAndCutStore } from "../stores/printAndCutStore";
-import { ImageIcon, ChevronLeft, ChevronRight, Ban, Check } from "lucide-react";
+import { ImageIcon, ChevronLeft, ChevronRight, Ban } from "lucide-react";
 import { Box } from "./Box";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -23,8 +23,7 @@ export function CardList() {
     const cardWidth = usePrintAndCutStore((state) => state.cardWidth);
     const cardHeight = usePrintAndCutStore((state) => state.cardHeight);
     const skipSlots = usePrintAndCutStore((state) => state.skipSlots);
-    const toggleSkipSlot = usePrintAndCutStore((state) => state.toggleSkipSlot);
-
+    
     // Calculate total pages accounting for skipped slots
     const availableSlotsPerPage = CARDS_PER_PAGE - skipSlots.size;
     const totalPages = availableSlotsPerPage > 0
