@@ -65,40 +65,8 @@ export function usePDFGeneration() {
         }
     }, [cardOrder.length]);
 
-    // Compute a state fingerprint to detect changes
-    const computeCurrentState = () => {
-        const cardsArray = cardOrder.map(id => cardMap.get(id)).filter((card): card is CardImage => card !== undefined);
-
-        const stateObj = {
-            cardOrder,
-            cards: cardsArray.map(card => ({
-                id: card.id,
-                imageUrl: card.imageUrl,
-                bleed: card.bleed,
-                cardBackUrl: card.cardBackUrl,
-                cardBackBleed: card.cardBackBleed,
-            })),
-            enableCardBacks,
-            defaultCardBackUrl,
-            cardWidth,
-            cardHeight,
-            outputBleed,
-            pageSize: Array.from(pageSize)[0],
-        };
-
-        return JSON.stringify(stateObj);
-    };
-
     const handleGeneratePDF = async () => {
         if (!pdfManagerRef.current || cardOrder.length === 0 || isGenerating) {
-            return;
-        }
-
-        const currentState = computeCurrentState();
-        const hasChanges = currentState !== lastGeneratedStateRef.current;
-
-        if (!hasChanges && pdfUrl) {
-            handleDownloadPDF();
             return;
         }
 
@@ -128,7 +96,6 @@ export function usePDFGeneration() {
                         filePath: path
                     });
                     console.log('PDF generated:', result);
-                    lastGeneratedStateRef.current = currentState;
                 }
 
             } else {
@@ -150,8 +117,6 @@ export function usePDFGeneration() {
                 const dxfUrlResult = pdfManagerRef.current.getCachedUrl();
                 setPdfUrl(pdfUrlResult);
                 setDxfUrl(dxfUrlResult);
-
-                lastGeneratedStateRef.current = currentState;
             }
         } catch (error) {
             console.error("Failed to generate PDF:", error);
