@@ -3,7 +3,7 @@ import { Pagination, Button } from "@heroui/react";
 import { textStyles } from "../theme/classNames";
 import { useState, useMemo, useRef } from "react";
 import { usePrintAndCutStore } from "../stores/printAndCutStore";
-import { ImageIcon, ChevronLeft, ChevronRight, Ban } from "lucide-react";
+import { ImageIcon, ChevronLeft, ChevronRight, Ban, Check } from "lucide-react";
 import { Box } from "./Box";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -23,7 +23,8 @@ export function CardList() {
     const cardWidth = usePrintAndCutStore((state) => state.cardWidth);
     const cardHeight = usePrintAndCutStore((state) => state.cardHeight);
     const skipSlots = usePrintAndCutStore((state) => state.skipSlots);
-    
+    const toggleSkipSlot = usePrintAndCutStore((state) => state.toggleSkipSlot);
+
     // Calculate total pages accounting for skipped slots
     const availableSlotsPerPage = CARDS_PER_PAGE - skipSlots.size;
     const totalPages = availableSlotsPerPage > 0
@@ -183,14 +184,18 @@ export function CardList() {
                                                     return (
                                                         <div
                                                             key={`skip-${slotIndex}`}
-                                                            className="relative bg-white rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center"
+                                                            className="relative bg-white rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center group hover:border-primary hover:bg-primary-50 transition-all cursor-pointer"
                                                             style={{
                                                                 aspectRatio: `${cardWidth} / ${cardHeight}`,
                                                             }}
+                                                            onClick={() => toggleSkipSlot(slotIndex)}
+                                                            title="Click to enable this slot"
                                                         >
-                                                            <div className="flex flex-col items-center gap-2 text-gray-400">
-                                                                <Ban className="w-8 h-8" />
-                                                                <span className="text-xs font-medium">Skipped</span>
+                                                            <div className="flex flex-col items-center gap-2 text-gray-400 group-hover:text-primary transition-colors">
+                                                                <Ban className="w-8 h-8 group-hover:hidden" />
+                                                                <Check className="w-8 h-8 hidden group-hover:block" />
+                                                                <span className="text-xs font-medium group-hover:hidden">Skipped</span>
+                                                                <span className="text-xs font-medium hidden group-hover:block">Enable Slot</span>
                                                             </div>
                                                         </div>
                                                     );
