@@ -23,7 +23,6 @@ const MAX_WORKERS = 4; // Maximum concurrent workers
 interface WorkerChunkResult {
     chunkIndex: number;
     pdfBytes: Uint8Array;
-    dxfBytes: Uint8Array;
     totalPages: number;
 }
 
@@ -35,7 +34,6 @@ interface WorkerChunkResult {
 export class PDFManager {
     private currentRequestId: string | null = null;
     private cachedPdfUrls: string[] = [];
-    private cachedDxfUrl: string | null = null;
     private cachedCardsHash: string | null = null;
     private pageSettings: PageSettings;
     private cardWidth: number;
@@ -189,23 +187,6 @@ export class PDFManager {
         return mergedPdfs;
     }
 
-    /**
-     * Merge multiple DXF files
-     * For now, just concatenate them (DXF is text-based)
-     */
-    private mergeDXFs(results: WorkerChunkResult[]): Uint8Array {
-        // Sort results by chunk index to maintain order
-        const sortedResults = results.sort((a, b) => a.chunkIndex - b.chunkIndex);
-
-        // Single DXF? No merging needed
-        if (sortedResults.length === 1) {
-            return sortedResults[0].dxfBytes;
-        }
-
-        // TODO: Proper DXF merging when DXF generation is implemented
-        // For now, just return the first one
-        return sortedResults[0].dxfBytes;
-    }
 
     /**
      * Generate a hash of the cards array for cache invalidation
@@ -406,11 +387,6 @@ export class PDFManager {
             const totalBytes = mergedPdfBytesArray.reduce((sum, pdf) => sum + pdf.length, 0);
             console.log(`[PDFManager] PDF merge completed in ${mergeTime.toFixed(2)}ms (${mergedPdfBytesArray.length} file(s), ${totalBytes} bytes total)`);
 
-            const dxfMergeStart = performance.now();
-            const mergedDxfBytes = this.mergeDXFs(results);
-            const dxfMergeTime = performance.now() - dxfMergeStart;
-            console.log(`[PDFManager] DXF merge completed in ${dxfMergeTime.toFixed(2)}ms`);
-
             // Convert merged PDF bytes to blob URLs
             const pdfUrls: string[] = [];
             for (let i = 0; i < mergedPdfBytesArray.length; i++) {
@@ -420,21 +396,13 @@ export class PDFManager {
                 pdfUrls.push(URL.createObjectURL(pdfBlob));
             }
 
-            const dxfBlob = new Blob([mergedDxfBytes.buffer as ArrayBuffer], {
-                type: "application/dxf",
-            });
-
             // Revoke old URLs to prevent memory leaks
             for (const url of this.cachedPdfUrls) {
                 URL.revokeObjectURL(url);
             }
-            if (this.cachedDxfUrl) {
-                URL.revokeObjectURL(this.cachedDxfUrl);
-            }
 
             // Cache new URLs
             this.cachedPdfUrls = pdfUrls;
-            this.cachedDxfUrl = URL.createObjectURL(dxfBlob);
             this.cachedCardsHash = cardsHash;
             this.currentRequestId = null;
 
@@ -479,17 +447,13 @@ export class PDFManager {
     }
 
     /**
-     * Invalidate cached PDF and DXF (forces regeneration on next request)
+     * Invalidate cached PDF (forces regeneration on next request)
      */
     public invalidateCache(): void {
         for (const url of this.cachedPdfUrls) {
             URL.revokeObjectURL(url);
         }
         this.cachedPdfUrls = [];
-        if (this.cachedDxfUrl) {
-            URL.revokeObjectURL(this.cachedDxfUrl);
-            this.cachedDxfUrl = null;
-        }
         this.cachedCardsHash = null;
     }
 
@@ -505,13 +469,6 @@ export class PDFManager {
      */
     public getCachedUrl(): string | null {
         return this.cachedPdfUrls.length > 0 ? this.cachedPdfUrls[0] : null;
-    }
-
-    /**
-     * Get currently cached DXF cut file URL (if available)
-     */
-    public getCachedDxfUrl(): string | null {
-        return this.cachedDxfUrl;
     }
 
     /**

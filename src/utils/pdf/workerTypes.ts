@@ -36,13 +36,12 @@ export interface GeneratePDFRequest {
 }
 
 /**
- * Success response with generated PDF and DXF cut file
+ * Success response with generated PDF
  */
 export interface GeneratePDFSuccess {
     type: typeof PDFWorkerMessageType.GENERATE_PDF_SUCCESS;
     payload: {
         pdfBytes: Uint8Array;
-        dxfBytes: Uint8Array;
         requestId: string;
         totalPages: number;
     };
@@ -177,7 +176,6 @@ export interface PlaceImageSuccess {
         cardId: string;
         pageNumber: number;
         pdfBytesBase64: string; // Base64 encoded updated PDF document bytes
-        cutPathDXF: string; // DXF cut path for this card
     };
 }
 

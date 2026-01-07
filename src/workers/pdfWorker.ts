@@ -537,12 +537,10 @@ self.addEventListener('message', async (event: MessageEvent<PDFWorkerMessage>) =
                 }
 
                 // Send success response with transferable objects
-                const dxfBytes = new Uint8Array(); // TODO: Implement DXF generation
                 const successMessage: PDFWorkerMessage = {
                     type: PDFWorkerMessageType.GENERATE_PDF_SUCCESS,
                     payload: {
                         pdfBytes: result.pdfBytes,
-                        dxfBytes,
                         requestId,
                         totalPages: result.totalPages
                     }
@@ -551,7 +549,7 @@ self.addEventListener('message', async (event: MessageEvent<PDFWorkerMessage>) =
                 // Transfer ownership of ArrayBuffers to main thread (zero-copy)
                 // Use the structured clone algorithm with transfer list
                 self.postMessage(successMessage, {
-                    transfer: [result.pdfBytes.buffer, dxfBytes.buffer]
+                    transfer: [result.pdfBytes.buffer]
                 });
 
             } catch (error) {

@@ -30,9 +30,7 @@ export function Sidebar({ className = "" }) {
     const {
         isGenerating,
         generationProgress,
-        dxfUrl,
         handleGeneratePDF,
-        handleDownloadDXF,
     } = usePDFGeneration();
 
     const { isImporting } = useMPCFillImport();
@@ -100,19 +98,18 @@ export function Sidebar({ className = "" }) {
 
                         <ButtonGroup className="w-full" fullWidth={true}>
                             <Button
-                                onPress={handleDownloadDXF}
-                                isDisabled={!dxfUrl}
-                                color={!dxfUrl ? "default" : "success"}
+                                onPress={() => console.log('hi')}
+                                color="success"
                                 variant="ghost"
                             >
                                 <span className="flex items-center justify-center gap-2">
                                     <Download className="w-5 h-5" />
-                                    Download Cut File
+                                    Generate Cut File
                                 </span>
                             </Button>
                             <Button
                                 isIconOnly
-                                color={!dxfUrl ? "default" : "success"}
+                                color="success"
                                 variant="ghost"
                                 onPress={() => setIsDxfHelpModalOpen(true)}
                             >

@@ -6,18 +6,16 @@ import { save } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 
 /**
- * Hook for managing PDF and DXF generation from card data.
+ * Hook for managing PDF generation from card data.
  *
  * Features:
  * - Generates PDF sheets with card layout
- * - Generates DXF cut files for cutting machines
  * - Tracks generation progress
  * - Detects state changes to avoid redundant generation
  * - Auto-clears URLs when cards are removed
  */
 export function usePDFGeneration() {
     const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-    const [dxfUrl, setDxfUrl] = useState<string | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
     const [generationProgress, setGenerationProgress] = useState<number>(0);
     const pdfManagerRef = useRef<PDFManager | null>(null);
@@ -56,11 +54,10 @@ export function usePDFGeneration() {
         };
     }, [pageSize, cardWidth, cardHeight, outputBleed]);
 
-    // Clear PDF/DXF URLs when cards are removed
+    // Clear PDF URLs when cards are removed
     useEffect(() => {
         if (cardOrder.length === 0) {
             setPdfUrl(null);
-            setDxfUrl(null);
             setIsGenerating(false);
             lastGeneratedStateRef.current = null;
         }
@@ -136,14 +133,11 @@ export function usePDFGeneration() {
                     Array.from(skipSlots)
                 );
 
-                const dxfUrlResult = pdfManagerRef.current.getCachedUrl();
                 setPdfUrl(pdfUrlResult);
-                setDxfUrl(dxfUrlResult);
             }
         } catch (error) {
             console.error("Failed to generate PDF:", error);
             setPdfUrl(null);
-            setDxfUrl(null);
         } finally {
             setIsGenerating(false);
             setGenerationProgress(0);
@@ -159,22 +153,11 @@ export function usePDFGeneration() {
         link.click();
     };
 
-    const handleDownloadDXF = () => {
-        if (!dxfUrl) return;
-
-        const link = document.createElement("a");
-        link.href = dxfUrl;
-        link.download = `cut-file-${new Date().getTime()}.dxf`;
-        link.click();
-    };
-
     return {
         pdfUrl,
-        dxfUrl,
         isGenerating,
         generationProgress,
         handleGeneratePDF,
         handleDownloadPDF,
-        handleDownloadDXF,
     };
 }
