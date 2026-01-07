@@ -1,11 +1,9 @@
 import { Select, SelectItem } from "@heroui/react";
-import { useApp, PAGE_SIZE_OPTIONS } from "../../context/AppContext";
+import { usePrintAndCutStore, PAGE_SIZE_OPTIONS } from "../../stores/printAndCutStore";
 
 function FileSettings() {
-    const {
-        pageSize,
-        setPageSize
-    } = useApp();
+    const pageSize = usePrintAndCutStore((state) => state.pageSize);
+    const setPageSize = usePrintAndCutStore((state) => state.setPageSize);
 
     return (
         <div className="mb-3">

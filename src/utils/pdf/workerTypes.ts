@@ -30,18 +30,18 @@ export interface GeneratePDFRequest {
         outputBleed: number; // Output bleed margin in mm
         enableCardBacks: boolean; // Whether to generate card back pages
         defaultCardBackUrl: string | null; // Default card back image URL
+        skipSlots: number[]; // Array of slot indices to skip (0-7 for 8-card grid)
         requestId: string; // Unique ID to match request/response
     };
 }
 
 /**
- * Success response with generated PDF and DXF cut file
+ * Success response with generated PDF
  */
 export interface GeneratePDFSuccess {
     type: typeof PDFWorkerMessageType.GENERATE_PDF_SUCCESS;
     payload: {
         pdfBytes: Uint8Array;
-        dxfBytes: Uint8Array;
         requestId: string;
         totalPages: number;
     };
@@ -176,7 +176,6 @@ export interface PlaceImageSuccess {
         cardId: string;
         pageNumber: number;
         pdfBytesBase64: string; // Base64 encoded updated PDF document bytes
-        cutPathDXF: string; // DXF cut path for this card
     };
 }
 

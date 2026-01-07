@@ -1,8 +1,11 @@
-import { Trash2, Plus, Loader2, RotateCcw, Upload, Menu } from "lucide-react";
+import { Trash2, Plus, Loader2, RotateCcw, Upload, Menu, Ban } from "lucide-react";
 import { Button, ButtonGroup, Input, Popover, PopoverContent, PopoverTrigger } from "@heroui/react";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import type { CardImage } from "../types/card";
-import { useApp } from "../context/AppContext";
+import { usePrintAndCutStore } from "../stores/printAndCutStore";
+import { useCardBleedUpdates } from "../hooks/useCardBleedUpdates";
+import { useCardBackManagement } from "../hooks/useCardBackManagement";
+import { removeCard, duplicateCard } from "../utils/cardOperations";
 
 interface CardProps {
     cardIndex: number,
@@ -10,9 +13,25 @@ interface CardProps {
     gridPosition: number
 }
 
-export function Card({ card, cardIndex }: CardProps) {
+export function Card({ card, cardIndex, gridPosition }: CardProps) {
 
-    const { cardWidth, cardHeight, showAllCardBacks } = useApp();
+    // Get settings from store
+    const cardWidth = usePrintAndCutStore((state) => state.cardWidth);
+    const cardHeight = usePrintAndCutStore((state) => state.cardHeight);
+    const showAllCardBacks = usePrintAndCutStore((state) => state.showAllCardBacks);
+    const defaultCardBackUrl = usePrintAndCutStore((state) => state.defaultCardBackUrl);
+    const defaultCardBackThumbnailUrl = usePrintAndCutStore((state) => state.defaultCardBackThumbnailUrl);
+    const cardMap = usePrintAndCutStore((state) => state.cardMap);
+    const cardOrder = usePrintAndCutStore((state) => state.cardOrder);
+    const setCardMap = usePrintAndCutStore((state) => state.setCardMap);
+    const setCardOrder = usePrintAndCutStore((state) => state.setCardOrder);
+    const skipSlots = usePrintAndCutStore((state) => state.skipSlots);
+    const toggleSkipSlot = usePrintAndCutStore((state) => state.toggleSkipSlot);
+
+    // Get hooks for card operations
+    const { handleUpdateBleed, handleUpdateCardBackBleed } = useCardBleedUpdates();
+    const { handleUpdateCardBack } = useCardBackManagement();
+
     const [isHovered, setIsHovered] = useState(false);
     const [isMouseOver, setIsMouseOver] = useState(false);
     const [isFlipped, setIsFlipped] = useState(false);
@@ -20,7 +39,17 @@ export function Card({ card, cardIndex }: CardProps) {
     const [duplicateCount, setDuplicateCount] = useState("");
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const { handleRemoveCard, handleUpdateBleed, handleUpdateCardBackBleed, handleDuplicateCard, handleUpdateCardBack, defaultCardBackUrl, defaultCardBackThumbnailUrl } = useApp();
+    // Create handlers using the utility functions
+    const handleRemoveCard = useCallback((cardIndex: number) => {
+        const { cardMap: newCardMap, cardOrder: newCardOrder } = removeCard(cardIndex, cardMap, cardOrder);
+        setCardMap(newCardMap);
+        setCardOrder(newCardOrder);
+    }, [cardMap, cardOrder, setCardMap, setCardOrder]);
+
+    const handleDuplicateCard = useCallback((card: CardImage, count: number = 1, insertAtIndex?: number) => {
+        const newCardOrder = duplicateCard(card.id, count, cardOrder, insertAtIndex);
+        setCardOrder(newCardOrder);
+    }, [cardOrder, setCardOrder]);
 
     // Flip card when showAllCardBacks is toggled
     useEffect(() => {
@@ -32,11 +61,19 @@ export function Card({ card, cardIndex }: CardProps) {
         return <div className="relative w-full h-full bg-(--bg-input)" />;
     }
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            handleUpdateCardBack(card.id, file);
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const files = event.target.files;
+        if (files && files.length > 0) {
+            handleUpdateCardBack(card.id, files[0]);
         }
+        // Reset input
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
+    };
+
+    const handleUploadCardBack = () => {
+        fileInputRef.current?.click();
     };
 
     // Determine what to show on the back - use thumbnail if available, otherwise original
@@ -284,7 +321,7 @@ export function Card({ card, cardIndex }: CardProps) {
                                             size="sm"
                                             color="primary"
                                             variant="flat"
-                                            onPress={() => fileInputRef.current?.click()}
+                                            onPress={handleUploadCardBack}
                                             className="flex-1"
                                         >
                                             <Upload className="w-4 h-4" />
@@ -331,6 +368,24 @@ export function Card({ card, cardIndex }: CardProps) {
                                             }}
                                         >
                                             <Plus />
+                                        </Button>
+                                    </div>
+
+                                    {/* Skip Slot */}
+                                    <div className="">
+                                        <Button
+                                            size="sm"
+                                            color="warning"
+                                            variant="flat"
+                                            onPress={() => {
+                                                toggleSkipSlot(gridPosition);
+                                                setIsOptionsOpen(false);
+                                            }}
+                                            className="w-full"
+                                            isDisabled={skipSlots.size >= 7 && !skipSlots.has(gridPosition)}
+                                        >
+                                            <Ban className="w-4 h-4" />
+                                            Skip This Slot
                                         </Button>
                                     </div>
                                 </div>

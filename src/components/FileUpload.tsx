@@ -14,10 +14,10 @@ export function FileUpload({ onFilesSelected, multiple = true }: FileUploadProps
         const files = event.target.files;
         if (files && files.length > 0) {
             onFilesSelected(Array.from(files));
-            // Reset input to allow selecting the same files again
-            if (fileInputRef.current) {
-                fileInputRef.current.value = "";
-            }
+        }
+        // Reset input so same file can be selected again
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
         }
     };
 

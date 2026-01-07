@@ -11,6 +11,16 @@ import {
 
 import type { CardImage, PageSettings } from "../types/card";
 
+import {
+    calculateGridLayout,
+    calculateCardPosition,
+    calculateMirroredColumn,
+    CARDS_PER_PAGE,
+    // GRID_COLS,
+    type GridLayout,
+    type CardPosition,
+} from "../utils/pdf/cardLayoutUtils";
+
 /**
  * PDF Worker - Handles PDF generation in background thread
  * This worker creates a single jsPDF file
@@ -20,34 +30,6 @@ import type { CardImage, PageSettings } from "../types/card";
 
 let currentRequestId: string | null = null;
 let isCancelled = false;
-
-/**
- * Calculate grid layout for 4x2 card arrangement
- */
-function calculateGridLayout(
-    pageWidth: number,
-    pageHeight: number,
-    cardWidth: number,
-    cardHeight: number
-): { x: number; y: number; cellWidth: number; cellHeight: number } {
-    const cols = 4;
-    const rows = 2;
-
-    // Calculate total grid dimensions
-    const totalGridWidth = cardWidth * cols;
-    const totalGridHeight = cardHeight * rows;
-
-    // Center the grid on the page
-    const startX = (pageWidth - totalGridWidth) / 2;
-    const startY = (pageHeight - totalGridHeight) / 2;
-
-    return {
-        x: startX,
-        y: startY,
-        cellWidth: cardWidth,
-        cellHeight: cardHeight,
-    };
-}
 
 
 /**
@@ -161,7 +143,7 @@ async function cropImageBleed(
 
 
 /**
- *
+ * Parameters for placing a card image on the PDF
  */
 interface PlaceImageParams {
     card: CardImage;
@@ -169,16 +151,8 @@ interface PlaceImageParams {
     cardHeight: number;
     outputBleed: number;
     pageNumber: number;
-    position: {
-        col: number;
-        row: number;
-    };
-    gridLayout: {
-        x: number;
-        y: number;
-        cellWidth: number;
-        cellHeight: number;
-    };
+    position: CardPosition;
+    gridLayout: GridLayout;
     pdfRef: jsPDF;
     flipHorizontal?: boolean;
 }
@@ -322,12 +296,9 @@ async function generateChunk(
     outputBleed: number,
     enableCardBacks: boolean,
     defaultCardBackUrl: string | null,
+    skipSlots: number[],
     requestId: string
 ): Promise<{ pdfBytes: Uint8Array; totalPages: number }> {
-    // Constants
-    const CARDS_PER_PAGE = 8; // 4x2 grid
-    const COLS = 4;
-
     // Calculate total pages needed
     const totalPages = Math.ceil(cards.length / CARDS_PER_PAGE);
 
@@ -396,12 +367,14 @@ async function generateChunk(
         for (let i = 0; i < pageCards.length; i++) {
             const card = pageCards[i];
 
+            // Skip if this slot should be skipped
+            if (skipSlots.includes(i)) continue;
+
             // Skip null cards (blank placeholders)
             if (!card) continue;
 
             // Calculate grid position
-            const col = i % COLS;
-            const row = Math.floor(i / COLS);
+            const position = calculateCardPosition(i);
 
             // Place the card front image
             await cropAndPlaceImage({
@@ -410,7 +383,7 @@ async function generateChunk(
                 cardHeight,
                 outputBleed,
                 pageNumber: pageNum,
-                position: { col, row },
+                position,
                 gridLayout,
                 pdfRef: pdf
             });
@@ -457,15 +430,21 @@ async function generateChunk(
             for (let i = 0; i < pageCards.length; i++) {
                 const card = pageCards[i];
 
+                // Skip if this slot should be skipped
+                if (skipSlots.includes(i)) continue;
+
                 // Skip null cards
                 if (!card) continue;
 
                 // Calculate MIRRORED grid position for proper alignment when page is flipped
                 // Mirror horizontally: column 0 becomes 3, 1 becomes 2, 2 becomes 1, 3 becomes 0
                 // Images themselves are NOT flipped, only their positions
-                const originalCol = i % COLS;
-                const col = (COLS - 1) - originalCol;
-                const row = Math.floor(i / COLS);
+                const originalPosition = calculateCardPosition(i);
+                const mirroredCol = calculateMirroredColumn(originalPosition.col);
+                const position: CardPosition = {
+                    col: mirroredCol,
+                    row: originalPosition.row
+                };
 
                 // Place the card back image at mirrored position
                 await cropAndPlaceCardBack({
@@ -474,7 +453,7 @@ async function generateChunk(
                     cardHeight,
                     outputBleed,
                     pageNumber: actualPageNum,
-                    position: { col, row },
+                    position,
                     gridLayout,
                     pdfRef: pdf,
                     defaultCardBackUrl
@@ -504,7 +483,7 @@ self.addEventListener('message', async (event: MessageEvent<PDFWorkerMessage>) =
 
     switch (message.type) {
         case PDFWorkerMessageType.GENERATE_PDF: {
-            const { cards, pageSettings, cardWidth, cardHeight, outputBleed, enableCardBacks, defaultCardBackUrl, requestId } = message.payload;
+            const { cards, pageSettings, cardWidth, cardHeight, outputBleed, enableCardBacks, defaultCardBackUrl, skipSlots, requestId } = message.payload;
 
             // Store current request ID and reset cancellation flag
             currentRequestId = requestId;
@@ -520,6 +499,7 @@ self.addEventListener('message', async (event: MessageEvent<PDFWorkerMessage>) =
                     outputBleed,
                     enableCardBacks,
                     defaultCardBackUrl,
+                    skipSlots,
                     requestId
                 );
 
@@ -529,12 +509,10 @@ self.addEventListener('message', async (event: MessageEvent<PDFWorkerMessage>) =
                 }
 
                 // Send success response with transferable objects
-                const dxfBytes = new Uint8Array(); // TODO: Implement DXF generation
                 const successMessage: PDFWorkerMessage = {
                     type: PDFWorkerMessageType.GENERATE_PDF_SUCCESS,
                     payload: {
                         pdfBytes: result.pdfBytes,
-                        dxfBytes,
                         requestId,
                         totalPages: result.totalPages
                     }
@@ -543,7 +521,7 @@ self.addEventListener('message', async (event: MessageEvent<PDFWorkerMessage>) =
                 // Transfer ownership of ArrayBuffers to main thread (zero-copy)
                 // Use the structured clone algorithm with transfer list
                 self.postMessage(successMessage, {
-                    transfer: [result.pdfBytes.buffer, dxfBytes.buffer]
+                    transfer: [result.pdfBytes.buffer]
                 });
 
             } catch (error) {
