@@ -312,12 +312,11 @@ export class PDFManager {
                                 worker.removeEventListener("message", handleMessage);
                                 worker.terminate();
 
-                                if ("pdfBytes" in message.payload && "dxfBytes" in message.payload) {
+                                if ("pdfBytes" in message.payload) {
                                     console.log(`[PDFManager] Worker ${chunkIndex} returned ${message.payload.pdfBytes.length} bytes (${message.payload.totalPages} pages)`);
                                     resolve({
                                         chunkIndex,
                                         pdfBytes: message.payload.pdfBytes,
-                                        dxfBytes: message.payload.dxfBytes,
                                         totalPages: message.payload.totalPages,
                                     });
                                 }
