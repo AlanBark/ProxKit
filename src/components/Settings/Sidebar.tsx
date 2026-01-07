@@ -120,7 +120,7 @@ export function Sidebar({ className = "" }) {
                             </Button>
                             <Button
                                 isIconOnly
-                                color="success"
+                                color={dxfUrl && !dxfError ? "success" : "default"}
                                 variant="ghost"
                                 onPress={() => setIsDxfHelpModalOpen(true)}
                             >
