@@ -16,7 +16,7 @@ import {
     calculateCardPosition,
     calculateMirroredColumn,
     CARDS_PER_PAGE,
-    GRID_COLS,
+    // GRID_COLS,
     type GridLayout,
     type CardPosition,
 } from "../utils/pdf/cardLayoutUtils";

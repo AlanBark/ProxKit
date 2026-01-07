@@ -21,8 +21,8 @@ function CardSettings() {
     const setEnableCardBacks = usePrintAndCutStore((state) => state.setEnableCardBacks);
     const defaultCardBackUrl = usePrintAndCutStore((state) => state.defaultCardBackUrl);
     const defaultCardBackThumbnailUrl = usePrintAndCutStore((state) => state.defaultCardBackThumbnailUrl);
-    const groupByCardBacks = usePrintAndCutStore((state) => state.groupByCardBacks);
-    const setGroupByCardBacks = usePrintAndCutStore((state) => state.setGroupByCardBacks);
+    // const groupByCardBacks = usePrintAndCutStore((state) => state.groupByCardBacks);
+    // const setGroupByCardBacks = usePrintAndCutStore((state) => state.setGroupByCardBacks);
     const showAllCardBacks = usePrintAndCutStore((state) => state.showAllCardBacks);
     const setShowAllCardBacks = usePrintAndCutStore((state) => state.setShowAllCardBacks);
 
