@@ -12,6 +12,7 @@ function XmlHelpModal({ isOpen, onClose }: XmlHelpModalProps) {
             onClose={onClose}
             scrollBehavior="inside"
             size="5xl"
+            className='border-1'
         >
             <ModalContent>
                 <ModalHeader>MPCFill XML Import</ModalHeader>

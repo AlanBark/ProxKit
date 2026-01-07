@@ -14,6 +14,7 @@ function DxfHelpModal({ isOpen, onClose }: DxfHelpModalProps) {
             onClose={onClose}
             scrollBehavior="inside"
             size="5xl"
+            className='border-1'
         >
             <ModalContent>
                 <ModalHeader>Importing DXF Paths into Silhouette Studio</ModalHeader>
