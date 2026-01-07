@@ -1,4 +1,4 @@
-import { Download, ChevronRight } from "lucide-react";
+import { Download, ChevronRight, HelpCircle } from "lucide-react";
 import { FileUpload } from "../FileUpload";
 import { XMLUpload } from "../XMLUpload";
 import { Box } from "../Box";
@@ -7,14 +7,17 @@ import { usePrintAndCutStore } from "../../stores/printAndCutStore";
 import { useCardFileHandling } from "../../hooks/useCardFileHandling";
 import { usePDFGeneration } from "../../hooks/usePDFGeneration";
 import { useMPCFillImport } from "../../hooks/useMPCFillImport";
-import { Button } from '@heroui/react';
+import { Button, ButtonGroup } from '@heroui/react';
 import FileSettings from "./FileSettings";
 import CardSettings from "./CardSettings";
 import gitHubLogo from "../../assets/github-mark-white.svg"
 import { useNavigate } from "react-router"
+import DxfHelpModal from "./DxfHelpModal";
+import { useState } from "react";
 
 export function Sidebar({ className = "" }) {
     const navigate = useNavigate();
+    const [isDxfHelpModalOpen, setIsDxfHelpModalOpen] = useState(false);
 
     // Get card state from store
     const cardOrder = usePrintAndCutStore((state) => state.cardOrder);
@@ -95,17 +98,27 @@ export function Sidebar({ className = "" }) {
 
                         <XMLUpload />
 
-                        <Button
-                            onPress={handleDownloadDXF}
-                            isDisabled={!dxfUrl}
-                            color={!dxfUrl ? "default" : "success"}
-                            variant="ghost"
-                        >
-                            <span className="flex items-center justify-center gap-2">
-                                <Download className="w-5 h-5" />
-                                Download Cut File
-                            </span>
-                        </Button>
+                        <ButtonGroup className="w-full" fullWidth={true}>
+                            <Button
+                                onPress={handleDownloadDXF}
+                                isDisabled={!dxfUrl}
+                                color={!dxfUrl ? "default" : "success"}
+                                variant="ghost"
+                            >
+                                <span className="flex items-center justify-center gap-2">
+                                    <Download className="w-5 h-5" />
+                                    Download Cut File
+                                </span>
+                            </Button>
+                            <Button
+                                isIconOnly
+                                color={!dxfUrl ? "default" : "success"}
+                                variant="ghost"
+                                onPress={() => setIsDxfHelpModalOpen(true)}
+                            >
+                                <HelpCircle />
+                            </Button>
+                        </ButtonGroup>
                     </div>
                 </div>
             </Box>
@@ -119,7 +132,11 @@ export function Sidebar({ className = "" }) {
 
                 <div className="grow"></div>
             </Box>
-            
+
+            <DxfHelpModal
+                isOpen={isDxfHelpModalOpen}
+                onClose={() => setIsDxfHelpModalOpen(false)}
+            />
         </div>
     );
 }

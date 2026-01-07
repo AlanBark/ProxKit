@@ -1,16 +1,18 @@
-import { useRef } from "react";
-import { FileUp } from "lucide-react";
-import { Button, Card, CardBody } from "@heroui/react";
+import { useRef, useState } from "react";
+import { FileUp, HelpCircle } from "lucide-react";
+import { Button, ButtonGroup, Card, CardBody } from "@heroui/react";
 import { useMPCFillImport } from "../hooks/useMPCFillImport";
 import { usePrintAndCutStore } from "../stores/printAndCutStore";
 import { useCardBackManagement } from "../hooks/useCardBackManagement";
 import { parseMPCFillXML } from "../utils/mpcfill/xmlParser";
 import type { CardImage } from "../types/card";
 import { generateThumbnailAsync } from "../utils/asyncThumbnailGeneration";
+import XmlHelpModal from "./XmlHelpModal";
 
 export function XMLUpload() {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const { handleXMLImport, isImporting, importProgress, error, clearError } = useMPCFillImport();
+    const [isXmlHelpModalOpen, setIsXmlHelpModalOpen] = useState(false);
 
     // Get settings and state from store
     const defaultBleed = usePrintAndCutStore((state) => state.defaultBleed);
@@ -144,30 +146,39 @@ export function XMLUpload() {
                 onChange={handleFileChange}
                 className="hidden"
             />
-
-            <Button
-                onPress={handleButtonClick}
-                className="w-full relative overflow-hidden"
-                color="secondary"
-                variant="ghost"
-                isDisabled={isImporting}
-                isLoading={isImporting}
-            >
-                {/* Loading bar fill */}
-                {isImporting && (
-                    <div
-                        className="absolute inset-0 bg-secondary/30 transition-all duration-300 ease-out"
-                        style={{
-                            width: `${importProgress}%`,
-                            left: 0,
-                        }}
-                    />
-                )}
-                <span className="flex items-center justify-center gap-2 relative z-10">
-                    <FileUp className="w-5 h-5" />
-                    Import MPCFill XML
-                </span>
-            </Button>
+            <ButtonGroup className="w-full" fullWidth={true}>
+                <Button
+                    onPress={handleButtonClick}
+                    className="w-full relative overflow-hidden"
+                    color="secondary"
+                    variant="ghost"
+                    isDisabled={isImporting}
+                    isLoading={isImporting}
+                >
+                    {/* Loading bar fill */}
+                    {isImporting && (
+                        <div
+                            className="absolute inset-0 bg-secondary/30 transition-all duration-300 ease-out"
+                            style={{
+                                width: `${importProgress}%`,
+                                left: 0,
+                            }}
+                        />
+                    )}
+                    <span className="flex items-center justify-center gap-2 relative z-10">
+                        <FileUp className="w-5 h-5" />
+                        Import MPCFill XML
+                    </span>
+                </Button>
+                <Button
+                    isIconOnly
+                    color="secondary"
+                    variant="ghost"
+                    onPress={() => setIsXmlHelpModalOpen(true)}
+                >
+                    <HelpCircle />
+                </Button>
+            </ButtonGroup>
 
             {error && (
                 <Card className="border-danger">
@@ -187,6 +198,11 @@ export function XMLUpload() {
                     </CardBody>
                 </Card>
             )}
+
+            <XmlHelpModal
+                isOpen={isXmlHelpModalOpen}
+                onClose={() => setIsXmlHelpModalOpen(false)}
+            />
         </div>
     );
 }
