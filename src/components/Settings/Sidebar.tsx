@@ -6,6 +6,7 @@ import { textStyles } from "../../theme/classNames";
 import { usePrintAndCutStore } from "../../stores/printAndCutStore";
 import { useCardFileHandling } from "../../hooks/useCardFileHandling";
 import { usePDFGeneration } from "../../hooks/usePDFGeneration";
+import { useDXFGeneration } from "../../hooks/useDXFGeneration";
 import { useMPCFillImport } from "../../hooks/useMPCFillImport";
 import { Button, ButtonGroup } from '@heroui/react';
 import FileSettings from "./FileSettings";
@@ -32,6 +33,14 @@ export function Sidebar({ className = "" }) {
         generationProgress,
         handleGeneratePDF,
     } = usePDFGeneration();
+
+    // Get DXF state and actions
+    const {
+        dxfUrl,
+        isGenerating: isDxfGenerating,
+        error: dxfError,
+        handleDownloadDXF,
+    } = useDXFGeneration();
 
     const { isImporting } = useMPCFillImport();
 
@@ -98,13 +107,15 @@ export function Sidebar({ className = "" }) {
 
                         <ButtonGroup className="w-full" fullWidth={true}>
                             <Button
-                                onPress={() => console.log('hi')}
-                                color="success"
+                                onPress={handleDownloadDXF}
+                                isDisabled={!dxfUrl || cardOrder.length === 0 || isDxfGenerating}
+                                isLoading={isDxfGenerating}
+                                color={dxfUrl && !dxfError ? "success" : "default"}
                                 variant="ghost"
                             >
                                 <span className="flex items-center justify-center gap-2">
                                     <Download className="w-5 h-5" />
-                                    Generate Cut File
+                                    {isDxfGenerating ? "Generating..." : dxfError ? "DXF Error" : "Download Cut File"}
                                 </span>
                             </Button>
                             <Button

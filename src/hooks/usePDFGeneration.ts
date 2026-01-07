@@ -34,7 +34,7 @@ export function usePDFGeneration() {
     const defaultCardBackUrl = usePrintAndCutStore((state) => state.defaultCardBackUrl);
     const skipSlots = usePrintAndCutStore((state) => state.skipSlots);
 
-    // Initialize PDF manager when settings change
+    // Initialize PDF manager when settings changey
     useEffect(() => {
         const selectedKey = Array.from(pageSize)[0] as string;
         const selectedPage = PAGE_SIZE_OPTIONS.find(p => p.key === selectedKey);
