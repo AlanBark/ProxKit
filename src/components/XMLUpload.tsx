@@ -26,7 +26,123 @@ export function XMLUpload() {
     const setEnableCardBacks = usePrintAndCutStore((state) => state.setEnableCardBacks);
 
     // Get card back management hook
-    const { handleUpdateDefaultCardBack } = useCardBackManagement();
+    const { handleUpdateCardBack, handleUpdateDefaultCardBack } = useCardBackManagement();
+
+    const handleCardDownloaded = async (
+        downloadedFile: File,
+        index: number,
+        placeholderCardIds: string[],
+        backFile?: File
+    ) => {
+        const cardId = placeholderCardIds[index];
+        if (!cardId) return;
+
+        const imageUrl = URL.createObjectURL(downloadedFile);
+
+        // Generate thumbnail asynchronously
+        try {
+            const thumbnailUrl = await generateThumbnailAsync(
+                downloadedFile,
+                800,
+                800,
+                0.85,
+                defaultBleed,
+                cardWidth,
+                cardHeight
+            );
+            setCardMap((prev: Map<string, CardImage>) => {
+                const updated = new Map(prev);
+                const card = updated.get(cardId);
+                if (card) {
+                    updated.set(cardId, {
+                        ...card,
+                        imageUrl,
+                        thumbnailUrl,
+                        thumbnailLoading: false,
+                    });
+                }
+                return updated;
+            });
+        } catch (error) {
+            console.error(`Failed to generate thumbnail for ${downloadedFile.name}:`, error);
+            setCardMap((prev: Map<string, CardImage>) => {
+                const updated = new Map(prev);
+                const card = updated.get(cardId);
+                if (card) {
+                    updated.set(cardId, {
+                        ...card,
+                        imageUrl,
+                        thumbnailLoading: false,
+                    });
+                }
+                return updated;
+            });
+        }
+
+        // If this card has a unique back, set it
+        if (backFile) {
+            setEnableCardBacks(true);
+            await handleUpdateCardBack(cardId, backFile);
+        }
+    };
+
+    const handleCardBackDownloaded = async (
+        cardBackFile: File,
+        index: number,
+        placeholderCardIds: string[]
+    ) => {
+        const cardId = placeholderCardIds[index];
+        if (!cardId) return;
+
+        const cardBackUrl = URL.createObjectURL(cardBackFile);
+
+        // Generate thumbnail asynchronously for card back
+        try {
+            const cardBackThumbnailUrl = await generateThumbnailAsync(
+                cardBackFile,
+                800,
+                800,
+                0.85,
+                defaultCardBackBleed,
+                cardWidth,
+                cardHeight
+            );
+            setCardMap((prev: Map<string, CardImage>) => {
+                const updated = new Map(prev);
+                const card = updated.get(cardId);
+                if (card) {
+                    updated.set(cardId, {
+                        ...card,
+                        cardBackUrl,
+                        cardBackThumbnailUrl,
+                        cardBackThumbnailLoading: false,
+                    });
+                }
+                return updated;
+            });
+        } catch (error) {
+            console.error(`Failed to generate thumbnail for card back ${cardBackFile.name}:`, error);
+            setCardMap((prev: Map<string, CardImage>) => {
+                const updated = new Map(prev);
+                const card = updated.get(cardId);
+                if (card) {
+                    updated.set(cardId, {
+                        ...card,
+                        cardBackUrl,
+                        cardBackThumbnailLoading: false,
+                    });
+                }
+                return updated;
+            });
+        }
+
+        setEnableCardBacks(true);
+    };
+
+    const handleCardBackDefaultDownloaded = async (cardBackFile: File) => {
+        setEnableCardBacks(true);
+        await handleUpdateDefaultCardBack(cardBackFile);
+    };
 
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -50,11 +166,11 @@ export function XMLUpload() {
         }
 
         // Create placeholder cards immediately with skeleton state
-        const placeholderCardIds = parseResult.order.fronts.map(() => crypto.randomUUID());
+        const placeholderCardIds = parseResult.order.cards.map(() => crypto.randomUUID());
         const newCardMap = new Map(cardMap);
         const newCardOrder = [...cardOrder];
 
-        parseResult.order.fronts.forEach((card, index) => {
+        parseResult.order.cards.forEach((card, index) => {
             const cardId = placeholderCardIds[index];
             newCardMap.set(cardId, {
                 id: cardId,
@@ -76,56 +192,13 @@ export function XMLUpload() {
         // Start XML import with callbacks
         await handleXMLImport(
             file,
-            async (downloadedFile, index) => {
-                const cardId = placeholderCardIds[index];
-                if (!cardId) return;
-
-                const imageUrl = URL.createObjectURL(downloadedFile);
-
-                // Generate thumbnail asynchronously
-                try {
-                    const thumbnailUrl = await generateThumbnailAsync(
-                        downloadedFile,
-                        800,
-                        800,
-                        0.85,
-                        defaultBleed,
-                        cardWidth,
-                        cardHeight
-                    );
-                    setCardMap((prev: Map<string, CardImage>) => {
-                        const updated = new Map(prev);
-                        const card = updated.get(cardId);
-                        if (card) {
-                            updated.set(cardId, {
-                                ...card,
-                                imageUrl,
-                                thumbnailUrl,
-                                thumbnailLoading: false,
-                            });
-                        }
-                        return updated;
-                    });
-                } catch (error) {
-                    console.error(`Failed to generate thumbnail for ${downloadedFile.name}:`, error);
-                    setCardMap((prev: Map<string, CardImage>) => {
-                        const updated = new Map(prev);
-                        const card = updated.get(cardId);
-                        if (card) {
-                            updated.set(cardId, {
-                                ...card,
-                                imageUrl,
-                                thumbnailLoading: false,
-                            });
-                        }
-                        return updated;
-                    });
-                }
+            (downloadedFile: File, index: number) => {
+                handleCardDownloaded(downloadedFile, index, placeholderCardIds);
             },
-            async (cardBackFile) => {
-                setEnableCardBacks(true);
-                await handleUpdateDefaultCardBack(cardBackFile);
-            }
+            (cardBackFile: File, index: number) => {
+                handleCardBackDownloaded(cardBackFile, index, placeholderCardIds);
+            },
+            handleCardBackDefaultDownloaded,
         );
 
         if (fileInputRef.current) {

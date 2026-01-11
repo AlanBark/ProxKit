@@ -5,13 +5,6 @@ import type { MPCFillOrder } from '../utils/mpcfill/types';
 
 /**
  * Hook for importing card orders from MPCFill XML files.
- *
- * Features:
- * - Parses MPCFill XML format
- * - Downloads card images from Google Drive
- * - Tracks import progress
- * - Handles errors gracefully
- * - Provides callbacks for processed files
  */
 export function useMPCFillImport() {
     const [isImporting, setIsImporting] = useState(false);
@@ -22,7 +15,8 @@ export function useMPCFillImport() {
     const handleXMLImport = async (
         file: File,
         onFileDownloaded: (file: File, index: number) => void,
-        onCardBackDownloaded: (file: File) => void
+        onFileBackDownloaded: (file: File, index: number) => void,
+        onDefaultCardBackDownloaded: (file: File) => void
     ) => {
         setIsImporting(true);
         setImportProgress(0);
@@ -43,41 +37,65 @@ export function useMPCFillImport() {
 
             const order = parseResult.order;
 
-            if (order.fronts.length === 0) {
+            if (order.cards.length === 0) {
                 throw new Error('No cards found in XML file');
             }
 
             setLastImportedOrder(order);
 
-            // Collect all Drive IDs (fronts + optional card back)
-            const frontIds = order.fronts.map(card => card.id);
-            const cardBackIds = order.cardback ? [order.cardback] : [];
-            const frontCount = frontIds.length;
-
-            // Prepare file info for download
-            const allFileInfos = [
-                ...frontIds.map((id, index) => ({ id, name: `card_front_${index + 1}.jpg` })),
-                ...cardBackIds.map(id => ({ id, name: 'card_back.jpg' }))
-            ];
-
             let completedCount = 0;
-            const totalFiles = allFileInfos.length;
+            let totalFiles = order.cards.length;
+            if (order.cardback !== null) {
+                totalFiles += 1;
+            }
 
-            // Download images with per-file callback
+            // Build array of files to download
+            const filesToDownload: { id: string; name: string; type: 'front' | 'back' | 'cardback'; cardIndex?: number }[] = [];
+
+            // Add front cards and their unique backs
+            order.cards.forEach((card, index) => {
+                filesToDownload.push({
+                    id: card.id,
+                    name: `${card.name}.jpg`,
+                    type: 'front',
+                    cardIndex: index
+                });
+
+                if (card.backId) {
+                    filesToDownload.push({
+                        id: card.backId,
+                        name: `${card.name}_back.jpg`,
+                        type: 'back',
+                        cardIndex: index
+                    });
+                }
+            });
+
+            // Add default cardback if present
+            if (order.cardback) {
+                filesToDownload.push({
+                    id: order.cardback,
+                    name: 'cardback.jpg',
+                    type: 'cardback'
+                });
+            }
+
+            // Image download with callbacks as each file downloads
             await downloadMultipleImages(
-                allFileInfos,
-                (file, _id, index) => {
+                filesToDownload.map(f => ({ id: f.id, name: f.name })),
+                (file: File, _id: string, index: number) => {
                     completedCount++;
-                    const progress = Math.round((completedCount / totalFiles) * 100);
-                    setImportProgress(progress);
+                    setImportProgress(Math.round((completedCount / filesToDownload.length) * 100));
 
-                    // Call appropriate callback as each file downloads
-                    if (index < frontCount) {
-                        // front card
-                        onFileDownloaded(file, index);
-                    } else {
-                        // back card
-                        onCardBackDownloaded(file);
+                    // Call appropriate callback based on file type
+                    const fileInfo = filesToDownload[index];
+
+                    if (fileInfo.type === 'cardback') {
+                        onDefaultCardBackDownloaded(file);
+                    } else if (fileInfo.type === 'front') {
+                        onFileDownloaded(file, fileInfo.cardIndex!);
+                    } else if (fileInfo.type === 'back') {
+                        onFileBackDownloaded(file, fileInfo.cardIndex!);
                     }
                 }
             );

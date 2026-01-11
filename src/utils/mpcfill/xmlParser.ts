@@ -20,19 +20,27 @@ export function parseMPCFillXML(xmlContent: string): MPCFillParseResult {
             };
         }
 
-        // Parse details
-        const details = parseOrderDetails(xmlDoc, errors);
-
         // Parse front cards
         const fronts = parseFrontCards(xmlDoc, errors);
 
-        // Parse card back
+        // Parse per-card backs
+        const backs = parseBackCards(xmlDoc, errors);
+
+        // Create cards array by combining fronts with their matching backs
+        const cards: MPCFillCard[] = Array.from(fronts.entries()).map(([slot, frontCard]) => {
+            const backCard = backs.get(slot);
+            return {
+                ...frontCard,
+                backId: backCard?.id
+            };
+        });
+
+        // Parse default card back
         const cardback = parseCardBack(xmlDoc, errors);
 
         return {
             order: {
-                details,
-                fronts,
+                cards,
                 cardback
             },
             errors
@@ -46,37 +54,17 @@ export function parseMPCFillXML(xmlContent: string): MPCFillParseResult {
     }
 }
 
-function parseOrderDetails(xmlDoc: Document, errors: string[]) {
-    const detailsElement = xmlDoc.querySelector('details');
+function parseFrontCards(xmlDoc: Document, errors: string[]): Map<number, MPCFillCard> {
 
-    if (!detailsElement) {
-        errors.push('Missing <details> element in XML');
-        return {
-            quantity: 0,
-            bracket: 0,
-            stock: '',
-            foil: false
-        };
-    }
-
-    const quantity = parseInt(detailsElement.querySelector('quantity')?.textContent || '0', 10);
-    const bracket = parseInt(detailsElement.querySelector('bracket')?.textContent || '0', 10);
-    const stock = detailsElement.querySelector('stock')?.textContent || '';
-    const foil = detailsElement.querySelector('foil')?.textContent?.toLowerCase() === 'true';
-
-    return { quantity, bracket, stock, foil };
-}
-
-function parseFrontCards(xmlDoc: Document, errors: string[]): MPCFillCard[] {
+    const cards = new Map<number, MPCFillCard>();
     const frontsElement = xmlDoc.querySelector('fronts');
 
     if (!frontsElement) {
         errors.push('Missing <fronts> element in XML');
-        return [];
+        return cards;
     }
 
     const cardElements = frontsElement.querySelectorAll('card');
-    const cards: MPCFillCard[] = [];
 
     cardElements.forEach((cardElement, index) => {
         const id = cardElement.querySelector('id')?.textContent?.trim();
@@ -95,10 +83,49 @@ function parseFrontCards(xmlDoc: Document, errors: string[]): MPCFillCard[] {
 
         const slots = parseInt(slotsText || '0', 10);
 
-        cards.push({
+        cards.set( slots, {
             id,
-            slots,
             name: name || `Card ${index + 1}`,
+            query
+        });
+    });
+
+    return cards;
+}
+
+function parseBackCards(xmlDoc: Document, errors: string[]): Map<number, MPCFillCard> {
+    
+    const cards = new Map<number, MPCFillCard>();
+    const backsElement = xmlDoc.querySelector('backs');
+
+    if (!backsElement) {
+        // This is optional - not all cards have unique backs
+        return cards;
+    }
+
+    const cardElements = backsElement.querySelectorAll('card');
+
+    cardElements.forEach((cardElement, index) => {
+        const id = cardElement.querySelector('id')?.textContent?.trim();
+        const slotsText = cardElement.querySelector('slots')?.textContent?.trim();
+        const name = cardElement.querySelector('name')?.textContent?.trim();
+        const query = cardElement.querySelector('query')?.textContent?.trim();
+
+        if (!id) {
+            errors.push(`Back card at index ${index} is missing an <id> element`);
+            return;
+        }
+
+        if (typeof slotsText !== 'string') {
+            errors.push(`Back card at index ${index} is missing a <slots> element`);
+            return;
+        }
+
+        const slots = parseInt(slotsText, 10);
+
+        cards.set(slots, {
+            id,
+            name: name || `Card Back ${index + 1}`,
             query
         });
     });
@@ -125,13 +152,7 @@ function parseCardBack(xmlDoc: Document, errors: string[]): string | null {
 
 function createEmptyOrder(): MPCFillOrder {
     return {
-        details: {
-            quantity: 0,
-            bracket: 0,
-            stock: '',
-            foil: false
-        },
-        fronts: [],
+        cards: [],
         cardback: null
     };
 }

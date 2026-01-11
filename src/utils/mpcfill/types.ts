@@ -1,18 +1,12 @@
 export interface MPCFillCard {
     id: string;
-    slots: number;
     name: string;
     query?: string;
+    backId?: string; // Optional unique back for this card
 }
 
 export interface MPCFillOrder {
-    details: {
-        quantity: number;
-        bracket: number;
-        stock: string;
-        foil: boolean;
-    };
-    fronts: MPCFillCard[];
+    cards: MPCFillCard[];
     cardback: string | null;
 }
 
