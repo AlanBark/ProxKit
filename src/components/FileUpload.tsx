@@ -1,28 +1,21 @@
 import { useRef } from "react";
 import { Upload } from "lucide-react";
 import { Button } from "@heroui/react";
+import { useCardFileHandling } from "../hooks/useCardFileHandling";
 
-interface FileUploadProps {
-    onFilesSelected: (files: File[]) => void;
-    multiple?: boolean;
-}
-
-export function FileUpload({ onFilesSelected, multiple = true }: FileUploadProps) {
+export function FileUpload() {
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const { handleFilesSelected, openFileSelection } = useCardFileHandling();
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const files = event.target.files;
         if (files && files.length > 0) {
-            onFilesSelected(Array.from(files));
+            handleFilesSelected(Array.from(files));
         }
         // Reset input so same file can be selected again
         if (fileInputRef.current) {
             fileInputRef.current.value = "";
         }
-    };
-
-    const handleButtonClick = () => {
-        fileInputRef.current?.click();
     };
 
     return (
@@ -31,12 +24,12 @@ export function FileUpload({ onFilesSelected, multiple = true }: FileUploadProps
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
-                multiple={multiple}
+                multiple
                 onChange={handleFileChange}
                 className="hidden"
             />
             <Button
-                onPress={handleButtonClick}
+                onPress={() => openFileSelection(fileInputRef)}
                 className={`w-full`}
                 color="primary"
                 variant="ghost"

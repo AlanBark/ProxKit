@@ -34,7 +34,7 @@ export function usePDFGeneration() {
     const defaultCardBackUrl = usePrintAndCutStore((state) => state.defaultCardBackUrl);
     const skipSlots = usePrintAndCutStore((state) => state.skipSlots);
 
-    // Initialize PDF manager when settings changey
+    // Initialize PDF manager when settings change
     useEffect(() => {
         const selectedKey = Array.from(pageSize)[0] as string;
         const selectedPage = PAGE_SIZE_OPTIONS.find(p => p.key === selectedKey);
@@ -70,6 +70,29 @@ export function usePDFGeneration() {
 
         setIsGenerating(true);
         setGenerationProgress(0);
+
+        const cardsArray = cardOrder.map(id => cardMap.get(id)).filter((card): card is CardImage => card !== undefined);
+
+        // Transform cards array to include nulls for skipped slots
+        const skipSlotsArray = Array.from(skipSlots).sort((a, b) => a - b);
+        const CARDS_PER_PAGE = 8;
+        const availableSlotsPerPage = CARDS_PER_PAGE - skipSlotsArray.length;
+        const totalPages = Math.ceil(cardsArray.length / availableSlotsPerPage);
+
+        const cardsWithSkippedSlots: (CardImage | null)[] = [];
+        let cardIdx = 0;
+
+        for (let page = 0; page < totalPages; page++) {
+            for (let slot = 0; slot < CARDS_PER_PAGE; slot++) {
+                if (skipSlotsArray.includes(slot)) {
+                    cardsWithSkippedSlots.push(null);
+                } else if (cardIdx < cardsArray.length) {
+                    cardsWithSkippedSlots.push(cardsArray[cardIdx]);
+                    cardIdx++;
+                }
+            }
+        }
+
         try {
             if (window.__TAURI_INTERNALS__) {
                 // Tauri: User Dialogue for file selection
@@ -86,40 +109,54 @@ export function usePDFGeneration() {
                         },
                     ],
                 });
-                
+
                 // path is null if user cancels dialogue
-                if (path !== null)
-                {
-                    const result = await invoke<string>('generate_pdf', {
-                        filePath: path
+                if (path !== null) {
+                    // Get page settings
+                    const selectedKey = Array.from(pageSize)[0] as string;
+                    const selectedPage = PAGE_SIZE_OPTIONS.find(p => p.key === selectedKey);
+                    const pageSettings = selectedPage
+                        ? { width: selectedPage.width, height: selectedPage.height, margin: 10 }
+                        : { width: 210, height: 297, margin: 10 };
+
+                    const minimalCards = cardsWithSkippedSlots.map(card => {
+                        if (card === null) {
+                            return null;
+                        } else {
+                            return {
+                                id: card.id,
+                                imageUrl: card.imageUrl,
+                                name: card.name,
+                                bleed: card.bleed,
+                                useCustomBleed: card.useCustomBleed,
+                                cardBackUrl: card.cardBackUrl,
+                                cardBackBleed: card.cardBackBleed,
+                                useCustomCardBackBleed: card.useCustomCardBackBleed,
+                            };
+                        }
                     });
+
+                    console.log(minimalCards)
+
+                    // Call Rust backend with proper types
+                    const result = await invoke<string>('generate_cardlist', {
+                        request: {
+                            cards: minimalCards,
+                            outputPath: path,
+                            pageWidth: pageSettings.width,
+                            pageHeight: pageSettings.height,
+                            pageMargin: pageSettings.margin,
+                            cardWidth: cardWidth,
+                            cardHeight: cardHeight,
+                        }
+                    });
+
                     console.log('PDF generated:', result);
                 }
 
             } else {
                 // Web: Generate and auto-download PDF
                 // The audo download happens within the pdfManager
-                const cardsArray = cardOrder.map(id => cardMap.get(id)).filter((card): card is CardImage => card !== undefined);
-
-                // Transform cards array to include nulls for skipped slots
-                const skipSlotsArray = Array.from(skipSlots).sort((a, b) => a - b);
-                const CARDS_PER_PAGE = 8;
-                const availableSlotsPerPage = CARDS_PER_PAGE - skipSlotsArray.length;
-                const totalPages = Math.ceil(cardsArray.length / availableSlotsPerPage);
-
-                const cardsWithSkippedSlots: (CardImage | null)[] = [];
-                let cardIdx = 0;
-
-                for (let page = 0; page < totalPages; page++) {
-                    for (let slot = 0; slot < CARDS_PER_PAGE; slot++) {
-                        if (skipSlotsArray.includes(slot)) {
-                            cardsWithSkippedSlots.push(null);
-                        } else if (cardIdx < cardsArray.length) {
-                            cardsWithSkippedSlots.push(cardsArray[cardIdx]);
-                            cardIdx++;
-                        }
-                    }
-                }
 
                 // Set progress callback
                 pdfManagerRef.current.onProgress = (_current: number, _total: number, percentage: number) => {

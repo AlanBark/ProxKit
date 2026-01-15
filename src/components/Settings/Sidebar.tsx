@@ -4,7 +4,6 @@ import { XMLUpload } from "../XMLUpload";
 import { Box } from "../Box";
 import { textStyles } from "../../theme/classNames";
 import { usePrintAndCutStore } from "../../stores/printAndCutStore";
-import { useCardFileHandling } from "../../hooks/useCardFileHandling";
 import { usePDFGeneration } from "../../hooks/usePDFGeneration";
 import { useDXFGeneration } from "../../hooks/useDXFGeneration";
 import { useMPCFillImport } from "../../hooks/useMPCFillImport";
@@ -24,8 +23,6 @@ export function Sidebar({ className = "" }) {
     const cardOrder = usePrintAndCutStore((state) => state.cardOrder);
     const cardMap = usePrintAndCutStore((state) => state.cardMap);
 
-    // Get card file handling hook
-    const { handleFilesSelected } = useCardFileHandling();
 
     // Get PDF state and actions
     const {
@@ -75,9 +72,7 @@ export function Sidebar({ className = "" }) {
                     </div>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
-                        <FileUpload
-                            onFilesSelected={handleFilesSelected}
-                        />
+                        <FileUpload />
 
                         <Button
                             onPress={handleGeneratePDF}
