@@ -49,6 +49,82 @@ export const GRID_COLS = 4;
 export const GRID_ROWS = 2;
 
 /**
+ * One position on a page.
+ *
+ * `skipped` and `empty` both render nothing, but they are not the same thing:
+ * a slot is skipped because the user turned it off, and empty because the card
+ * list ran out. The preview draws them differently.
+ */
+export type Slot =
+    | { kind: "card"; card: CardImage; cardId: string; globalIndex: number }
+    | { kind: "skipped" }
+    | { kind: "empty" };
+
+/**
+ * Assigns cards to page slots.
+ *
+ * This is the single source of truth for where a card ends up. It previously
+ * existed three times - once for the preview, once for PDF export and once for
+ * DXF - which meant the preview and the output agreed only by coincidence.
+ *
+ * Every returned page is exactly CARDS_PER_PAGE long, so callers can index by
+ * slot without bounds checks.
+ */
+export function layoutPages(
+    cardOrder: string[],
+    cardMap: Map<string, CardImage>,
+    skipSlots: Set<number>
+): Slot[][] {
+    const skipped = [...skipSlots].filter((slot) => slot >= 0 && slot < CARDS_PER_PAGE);
+    const availablePerPage = CARDS_PER_PAGE - skipped.length;
+
+    if (availablePerPage <= 0 || cardOrder.length === 0) {
+        return [];
+    }
+
+    const totalPages = Math.ceil(cardOrder.length / availablePerPage);
+    const pages: Slot[][] = [];
+    let cursor = 0;
+
+    for (let page = 0; page < totalPages; page++) {
+        const slots: Slot[] = [];
+
+        for (let slot = 0; slot < CARDS_PER_PAGE; slot++) {
+            if (skipped.includes(slot)) {
+                slots.push({ kind: "skipped" });
+                continue;
+            }
+
+            const cardId = cardOrder[cursor];
+            if (cardId === undefined) {
+                slots.push({ kind: "empty" });
+                continue;
+            }
+
+            const globalIndex = cursor;
+            cursor++;
+
+            const card = cardMap.get(cardId);
+            slots.push(card ? { kind: "card", card, cardId, globalIndex } : { kind: "empty" });
+        }
+
+        pages.push(slots);
+    }
+
+    return pages;
+}
+
+/**
+ * Flattens a layout for the generators, which want one array of cards and gaps.
+ *
+ * Skipped and empty slots both become null: to a renderer they are simply
+ * positions with nothing in them.
+ */
+export function slotsToCards(pages: Slot[][]): (CardImage | null)[] {
+    return pages.flatMap((page) => page.map((slot) => (slot.kind === "card" ? slot.card : null)));
+}
+
+/**
  * Calculate grid layout for 4x2 card arrangement
  * The grid is centered on the page
  *

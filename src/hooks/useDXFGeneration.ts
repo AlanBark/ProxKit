@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import type { CardImage } from "../types/card";
 import { useProjectSettingsStore, PAGE_SIZE_OPTIONS } from "../stores/projectSettingsStore";
 import { useCardStore } from "../stores/cardStore";
 import { generateDxfUrl } from "../utils/pdf/dxfGenerator";
-import { CARDS_PER_PAGE } from "../utils/pdf/cardLayoutUtils";
+import { layoutPages, slotsToCards } from "../utils/pdf/cardLayoutUtils";
 import { save } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { isTauri } from '../utils/platform';
@@ -68,27 +67,7 @@ export function useDXFGeneration() {
                     ? { width: selectedPage.width, height: selectedPage.height, margin: 10 }
                     : { width: 210, height: 297, margin: 10 };
 
-                // Build cards array with skip slots
-                const cardsArray = cardOrder.map(id => cardMap.get(id)).filter((card): card is CardImage => card !== undefined);
-
-                // Transform cards array to include nulls for skipped slots
-                const skipSlotsArray = Array.from(skipSlots).sort((a, b) => a - b);
-                const availableSlotsPerPage = CARDS_PER_PAGE - skipSlotsArray.length;
-                const totalPages = Math.ceil(cardsArray.length / availableSlotsPerPage);
-
-                const cardsWithSkippedSlots: (CardImage | null)[] = [];
-                let cardIdx = 0;
-
-                for (let page = 0; page < totalPages; page++) {
-                    for (let slot = 0; slot < CARDS_PER_PAGE; slot++) {
-                        if (skipSlotsArray.includes(slot)) {
-                            cardsWithSkippedSlots.push(null);
-                        } else if (cardIdx < cardsArray.length) {
-                            cardsWithSkippedSlots.push(cardsArray[cardIdx]);
-                            cardIdx++;
-                        }
-                    }
-                }
+                const cardsWithSkippedSlots = slotsToCards(layoutPages(cardOrder, cardMap, skipSlots));
 
                 const newDxfUrl = generateDxfUrl(
                     cardsWithSkippedSlots,

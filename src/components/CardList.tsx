@@ -6,7 +6,7 @@ import { useProjectSettingsStore } from "../stores/projectSettingsStore";
 import { useCardStore } from "../stores/cardStore";
 import { ImageIcon, ChevronLeft, ChevronRight, Ban, Check } from "lucide-react";
 import { Box } from "./Box";
-import { CARDS_PER_PAGE } from "../utils/pdf/cardLayoutUtils";
+import { layoutPages } from "../utils/pdf/cardLayoutUtils";
 import { motion, AnimatePresence } from "framer-motion";
 
 // @TODO dynamic somehow
@@ -26,11 +26,11 @@ export function CardList() {
     const skipSlots = useProjectSettingsStore((state) => state.skipSlots);
     const toggleSkipSlot = useProjectSettingsStore((state) => state.toggleSkipSlot);
 
-    // Calculate total pages accounting for skipped slots
-    const availableSlotsPerPage = CARDS_PER_PAGE - skipSlots.size;
-    const totalPages = availableSlotsPerPage > 0
-        ? Math.ceil(cardOrder.length / availableSlotsPerPage)
-        : 0;
+    const pages = useMemo(
+        () => layoutPages(cardOrder, cardMap, skipSlots),
+        [cardOrder, cardMap, skipSlots]
+    );
+    const totalPages = pages.length;
 
     const handleWheel = (e: React.WheelEvent) => {
         const delta = e.deltaY;
@@ -53,32 +53,7 @@ export function CardList() {
         }
     };
 
-    // Create page layout accounting for skipped slots
-    const currentPageCards = useMemo(() => {
-        const skipSlotsArray = Array.from(skipSlots).sort((a, b) => a - b);
-        const availableSlots = CARDS_PER_PAGE - skipSlotsArray.length;
-
-        // Calculate which cards should be on this page
-        const startCardIndex = (currentPage - 1) * availableSlots;
-        const endCardIndex = startCardIndex + availableSlots;
-        const cardsForPage = cardOrder.slice(startCardIndex, endCardIndex);
-
-        // Build the layout array - use special marker for skipped vs empty
-        const layout: (string | null | 'SKIPPED')[] = new Array(CARDS_PER_PAGE).fill(null);
-        let cardIdx = 0;
-
-        for (let slotIdx = 0; slotIdx < CARDS_PER_PAGE; slotIdx++) {
-            if (skipSlotsArray.includes(slotIdx)) {
-                layout[slotIdx] = 'SKIPPED'; // Mark as explicitly skipped
-            } else if (cardIdx < cardsForPage.length) {
-                layout[slotIdx] = cardsForPage[cardIdx];
-                cardIdx++;
-            }
-            // else remains null (empty slot)
-        }
-
-        return layout;
-    }, [cardOrder, currentPage, skipSlots]);
+    const currentPageSlots = pages[currentPage - 1] ?? [];
 
     // Go back a page if required
     if (currentPage > totalPages && totalPages > 0) {
@@ -165,23 +140,9 @@ export function CardList() {
                                                 height: '100%',
                                             }}
                                         >
-                                            {currentPageCards.map((cardId, slotIndex) => {
-                                                // Calculate global card index based on actual cards before this page
-                                                const skipSlotsArray = Array.from(skipSlots).sort((a, b) => a - b);
-                                                const availableSlots = CARDS_PER_PAGE - skipSlotsArray.length;
-                                                const cardsBeforePage = (currentPage - 1) * availableSlots;
-
-                                                // Count cards in current slots up to this point
-                                                let cardsInCurrentSlots = 0;
-                                                for (let i = 0; i < slotIndex; i++) {
-                                                    if (currentPageCards[i] !== null && currentPageCards[i] !== 'SKIPPED') {
-                                                        cardsInCurrentSlots++;
-                                                    }
-                                                }
-                                                const globalIndex = cardsBeforePage + cardsInCurrentSlots;
-
+                                            {currentPageSlots.map((slot, slotIndex) => {
                                                 // Explicitly skipped slot
-                                                if (cardId === 'SKIPPED') {
+                                                if (slot.kind === 'skipped') {
                                                     return (
                                                         <div
                                                             key={`skip-${slotIndex}`}
@@ -203,7 +164,7 @@ export function CardList() {
                                                 }
 
                                                 // Empty slot (no card assigned)
-                                                if (cardId === null) {
+                                                if (slot.kind === 'empty') {
                                                     return (
                                                         <div
                                                             key={`empty-${slotIndex}`}
@@ -218,9 +179,9 @@ export function CardList() {
                                                 // Card slot
                                                 return (
                                                     <Card
-                                                        key={`${cardId}-${globalIndex}`}
-                                                        card={cardMap.get(cardId)}
-                                                        cardIndex={globalIndex}
+                                                        key={`${slot.cardId}-${slot.globalIndex}`}
+                                                        card={slot.card}
+                                                        cardIndex={slot.globalIndex}
                                                         gridPosition={slotIndex}
                                                     />
                                                 );
