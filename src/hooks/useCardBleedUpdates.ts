@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { useSettingsStore } from "../stores/settingsStore";
+import { useProjectSettingsStore } from "../stores/projectSettingsStore";
 import { useCardStore } from "../stores/cardStore";
 import { generateThumbnailAsync } from "../utils/asyncThumbnailGeneration";
 import type { CardImage, ImageSource } from "../types/card";
@@ -7,8 +7,8 @@ import type { CardImage, ImageSource } from "../types/card";
 export function useCardBleedUpdates() {
     const cardMap = useCardStore((state) => state.cardMap);
     const setCardMap = useCardStore((state) => state.setCardMap);
-    const cardWidth = useSettingsStore((state) => state.cardWidth);
-    const cardHeight = useSettingsStore((state) => state.cardHeight);
+    const cardWidth = useProjectSettingsStore((state) => state.cardWidth);
+    const cardHeight = useProjectSettingsStore((state) => state.cardHeight);
 
     /**
      * Re-thumbnails one face of a card at a new bleed.

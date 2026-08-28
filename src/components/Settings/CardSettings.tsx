@@ -1,5 +1,5 @@
 import { NumberInput, Checkbox, Button, Popover, PopoverTrigger, PopoverContent } from "@heroui/react";
-import { useSettingsStore } from "../../stores/settingsStore";
+import { useProjectSettingsStore } from "../../stores/projectSettingsStore";
 import { useCardStore } from "../../stores/cardStore";
 import { useCardBackManagement } from "../../hooks/useCardBackManagement";
 import { useRef, useState } from "react";
@@ -13,22 +13,22 @@ import doubleSidedExample from "../../assets/double-sided-example.jpg";
 
 function CardSettings() {
     // Get settings from Zustand store
-    const cardWidth = useSettingsStore((state) => state.cardWidth);
-    const setCardWidth = useSettingsStore((state) => state.setCardWidth);
-    const cardHeight = useSettingsStore((state) => state.cardHeight);
-    const setCardHeight = useSettingsStore((state) => state.setCardHeight);
-    const defaultBleed = useSettingsStore((state) => state.defaultBleed);
-    const setDefaultBleed = useSettingsStore((state) => state.setDefaultBleed);
-    const defaultCardBackBleed = useSettingsStore((state) => state.defaultCardBackBleed);
-    const setDefaultCardBackBleed = useSettingsStore((state) => state.setDefaultCardBackBleed);
-    const enableCardBacks = useSettingsStore((state) => state.enableCardBacks);
-    const setEnableCardBacks = useSettingsStore((state) => state.setEnableCardBacks);
-    const defaultCardBack = useSettingsStore((state) => state.defaultCardBack);
+    const cardWidth = useProjectSettingsStore((state) => state.cardWidth);
+    const setCardWidth = useProjectSettingsStore((state) => state.setCardWidth);
+    const cardHeight = useProjectSettingsStore((state) => state.cardHeight);
+    const setCardHeight = useProjectSettingsStore((state) => state.setCardHeight);
+    const defaultBleed = useProjectSettingsStore((state) => state.defaultBleed);
+    const setDefaultBleed = useProjectSettingsStore((state) => state.setDefaultBleed);
+    const defaultCardBackBleed = useProjectSettingsStore((state) => state.defaultCardBackBleed);
+    const setDefaultCardBackBleed = useProjectSettingsStore((state) => state.setDefaultCardBackBleed);
+    const enableCardBacks = useProjectSettingsStore((state) => state.enableCardBacks);
+    const setEnableCardBacks = useProjectSettingsStore((state) => state.setEnableCardBacks);
+    const defaultCardBack = useProjectSettingsStore((state) => state.defaultCardBack);
     const defaultCardBackThumbnailUrl = useCardStore((state) => state.defaultCardBackThumbnailUrl);
-    // const groupByCardBacks = useSettingsStore((state) => state.groupByCardBacks);
-    // const setGroupByCardBacks = useSettingsStore((state) => state.setGroupByCardBacks);
-    const showAllCardBacks = useSettingsStore((state) => state.showAllCardBacks);
-    const setShowAllCardBacks = useSettingsStore((state) => state.setShowAllCardBacks);
+    // const groupByCardBacks = useProjectSettingsStore((state) => state.groupByCardBacks);
+    // const setGroupByCardBacks = useProjectSettingsStore((state) => state.setGroupByCardBacks);
+    const showAllCardBacks = useProjectSettingsStore((state) => state.showAllCardBacks);
+    const setShowAllCardBacks = useProjectSettingsStore((state) => state.setShowAllCardBacks);
 
     // Get card back management hook
     const { handleUpdateDefaultCardBack } = useCardBackManagement();

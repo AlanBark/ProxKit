@@ -1,11 +1,11 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { useEffect, useState } from 'react';
 import type { Selection } from '@heroui/react';
 import { CARD_DIMENSIONS, type ImageSource } from '../types/card';
 import { CARDS_PER_PAGE } from '../utils/pdf/cardLayoutUtils';
-import { settingsStorage } from './settingsStorage';
+import { createSettingsStorage } from './settingsStorage';
 import { settingsReplacer, settingsReviver } from './settingsSerialization';
+import { useStoreHydrated } from './useStoreHydrated';
 
 export const PAGE_SIZE_OPTIONS = [
     { key: "A4", label: "A4", width: 210, height: 297 },
@@ -13,14 +13,18 @@ export const PAGE_SIZE_OPTIONS = [
 ] as const;
 
 /**
- * User settings that outlive a session.
+ * Settings that describe the current print job.
+ *
+ * These are properties of what is being printed rather than of the install, so
+ * they are the things a saved project would eventually carry. Machine-level
+ * preferences belong in appSettingsStore.
  *
  * Everything in this store is persisted - that is the point of it being a
  * separate store. Session state (the card list, generated thumbnails, blob
  * URLs) lives in cardStore and is deliberately not persisted, so there is no
  * list of exceptions to keep in sync.
  */
-interface SettingsState {
+interface ProjectSettingsState {
     // Page and card dimensions
     pageSize: Selection;
     cardWidth: number;
@@ -41,10 +45,6 @@ interface SettingsState {
     // Layout
     skipSlots: Set<number>;
 
-    /** Folder holding downloaded card images. Desktop only; null until chosen. */
-    libraryFolder: string | null;
-    /** Directory of the last saved PDF, used to seed the save dialog. */
-    lastOutputDir: string | null;
 
     setPageSize: (size: Selection) => void;
     setCardWidth: (width: number) => void;
@@ -58,11 +58,9 @@ interface SettingsState {
     setShowAllCardBacks: (show: boolean) => void;
     setSkipSlots: (slots: Set<number> | ((prev: Set<number>) => Set<number>)) => void;
     toggleSkipSlot: (slotIndex: number) => void;
-    setLibraryFolder: (folder: string | null) => void;
-    setLastOutputDir: (dir: string | null) => void;
 }
 
-export const useSettingsStore = create<SettingsState>()(
+export const useProjectSettingsStore = create<ProjectSettingsState>()(
     persist(
         (set) => ({
             pageSize: new Set(["A4"]),
@@ -76,8 +74,6 @@ export const useSettingsStore = create<SettingsState>()(
             groupByCardBacks: false,
             showAllCardBacks: false,
             skipSlots: new Set(),
-            libraryFolder: null,
-            lastOutputDir: null,
 
             setPageSize: (size) => set({ pageSize: size }),
             setCardWidth: (width) => set({ cardWidth: width }),
@@ -106,13 +102,11 @@ export const useSettingsStore = create<SettingsState>()(
                 }
                 return { skipSlots: newSkipSlots };
             }),
-            setLibraryFolder: (folder) => set({ libraryFolder: folder }),
-            setLastOutputDir: (dir) => set({ lastOutputDir: dir }),
         }),
         {
-            name: 'proxkit-settings',
+            name: 'proxkit-project-settings',
             version: 1,
-            storage: createJSONStorage(() => settingsStorage, {
+            storage: createJSONStorage(() => createSettingsStorage('project-settings.json'), {
                 replacer: settingsReplacer,
                 reviver: settingsReviver,
             }),
@@ -120,20 +114,6 @@ export const useSettingsStore = create<SettingsState>()(
     )
 );
 
-/**
- * Whether persisted settings have been read back yet.
- *
- * The desktop backing store is async, so the store briefly holds defaults on
- * startup. Effects that treat a settings change as a user edit must wait for
- * this, or they will act on the defaults-to-stored transition.
- */
-export function useSettingsHydrated(): boolean {
-    const [hydrated, setHydrated] = useState(() => useSettingsStore.persist.hasHydrated());
-
-    useEffect(() => {
-        const unsubFinish = useSettingsStore.persist.onFinishHydration(() => setHydrated(true));
-        return () => { unsubFinish(); };
-    }, []);
-
-    return hydrated;
+export function useProjectSettingsHydrated(): boolean {
+    return useStoreHydrated(useProjectSettingsStore);
 }

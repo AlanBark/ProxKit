@@ -1,6 +1,6 @@
 import { Button, Tooltip } from "@heroui/react";
 import { FolderOpen, X } from "lucide-react";
-import { useSettingsStore } from "../../stores/settingsStore";
+import { useAppSettingsStore } from "../../stores/appSettingsStore";
 import { isTauri } from "../../utils/platform";
 import { textStyles } from "../../theme/classNames";
 import { basename } from "../../utils/paths";
@@ -12,8 +12,8 @@ import { basename } from "../../utils/paths";
  * control is hidden there rather than shown disabled.
  */
 export function LibraryFolderSetting() {
-    const libraryFolder = useSettingsStore((state) => state.libraryFolder);
-    const setLibraryFolder = useSettingsStore((state) => state.setLibraryFolder);
+    const libraryFolder = useAppSettingsStore((state) => state.libraryFolder);
+    const setLibraryFolder = useAppSettingsStore((state) => state.setLibraryFolder);
 
     if (!isTauri) return null;
 

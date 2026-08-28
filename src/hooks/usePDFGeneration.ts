@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { PDFManager } from "../utils/pdf/PDFManager";
 import type { CardImage } from "../types/card";
-import { useSettingsStore, PAGE_SIZE_OPTIONS } from "../stores/settingsStore";
+import { useProjectSettingsStore, PAGE_SIZE_OPTIONS } from "../stores/projectSettingsStore";
+import { useAppSettingsStore } from "../stores/appSettingsStore";
 import { useCardStore } from "../stores/cardStore";
 import { save } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
@@ -31,15 +32,15 @@ export function usePDFGeneration() {
     // Get card and settings from store
     const cardMap = useCardStore((state) => state.cardMap);
     const cardOrder = useCardStore((state) => state.cardOrder);
-    const pageSize = useSettingsStore((state) => state.pageSize);
-    const cardWidth = useSettingsStore((state) => state.cardWidth);
-    const cardHeight = useSettingsStore((state) => state.cardHeight);
-    const outputBleed = useSettingsStore((state) => state.outputBleed);
-    const enableCardBacks = useSettingsStore((state) => state.enableCardBacks);
-    const defaultCardBack = useSettingsStore((state) => state.defaultCardBack);
-    const lastOutputDir = useSettingsStore((state) => state.lastOutputDir);
-    const setLastOutputDir = useSettingsStore((state) => state.setLastOutputDir);
-    const skipSlots = useSettingsStore((state) => state.skipSlots);
+    const pageSize = useProjectSettingsStore((state) => state.pageSize);
+    const cardWidth = useProjectSettingsStore((state) => state.cardWidth);
+    const cardHeight = useProjectSettingsStore((state) => state.cardHeight);
+    const outputBleed = useProjectSettingsStore((state) => state.outputBleed);
+    const enableCardBacks = useProjectSettingsStore((state) => state.enableCardBacks);
+    const defaultCardBack = useProjectSettingsStore((state) => state.defaultCardBack);
+    const lastOutputDir = useAppSettingsStore((state) => state.lastOutputDir);
+    const setLastOutputDir = useAppSettingsStore((state) => state.setLastOutputDir);
+    const skipSlots = useProjectSettingsStore((state) => state.skipSlots);
 
     // Initialize PDF manager when settings change
     useEffect(() => {

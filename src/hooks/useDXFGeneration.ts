@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { CardImage } from "../types/card";
-import { useSettingsStore, PAGE_SIZE_OPTIONS } from "../stores/settingsStore";
+import { useProjectSettingsStore, PAGE_SIZE_OPTIONS } from "../stores/projectSettingsStore";
 import { useCardStore } from "../stores/cardStore";
 import { generateDxfUrl } from "../utils/pdf/dxfGenerator";
 import { CARDS_PER_PAGE } from "../utils/pdf/cardLayoutUtils";
@@ -28,11 +28,11 @@ export function useDXFGeneration() {
     // Get card and settings from store
     const cardMap = useCardStore((state) => state.cardMap);
     const cardOrder = useCardStore((state) => state.cardOrder);
-    const pageSize = useSettingsStore((state) => state.pageSize);
-    const cardWidth = useSettingsStore((state) => state.cardWidth);
-    const cardHeight = useSettingsStore((state) => state.cardHeight);
-    const outputBleed = useSettingsStore((state) => state.outputBleed);
-    const skipSlots = useSettingsStore((state) => state.skipSlots);
+    const pageSize = useProjectSettingsStore((state) => state.pageSize);
+    const cardWidth = useProjectSettingsStore((state) => state.cardWidth);
+    const cardHeight = useProjectSettingsStore((state) => state.cardHeight);
+    const outputBleed = useProjectSettingsStore((state) => state.outputBleed);
+    const skipSlots = useProjectSettingsStore((state) => state.skipSlots);
 
     // Clear DXF URL when cards are removed
     useEffect(() => {

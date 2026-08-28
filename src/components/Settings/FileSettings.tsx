@@ -1,10 +1,9 @@
 import { Select, SelectItem } from "@heroui/react";
-import { useSettingsStore, PAGE_SIZE_OPTIONS } from "../../stores/settingsStore";
-import { LibraryFolderSetting } from "./LibraryFolderSetting";
+import { useProjectSettingsStore, PAGE_SIZE_OPTIONS } from "../../stores/projectSettingsStore";
 
 function FileSettings() {
-    const pageSize = useSettingsStore((state) => state.pageSize);
-    const setPageSize = useSettingsStore((state) => state.setPageSize);
+    const pageSize = useProjectSettingsStore((state) => state.pageSize);
+    const setPageSize = useProjectSettingsStore((state) => state.setPageSize);
 
     return (
         <div className="mb-3">
@@ -27,10 +26,6 @@ function FileSettings() {
                     </SelectItem>
                 ))}
             </Select>
-
-            <div className="mt-3">
-                <LibraryFolderSetting />
-            </div>
         </div>
     );
 }

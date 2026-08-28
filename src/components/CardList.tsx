@@ -2,7 +2,7 @@ import { Card } from "./Card";
 import { Pagination, Button } from "@heroui/react";
 import { textStyles } from "../theme/classNames";
 import { useState, useMemo, useRef } from "react";
-import { useSettingsStore } from "../stores/settingsStore";
+import { useProjectSettingsStore } from "../stores/projectSettingsStore";
 import { useCardStore } from "../stores/cardStore";
 import { ImageIcon, ChevronLeft, ChevronRight, Ban, Check } from "lucide-react";
 import { Box } from "./Box";
@@ -21,10 +21,10 @@ export function CardList() {
 
     const cardMap = useCardStore((state) => state.cardMap);
     const cardOrder = useCardStore((state) => state.cardOrder);
-    const cardWidth = useSettingsStore((state) => state.cardWidth);
-    const cardHeight = useSettingsStore((state) => state.cardHeight);
-    const skipSlots = useSettingsStore((state) => state.skipSlots);
-    const toggleSkipSlot = useSettingsStore((state) => state.toggleSkipSlot);
+    const cardWidth = useProjectSettingsStore((state) => state.cardWidth);
+    const cardHeight = useProjectSettingsStore((state) => state.cardHeight);
+    const skipSlots = useProjectSettingsStore((state) => state.skipSlots);
+    const toggleSkipSlot = useProjectSettingsStore((state) => state.toggleSkipSlot);
 
     // Calculate total pages accounting for skipped slots
     const availableSlotsPerPage = CARDS_PER_PAGE - skipSlots.size;

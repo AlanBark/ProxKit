@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { useSettingsStore, useSettingsHydrated } from "../stores/settingsStore";
+import { useProjectSettingsStore, useProjectSettingsHydrated } from "../stores/projectSettingsStore";
 import { useCardStore } from "../stores/cardStore";
 import { generateThumbnailAsync } from "../utils/asyncThumbnailGeneration";
 
@@ -11,11 +11,11 @@ export function useThumbnailRegeneration() {
     const cardMap = useCardStore((state) => state.cardMap);
     const cardOrder = useCardStore((state) => state.cardOrder);
     const setCardMap = useCardStore((state) => state.setCardMap);
-    const defaultBleed = useSettingsStore((state) => state.defaultBleed);
-    const defaultCardBackBleed = useSettingsStore((state) => state.defaultCardBackBleed);
-    const cardWidth = useSettingsStore((state) => state.cardWidth);
-    const cardHeight = useSettingsStore((state) => state.cardHeight);
-    const defaultCardBack = useSettingsStore((state) => state.defaultCardBack);
+    const defaultBleed = useProjectSettingsStore((state) => state.defaultBleed);
+    const defaultCardBackBleed = useProjectSettingsStore((state) => state.defaultCardBackBleed);
+    const cardWidth = useProjectSettingsStore((state) => state.cardWidth);
+    const cardHeight = useProjectSettingsStore((state) => state.cardHeight);
+    const defaultCardBack = useProjectSettingsStore((state) => state.defaultCardBack);
     const setDefaultCardBackThumbnailUrl = useCardStore((state) => state.setDefaultCardBackThumbnailUrl);
 
     const prevDefaultBleedRef = useRef<number>(defaultBleed);
@@ -23,7 +23,7 @@ export function useThumbnailRegeneration() {
 
     // Stored settings arrive after the first render, so the defaults-to-stored
     // change must be adopted as the baseline rather than acted on.
-    const hydrated = useSettingsHydrated();
+    const hydrated = useProjectSettingsHydrated();
 
     // Regenerate front thumbnails when defaultBleed changes
     useEffect(() => {

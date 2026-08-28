@@ -2,7 +2,7 @@ import { Trash2, Plus, Loader2, RotateCcw, Upload, Menu, Ban } from "lucide-reac
 import { Button, ButtonGroup, Input, Popover, PopoverContent, PopoverTrigger } from "@heroui/react";
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import type { CardImage } from "../types/card";
-import { useSettingsStore } from "../stores/settingsStore";
+import { useProjectSettingsStore } from "../stores/projectSettingsStore";
 import { useCardStore } from "../stores/cardStore";
 import { useCardBleedUpdates } from "../hooks/useCardBleedUpdates";
 import { useCardBackManagement } from "../hooks/useCardBackManagement";
@@ -20,17 +20,17 @@ interface CardProps {
 export function Card({ card, cardIndex, gridPosition }: CardProps) {
 
     // Get settings from store
-    const cardWidth = useSettingsStore((state) => state.cardWidth);
-    const cardHeight = useSettingsStore((state) => state.cardHeight);
-    const showAllCardBacks = useSettingsStore((state) => state.showAllCardBacks);
-    const defaultCardBack = useSettingsStore((state) => state.defaultCardBack);
+    const cardWidth = useProjectSettingsStore((state) => state.cardWidth);
+    const cardHeight = useProjectSettingsStore((state) => state.cardHeight);
+    const showAllCardBacks = useProjectSettingsStore((state) => state.showAllCardBacks);
+    const defaultCardBack = useProjectSettingsStore((state) => state.defaultCardBack);
     const defaultCardBackThumbnailUrl = useCardStore((state) => state.defaultCardBackThumbnailUrl);
     const cardMap = useCardStore((state) => state.cardMap);
     const cardOrder = useCardStore((state) => state.cardOrder);
     const setCardMap = useCardStore((state) => state.setCardMap);
     const setCardOrder = useCardStore((state) => state.setCardOrder);
-    const skipSlots = useSettingsStore((state) => state.skipSlots);
-    const toggleSkipSlot = useSettingsStore((state) => state.toggleSkipSlot);
+    const skipSlots = useProjectSettingsStore((state) => state.skipSlots);
+    const toggleSkipSlot = useProjectSettingsStore((state) => state.toggleSkipSlot);
 
     // Get hooks for card operations
     const { handleUpdateBleed, handleUpdateCardBackBleed } = useCardBleedUpdates();

@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { FileUp, HelpCircle } from "lucide-react";
 import { Button, ButtonGroup, Card, CardBody } from "@heroui/react";
 import { useMPCFillImport } from "../hooks/useMPCFillImport";
-import { useSettingsStore } from "../stores/settingsStore";
+import { useProjectSettingsStore } from "../stores/projectSettingsStore";
 import { useCardStore } from "../stores/cardStore";
 import { useCardBackManagement } from "../hooks/useCardBackManagement";
 import { sourceFromFile } from "../utils/imageSource";
@@ -17,15 +17,15 @@ export function XMLUpload() {
     const [isXmlHelpModalOpen, setIsXmlHelpModalOpen] = useState(false);
 
     // Get settings and state from store
-    const defaultBleed = useSettingsStore((state) => state.defaultBleed);
-    const defaultCardBackBleed = useSettingsStore((state) => state.defaultCardBackBleed);
-    const cardWidth = useSettingsStore((state) => state.cardWidth);
-    const cardHeight = useSettingsStore((state) => state.cardHeight);
+    const defaultBleed = useProjectSettingsStore((state) => state.defaultBleed);
+    const defaultCardBackBleed = useProjectSettingsStore((state) => state.defaultCardBackBleed);
+    const cardWidth = useProjectSettingsStore((state) => state.cardWidth);
+    const cardHeight = useProjectSettingsStore((state) => state.cardHeight);
     const cardMap = useCardStore((state) => state.cardMap);
     const cardOrder = useCardStore((state) => state.cardOrder);
     const setCardMap = useCardStore((state) => state.setCardMap);
     const setCardOrder = useCardStore((state) => state.setCardOrder);
-    const setEnableCardBacks = useSettingsStore((state) => state.setEnableCardBacks);
+    const setEnableCardBacks = useProjectSettingsStore((state) => state.setEnableCardBacks);
 
     // Get card back management hook
     const { handleUpdateCardBack, handleUpdateDefaultCardBack } = useCardBackManagement();

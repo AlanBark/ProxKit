@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { useSettingsStore } from "../stores/settingsStore";
+import { useProjectSettingsStore } from "../stores/projectSettingsStore";
 import { useCardStore } from "../stores/cardStore";
 import { generateThumbnailAsync } from "../utils/asyncThumbnailGeneration";
 import { revokeSource } from "../utils/imageSource";
@@ -8,13 +8,13 @@ import type { ImageSource } from "../types/card";
 export function useCardBackManagement() {
     const cardMap = useCardStore((state) => state.cardMap);
     const setCardMap = useCardStore((state) => state.setCardMap);
-    const defaultCardBack = useSettingsStore((state) => state.defaultCardBack);
-    const setDefaultCardBack = useSettingsStore((state) => state.setDefaultCardBack);
+    const defaultCardBack = useProjectSettingsStore((state) => state.defaultCardBack);
+    const setDefaultCardBack = useProjectSettingsStore((state) => state.setDefaultCardBack);
     const defaultCardBackThumbnailUrl = useCardStore((state) => state.defaultCardBackThumbnailUrl);
     const setDefaultCardBackThumbnailUrl = useCardStore((state) => state.setDefaultCardBackThumbnailUrl);
-    const defaultCardBackBleed = useSettingsStore((state) => state.defaultCardBackBleed);
-    const cardWidth = useSettingsStore((state) => state.cardWidth);
-    const cardHeight = useSettingsStore((state) => state.cardHeight);
+    const defaultCardBackBleed = useProjectSettingsStore((state) => state.defaultCardBackBleed);
+    const cardWidth = useProjectSettingsStore((state) => state.cardWidth);
+    const cardHeight = useProjectSettingsStore((state) => state.cardHeight);
 
     /**
      * Sets or clears this card's own back image.

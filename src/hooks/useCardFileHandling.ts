@@ -1,5 +1,5 @@
 import { useCallback, type RefObject } from "react";
-import { useSettingsStore } from "../stores/settingsStore";
+import { useProjectSettingsStore } from "../stores/projectSettingsStore";
 import { useCardStore } from "../stores/cardStore";
 import { generateThumbnailAsync } from "../utils/asyncThumbnailGeneration";
 import { sourceFromFile } from "../utils/imageSource";
@@ -10,10 +10,10 @@ import type { CardImage, ImageSource } from "../types/card";
 export function useCardFileHandling() {
     const setCardMap = useCardStore((state) => state.setCardMap);
     const setCardOrder = useCardStore((state) => state.setCardOrder);
-    const defaultBleed = useSettingsStore((state) => state.defaultBleed);
-    const defaultCardBackBleed = useSettingsStore((state) => state.defaultCardBackBleed);
-    const cardWidth = useSettingsStore((state) => state.cardWidth);
-    const cardHeight = useSettingsStore((state) => state.cardHeight);
+    const defaultBleed = useProjectSettingsStore((state) => state.defaultBleed);
+    const defaultCardBackBleed = useProjectSettingsStore((state) => state.defaultCardBackBleed);
+    const cardWidth = useProjectSettingsStore((state) => state.cardWidth);
+    const cardHeight = useProjectSettingsStore((state) => state.cardHeight);
 
     /**
      * Adds cards from already-resolved image sources and kicks off thumbnail

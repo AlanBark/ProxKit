@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useSettingsStore } from "../stores/settingsStore";
+import { useProjectSettingsStore } from "../stores/projectSettingsStore";
 import { useCardStore } from "../stores/cardStore";
 import { groupCardsByBacks } from "../utils/cardOperations";
 
@@ -10,7 +10,7 @@ export function useCardReordering() {
     const cardMap = useCardStore((state) => state.cardMap);
     const cardOrder = useCardStore((state) => state.cardOrder);
     const setCardOrder = useCardStore((state) => state.setCardOrder);
-    const groupByCardBacks = useSettingsStore((state) => state.groupByCardBacks);
+    const groupByCardBacks = useProjectSettingsStore((state) => state.groupByCardBacks);
 
     useEffect(() => {
         if (!groupByCardBacks || cardOrder.length === 0) return;

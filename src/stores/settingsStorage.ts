@@ -1,20 +1,18 @@
 import type { StateStorage } from "zustand/middleware";
 import { isTauri } from "../utils/platform";
 
-const SETTINGS_FILE = "settings.json";
-
 /**
  * Desktop: a real JSON file in the app config directory, via tauri-plugin-store.
  *
  * Preferred over localStorage on desktop because it survives a webview data
  * clear and can be opened and edited by hand when diagnosing a problem.
  */
-function createTauriStorage(): StateStorage {
+function createTauriStorage(fileName: string): StateStorage {
     let handle: Promise<Awaited<ReturnType<typeof loadStore>>> | null = null;
 
     async function loadStore() {
         const { load } = await import("@tauri-apps/plugin-store");
-        return load(SETTINGS_FILE, { autoSave: false });
+        return load(fileName, { autoSave: false });
     }
 
     const store = () => (handle ??= loadStore());
@@ -61,4 +59,12 @@ function createWebStorage(): StateStorage {
     };
 }
 
-export const settingsStorage: StateStorage = isTauri ? createTauriStorage() : createWebStorage();
+/**
+ * Backing store for one settings scope.
+ *
+ * Each scope gets its own file on desktop so the two are separable on disk;
+ * on the web they share localStorage and are separated by their persist keys.
+ */
+export function createSettingsStorage(fileName: string): StateStorage {
+    return isTauri ? createTauriStorage(fileName) : createWebStorage();
+}

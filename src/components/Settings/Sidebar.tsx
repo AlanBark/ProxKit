@@ -1,4 +1,4 @@
-import { Download, ChevronRight, HelpCircle } from "lucide-react";
+import { Download, ChevronRight, HelpCircle, Settings } from "lucide-react";
 import { FileUpload } from "../FileUpload";
 import { XMLUpload } from "../XMLUpload";
 import { Box } from "../Box";
@@ -13,11 +13,13 @@ import CardSettings from "./CardSettings";
 import gitHubLogo from "../../assets/github-mark-white.svg"
 import { useNavigate } from "react-router"
 import DxfHelpModal from "./DxfHelpModal";
+import { AppSettingsModal } from "./AppSettingsModal";
 import { useState } from "react";
 
 export function Sidebar({ className = "" }) {
     const navigate = useNavigate();
     const [isDxfHelpModalOpen, setIsDxfHelpModalOpen] = useState(false);
+    const [isAppSettingsOpen, setIsAppSettingsOpen] = useState(false);
 
     // Get card state from store
     const cardOrder = useCardStore((state) => state.cardOrder);
@@ -66,7 +68,15 @@ export function Sidebar({ className = "" }) {
                                 Print and Cut
                             </h1>
                         </div>
-                        <div className="">
+                        <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => setIsAppSettingsOpen(true)}
+                            aria-label="Application settings"
+                            title="Application settings"
+                            className="cursor-pointer"
+                        >
+                            <Settings className="w-6 h-6 opacity-50 hover:opacity-100 transition" />
+                        </button>
                         <a href="https://github.com/AlanBark/proxy-print-and-cut" target="_blank" rel="noopener noreferrer">
                             <img src={gitHubLogo} alt="GitHub" className="w-6 h-6 opacity-50 hover:opacity-100 transition" />
                         </a>
@@ -142,6 +152,11 @@ export function Sidebar({ className = "" }) {
 
                 <div className="grow"></div>
             </Box>
+
+            <AppSettingsModal
+                isOpen={isAppSettingsOpen}
+                onClose={() => setIsAppSettingsOpen(false)}
+            />
 
             <DxfHelpModal
                 isOpen={isDxfHelpModalOpen}
