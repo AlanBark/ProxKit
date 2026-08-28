@@ -3,32 +3,82 @@ use krilla::page::PageSettings;
 use krilla::image::Image;
 use krilla::geom::{Size, Transform};
 use rayon::prelude::*;
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use image::{DynamicImage, GenericImageView, ImageFormat as ImgFormat, RgbaImage};
 
-#[derive(Debug, Deserialize, Serialize)]
-pub struct ImagePosition {
+/// MM to points conversion factor
+const MM_TO_POINTS: f32 = 2.83465;
+
+/// Card image with positioning and bleed info for cropping
+#[derive(Debug, Clone)]
+pub struct CardImagePosition {
     pub file_path: String,
+    /// Cell X position in points (top-left of grid cell)
+    pub cell_x: f32,
+    /// Cell Y position in points (top-left of grid cell)
+    pub cell_y: f32,
+    /// Cell width in points (cardWidth + 2*outputBleed)
+    pub cell_width: f32,
+    /// Cell height in points (cardHeight + 2*outputBleed)
+    pub cell_height: f32,
+    /// Source image bleed in mm (how much bleed is in the source image)
+    pub source_bleed_mm: f32,
+    /// Output bleed in mm (how much bleed to keep)
+    pub output_bleed_mm: f32,
+    /// Card width in mm (without bleed)
+    pub card_width_mm: f32,
+    /// Card height in mm (without bleed)
+    pub card_height_mm: f32,
+}
+
+/// Result of cropping an image - includes the image and its actual dimensions in mm
+struct CroppedImageResult {
+    image: Image,
+    width_mm: f32,
+    height_mm: f32,
+}
+
+
+/// An embedded image that doesn't require file system access
+#[derive(Debug, Clone)]
+pub struct EmbeddedImage {
+    pub data: &'static [u8],
+    pub format: ImageFormat,
     pub x: f32,
     pub y: f32,
     pub width: f32,
     pub height: f32,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
+pub enum ImageFormat {
+    Jpeg,
+    Png,
+}
+
+#[derive(Debug, Clone)]
 pub struct PageLayout {
     pub width: f32,
     pub height: f32,
-    pub images: Vec<ImagePosition>,
+    /// Card images with bleed cropping info
+    pub card_images: Vec<CardImagePosition>,
+    /// Optional embedded background image (e.g., registration marks)
+    pub background: Option<EmbeddedImage>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone)]
 pub struct PdfGenerationRequest {
     pub pages: Vec<PageLayout>,
     pub output_path: String,
 }
 
 /// Generates a PDF with images positioned on pages using Krilla with Rayon for parallel processing
+///
+/// This function handles bleed cropping similar to pdfWorker.ts:
+/// - Each card image has a source_bleed_mm (bleed in the original image)
+/// - Each card has an output_bleed_mm (how much bleed to keep in output)
+/// - Images are cropped by (source_bleed - output_bleed) from each side
 pub async fn generate_pdf(request: PdfGenerationRequest) -> Result<String, String> {
     // Validate input
     if request.pages.is_empty() {
@@ -36,51 +86,47 @@ pub async fn generate_pdf(request: PdfGenerationRequest) -> Result<String, Strin
     }
 
     // Collect all unique image paths across all pages
-    let all_image_paths: Vec<String> = request
+    let all_card_images: Vec<CardImagePosition> = request
         .pages
         .iter()
-        .flat_map(|page| page.images.iter().map(|img| img.file_path.clone()))
+        .flat_map(|page| page.card_images.clone())
         .collect();
 
-    if all_image_paths.is_empty() {
-        return Err("No images provided".to_string());
-    }
-
-    log::info!("Starting PDF generation with {} pages and {} total image references",
-        request.pages.len(), all_image_paths.len());
+    log::info!("Starting PDF generation with {} pages and {} total card images",
+        request.pages.len(), all_card_images.len());
 
     // =====================================================
-    // STEP 1: Load all images in parallel
-    // Each Image::from_* call returns immediately, but
-    // spawns background decoding on rayon's thread pool
+    // STEP 1: Load and crop all images in parallel
     // =====================================================
-    let loaded_images: Vec<(String, Result<Image, String>)> = all_image_paths
+    let cropped_images: Vec<(String, Result<CroppedImageResult, String>)> = all_card_images
         .par_iter()
-        .map(|path| {
-            let result = load_image(path);
-            (path.clone(), result)
+        .map(|card_img| {
+            let result = load_and_crop_image(card_img);
+            // Key includes bleed info to handle same image with different bleeds
+            let key = format!("{}:{}:{}", card_img.file_path, card_img.source_bleed_mm, card_img.output_bleed_mm);
+            (key, result)
         })
         .collect();
 
-    // Check for loading errors
-    let mut image_map = std::collections::HashMap::new();
-    for (path, result) in loaded_images {
+    // Check for loading errors and build image map
+    // Map stores image + its actual dimensions in mm
+    let mut image_map: std::collections::HashMap<String, CroppedImageResult> = std::collections::HashMap::new();
+    for (key, result) in cropped_images {
         match result {
-            Ok(img) => {
-                image_map.insert(path.clone(), img);
+            Ok(cropped_result) => {
+                image_map.insert(key, cropped_result);
             }
             Err(e) => {
-                log::error!("Failed to load image {}: {}", path, e);
-                return Err(format!("Failed to load image {}: {}", path, e));
+                log::error!("Failed to load/crop image: {}", e);
+                return Err(e);
             }
         }
     }
 
-    log::info!("Loaded {} unique images, decoding in background...", image_map.len());
+    log::info!("Loaded and cropped {} unique images", image_map.len());
 
     // =====================================================
     // STEP 2: Create PDF document and add pages
-    // Drawing blocks only if an image isn't ready yet
     // =====================================================
     let mut document = Document::new();
 
@@ -96,21 +142,44 @@ pub async fn generate_pdf(request: PdfGenerationRequest) -> Result<String, Strin
         );
         let mut surface = page.surface();
 
-        for img_pos in &page_layout.images {
-            if let Some(image) = image_map.get(&img_pos.file_path) {
-                // Apply transform for positioning
-                surface.push_transform(&Transform::from_translate(img_pos.x, img_pos.y));
+        // Draw background image first (e.g., registration marks)
+        if let Some(bg) = &page_layout.background {
+            let bg_image = load_image_from_bytes(bg.data, bg.format)
+                .map_err(|e| format!("Failed to load background image: {}", e))?;
 
-                // Draw image - blocks if image is still decoding
-                if let Some(size) = Size::from_wh(img_pos.width, img_pos.height) {
-                    surface.draw_image(image.clone(), size);
+            surface.push_transform(&Transform::from_translate(bg.x, bg.y));
+            if let Some(size) = Size::from_wh(bg.width, bg.height) {
+                surface.draw_image(bg_image, size);
+            }
+            surface.pop();
+        }
+
+        // Draw card images on top
+        for card_img in &page_layout.card_images {
+            let key = format!("{}:{}:{}", card_img.file_path, card_img.source_bleed_mm, card_img.output_bleed_mm);
+
+            if let Some(cropped_result) = image_map.get(&key) {
+                // Convert cropped image dimensions from mm to points
+                let image_width_pts = cropped_result.width_mm * MM_TO_POINTS;
+                let image_height_pts = cropped_result.height_mm * MM_TO_POINTS;
+
+                // Center the cropped image within its cell (matching pdfWorker.ts logic)
+                let offset_x = card_img.cell_x + (card_img.cell_width - image_width_pts) / 2.0;
+                let offset_y = card_img.cell_y + (card_img.cell_height - image_height_pts) / 2.0;
+
+                // Apply transform for positioning
+                surface.push_transform(&Transform::from_translate(offset_x, offset_y));
+
+                // Draw image at the actual cropped size
+                if let Some(size) = Size::from_wh(image_width_pts, image_height_pts) {
+                    surface.draw_image(cropped_result.image.clone(), size);
                 } else {
-                    log::warn!("Invalid image dimensions: {}x{}", img_pos.width, img_pos.height);
+                    log::warn!("Invalid image dimensions: {}x{}", image_width_pts, image_height_pts);
                 }
 
                 surface.pop();
             } else {
-                log::warn!("Image not found in map: {}", img_pos.file_path);
+                log::warn!("Image not found in map: {}", key);
             }
         }
 
@@ -132,31 +201,184 @@ pub async fn generate_pdf(request: PdfGenerationRequest) -> Result<String, Strin
     Ok(request.output_path.clone())
 }
 
-/// Load an image from a file path, detecting format by extension
+/// Load and crop an image based on bleed settings
 ///
-/// Supports both local file paths and data URIs (blob URLs converted to base64)
-fn load_image(path: &str) -> Result<Image, String> {
-    let data = std::fs::read(path)
-        .map_err(|e| format!("Failed to read file: {}", e))?;
+/// This mimics the cropImageBleed function from pdfWorker.ts:
+/// - The source image includes bleed area
+/// - We crop (source_bleed - output_bleed) from each side
+/// - Returns the cropped image AND its actual dimensions in mm
+fn load_and_crop_image(card_img: &CardImagePosition) -> Result<CroppedImageResult, String> {
+    // Load the image using the image crate for manipulation
+    // Detect the format from the file contents, not the extension: MPCFill names
+    // downloads from Drive metadata, so a ".png" is frequently really a JPEG.
+    let img = image::ImageReader::open(&card_img.file_path)
+        .map_err(|e| format!("Failed to open image {}: {}", card_img.file_path, e))?
+        .with_guessed_format()
+        .map_err(|e| format!("Failed to detect format of {}: {}", card_img.file_path, e))?
+        .decode()
+        .map_err(|e| format!("Failed to decode image {}: {}", card_img.file_path, e))?;
 
-    let data: Data = Arc::new(data).into();
+    let (img_width, img_height) = img.dimensions();
 
-    // Detect format by extension
-    let ext = std::path::Path::new(path)
-        .extension()
-        .and_then(|s| s.to_str())
-        .ok_or_else(|| "No file extension".to_string())?
-        .to_lowercase();
+    // The source image represents: cardWidth + (sourceBleed * 2) x cardHeight + (sourceBleed * 2) in mm
+    let total_card_width_mm = card_img.card_width_mm + (card_img.source_bleed_mm * 2.0);
+    let total_card_height_mm = card_img.card_height_mm + (card_img.source_bleed_mm * 2.0);
 
-    match ext.as_str() {
-        "png" => Image::from_png(data, false)
-            .map_err(|e| format!("PNG decode error: {}", e)),
-        "jpg" | "jpeg" => Image::from_jpeg(data, false)
+    // Calculate effective crop: how much to remove from each side (bleed - outputBleed)
+    let effective_crop_mm = card_img.source_bleed_mm - card_img.output_bleed_mm;
+
+    // Calculate crop percentage (portion of image to remove from each side)
+    let crop_percent_x = effective_crop_mm / total_card_width_mm;
+    let crop_percent_y = effective_crop_mm / total_card_height_mm;
+
+    // Calculate pixels to crop from each side
+    let crop_left_px = (img_width as f32 * crop_percent_x).round() as i32;
+    let crop_top_px = (img_height as f32 * crop_percent_y).round() as i32;
+
+    // Calculate cropped dimensions in pixels
+    let cropped_width_px = (img_width as i32 - (crop_left_px * 2)).max(1) as u32;
+    let cropped_height_px = (img_height as i32 - (crop_top_px * 2)).max(1) as u32;
+
+    // Calculate the actual dimensions of the cropped image in mm
+    // Based on the pixel ratio: source image represents totalCardWidthMm x totalCardHeightMm
+    let cropped_width_mm = (cropped_width_px as f32 / img_width as f32) * total_card_width_mm;
+    let cropped_height_mm = (cropped_height_px as f32 / img_height as f32) * total_card_height_mm;
+
+    log::debug!(
+        "Cropping image: {}x{}px -> {}x{}px (crop {}px from each side), result: {:.2}x{:.2}mm",
+        img_width, img_height, cropped_width_px, cropped_height_px, crop_left_px, cropped_width_mm, cropped_height_mm
+    );
+
+    // Positive crop on both axes is the common case (source bleed exceeds output
+    // bleed), so take the cheap path. A negative crop on either axis means the
+    // output bleed is larger than what the source image carries, and we extend the
+    // outermost pixels outward to fill the difference with real ink.
+    let cropped_img = if crop_left_px >= 0 && crop_top_px >= 0 {
+        if crop_left_px > 0 || crop_top_px > 0 {
+            img.crop_imm(
+                crop_left_px as u32,
+                crop_top_px as u32,
+                cropped_width_px,
+                cropped_height_px,
+            )
+        } else {
+            // Source bleed exactly matches output bleed - nothing to do
+            img
+        }
+    } else {
+        resample_clamped(&img, cropped_width_px, cropped_height_px, crop_left_px, crop_top_px)
+    };
+
+    // Convert to PNG bytes for krilla
+    let mut png_bytes: Vec<u8> = Vec::new();
+    cropped_img.write_to(&mut std::io::Cursor::new(&mut png_bytes), ImgFormat::Png)
+        .map_err(|e| format!("Failed to encode cropped image as PNG: {}", e))?;
+
+    // Create krilla Image from PNG bytes
+    let data: Data = Arc::new(png_bytes).into();
+    let image = Image::from_png(data, false)
+        .map_err(|e| format!("Failed to create krilla image: {}", e))?;
+
+    Ok(CroppedImageResult {
+        image,
+        width_mm: cropped_width_mm,
+        height_mm: cropped_height_mm,
+    })
+}
+
+/// Build a `dst_width` x `dst_height` image by sampling the source with
+/// clamp-to-edge addressing.
+///
+/// `offset_x`/`offset_y` are the source coordinates that map to destination
+/// (0, 0): positive values crop, negative values pad. Because sampling clamps,
+/// the padded region repeats the outermost row/column of the source, giving the
+/// artificial bleed real ink rather than empty space. Corners fall out of the
+/// same clamp and repeat the corner pixel.
+///
+/// NOTE: this is deliberately Rust-only. The web pipeline (pdfWorker.ts) pads a
+/// negative crop with transparency instead, so desktop output carries bleed ink
+/// where web output leaves white.
+fn resample_clamped(
+    img: &DynamicImage,
+    dst_width: u32,
+    dst_height: u32,
+    offset_x: i32,
+    offset_y: i32,
+) -> DynamicImage {
+    let src = img.to_rgba8();
+    let max_x = src.width() as i32 - 1;
+    let max_y = src.height() as i32 - 1;
+
+    let mut out = RgbaImage::new(dst_width, dst_height);
+    for y in 0..dst_height {
+        let sy = (y as i32 + offset_y).clamp(0, max_y) as u32;
+        for x in 0..dst_width {
+            let sx = (x as i32 + offset_x).clamp(0, max_x) as u32;
+            out.put_pixel(x, y, *src.get_pixel(sx, sy));
+        }
+    }
+
+    DynamicImage::ImageRgba8(out)
+}
+
+/// Load an image from embedded bytes with a specified format
+fn load_image_from_bytes(bytes: &[u8], format: ImageFormat) -> Result<Image, String> {
+    let data: Data = Arc::new(bytes.to_vec()).into();
+
+    match format {
+        ImageFormat::Jpeg => Image::from_jpeg(data, false)
             .map_err(|e| format!("JPEG decode error: {}", e)),
-        "gif" => Image::from_gif(data, false)
-            .map_err(|e| format!("GIF decode error: {}", e)),
-        "webp" => Image::from_webp(data, false)
-            .map_err(|e| format!("WebP decode error: {}", e)),
-        _ => Err(format!("Unsupported image format: {}", ext)),
+        ImageFormat::Png => Image::from_png(data, false)
+            .map_err(|e| format!("PNG decode error: {}", e)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use image::Rgba;
+
+    /// A 2x2 source padded by 1px on every side should repeat its edge pixels
+    /// outward, and each corner should fill its quadrant.
+    #[test]
+    fn resample_clamped_extends_edges() {
+        let mut src = RgbaImage::new(2, 2);
+        let a = Rgba([1, 0, 0, 255]);
+        let b = Rgba([2, 0, 0, 255]);
+        let c = Rgba([3, 0, 0, 255]);
+        let d = Rgba([4, 0, 0, 255]);
+        src.put_pixel(0, 0, a);
+        src.put_pixel(1, 0, b);
+        src.put_pixel(0, 1, c);
+        src.put_pixel(1, 1, d);
+
+        let out = resample_clamped(&DynamicImage::ImageRgba8(src), 4, 4, -1, -1).to_rgba8();
+
+        assert_eq!(out.dimensions(), (4, 4));
+        let expected = [
+            [a, a, b, b],
+            [a, a, b, b],
+            [c, c, d, d],
+            [c, c, d, d],
+        ];
+        for (y, row) in expected.iter().enumerate() {
+            for (x, want) in row.iter().enumerate() {
+                assert_eq!(out.get_pixel(x as u32, y as u32), want, "at ({}, {})", x, y);
+            }
+        }
+    }
+
+    /// With a zero offset and the source size, sampling must be an exact copy.
+    #[test]
+    fn resample_clamped_is_identity_at_zero_offset() {
+        let mut src = RgbaImage::new(3, 2);
+        for (i, px) in src.pixels_mut().enumerate() {
+            *px = Rgba([i as u8, 0, 0, 255]);
+        }
+        let original = src.clone();
+
+        let out = resample_clamped(&DynamicImage::ImageRgba8(src), 3, 2, 0, 0).to_rgba8();
+
+        assert_eq!(out, original);
     }
 }

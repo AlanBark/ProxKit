@@ -1,11 +1,32 @@
 import { Trash2, Plus, Loader2, RotateCcw, Upload, Menu, Ban } from "lucide-react";
 import { Button, ButtonGroup, Input, Popover, PopoverContent, PopoverTrigger } from "@heroui/react";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import type { CardImage } from "../types/card";
 import { usePrintAndCutStore } from "../stores/printAndCutStore";
 import { useCardBleedUpdates } from "../hooks/useCardBleedUpdates";
 import { useCardBackManagement } from "../hooks/useCardBackManagement";
 import { removeCard, duplicateCard } from "../utils/cardOperations";
+import { convertFileSrc } from "@tauri-apps/api/core";
+
+const isTauri = !!(window as unknown as { __TAURI_INTERNALS__: unknown }).__TAURI_INTERNALS__;
+
+/**
+ * Convert a path to a displayable URL
+ * In Tauri, filesystem paths need to be converted to asset:// URLs
+ * In web, blob URLs can be used directly
+ */
+function toDisplayUrl(path: string | null | undefined): string | undefined {
+    if (!path) return undefined;
+    // If it's already a blob URL or data URL, use it directly
+    if (path.startsWith('blob:') || path.startsWith('data:') || path.startsWith('http')) {
+        return path;
+    }
+    // In Tauri, convert filesystem paths to asset:// URLs
+    if (isTauri) {
+        return convertFileSrc(path, "asset");
+    }
+    return path;
+}
 
 interface CardProps {
     cardIndex: number,
@@ -56,6 +77,20 @@ export function Card({ card, cardIndex, gridPosition }: CardProps) {
         setIsFlipped(showAllCardBacks);
     }, [showAllCardBacks]);
 
+    // Determine what to show on the back - use thumbnail if available, otherwise original
+    // Convert to displayable URLs (handles Tauri filesystem paths).
+    // Must stay above the early return below to keep hook order stable for empty slots.
+    const cardBackImage = useMemo(() =>
+        toDisplayUrl(card?.cardBackThumbnailUrl || card?.cardBackUrl || defaultCardBackThumbnailUrl || defaultCardBackUrl),
+        [card?.cardBackThumbnailUrl, card?.cardBackUrl, defaultCardBackThumbnailUrl, defaultCardBackUrl]
+    );
+
+    // Convert front image to displayable URL
+    const frontImageSrc = useMemo(() =>
+        toDisplayUrl(card?.thumbnailUrl || card?.imageUrl),
+        [card?.thumbnailUrl, card?.imageUrl]
+    );
+
     // Return empty div if no card
     if (!card) {
         return <div className="relative w-full h-full bg-(--bg-input)" />;
@@ -75,9 +110,6 @@ export function Card({ card, cardIndex, gridPosition }: CardProps) {
     const handleUploadCardBack = () => {
         fileInputRef.current?.click();
     };
-
-    // Determine what to show on the back - use thumbnail if available, otherwise original
-    const cardBackImage = card.cardBackThumbnailUrl || card.cardBackUrl || defaultCardBackThumbnailUrl || defaultCardBackUrl;
 
     return (
         <>
@@ -123,10 +155,10 @@ export function Card({ card, cardIndex, gridPosition }: CardProps) {
                         WebkitBackfaceVisibility: 'hidden',
                     }}
                 >
-                    {card.imageUrl ? (
+                    {frontImageSrc ? (
                         <>
                             <img
-                                src={card.thumbnailUrl || card.imageUrl}
+                                src={frontImageSrc}
                                 alt={card.name || `Card ${card.id}`}
                                 className="w-full h-full"
                                 loading="eager"

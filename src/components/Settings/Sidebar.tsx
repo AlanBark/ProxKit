@@ -29,6 +29,7 @@ export function Sidebar({ className = "" }) {
         isGenerating,
         generationProgress,
         handleGeneratePDF,
+        error: pdfError,
     } = usePDFGeneration();
 
     // Get DXF state and actions
@@ -78,7 +79,7 @@ export function Sidebar({ className = "" }) {
                             onPress={handleGeneratePDF}
                             isDisabled={cardOrder.length === 0 || isGenerating || isImporting || hasLoadingCards}
                             isLoading={isGenerating}
-                            color={cardOrder.length === 0 ? "default" : "success"}
+                            color={cardOrder.length === 0 ? "default" : pdfError ? "danger" : "success"}
                             variant="ghost"
                             className="relative overflow-hidden"
                         >
@@ -94,7 +95,7 @@ export function Sidebar({ className = "" }) {
                             )}
                             <span className="flex items-center justify-center gap-2 relative z-10">
                                 <Download className="w-5 h-5" />
-                                Generate PDF
+                                {pdfError ? "PDF Error" : "Generate PDF"}
                             </span>
                         </Button>
 
@@ -123,6 +124,12 @@ export function Sidebar({ className = "" }) {
                             </Button>
                         </ButtonGroup>
                     </div>
+
+                    {pdfError && (
+                        <p className="text-sm text-danger break-words">
+                            {pdfError}
+                        </p>
+                    )}
                 </div>
             </Box>
 

@@ -1,6 +1,9 @@
 import { useCallback } from "react";
 import { usePrintAndCutStore } from "../stores/printAndCutStore";
 import { generateThumbnailAsync } from "../utils/asyncThumbnailGeneration";
+import { generateThumbnailFromPath } from "../utils/tauriThumbnailGeneration";
+
+const isTauri = !!(window as unknown as { __TAURI_INTERNALS__: unknown }).__TAURI_INTERNALS__;
 
 export function useCardBleedUpdates() {
     const cardMap = usePrintAndCutStore((state) => state.cardMap);
@@ -20,19 +23,35 @@ export function useCardBleedUpdates() {
         });
 
         try {
-            const response = await fetch(card.imageUrl);
-            const blob = await response.blob();
-            const file = new File([blob], card.name || 'image.jpg', { type: blob.type });
+            let newThumbnailUrl: string;
 
-            const newThumbnailUrl = await generateThumbnailAsync(
-                file,
-                800,
-                800,
-                0.85,
-                bleed,
-                cardWidth,
-                cardHeight
-            );
+            if (isTauri) {
+                // In Tauri, imageUrl is a filesystem path
+                newThumbnailUrl = await generateThumbnailFromPath(
+                    card.imageUrl,
+                    800,
+                    800,
+                    0.85,
+                    bleed,
+                    cardWidth,
+                    cardHeight
+                );
+            } else {
+                // In web, imageUrl is a blob URL that can be fetched
+                const response = await fetch(card.imageUrl);
+                const blob = await response.blob();
+                const file = new File([blob], card.name || 'image.jpg', { type: blob.type });
+
+                newThumbnailUrl = await generateThumbnailAsync(
+                    file,
+                    800,
+                    800,
+                    0.85,
+                    bleed,
+                    cardWidth,
+                    cardHeight
+                );
+            }
 
             if (card.thumbnailUrl) {
                 URL.revokeObjectURL(card.thumbnailUrl);
@@ -83,19 +102,35 @@ export function useCardBleedUpdates() {
         });
 
         try {
-            const response = await fetch(card.cardBackUrl);
-            const blob = await response.blob();
-            const file = new File([blob], `${card.name || 'card'}-back.jpg`, { type: blob.type });
+            let newThumbnailUrl: string;
 
-            const newThumbnailUrl = await generateThumbnailAsync(
-                file,
-                800,
-                800,
-                0.85,
-                bleed,
-                cardWidth,
-                cardHeight
-            );
+            if (isTauri) {
+                // In Tauri, cardBackUrl is a filesystem path
+                newThumbnailUrl = await generateThumbnailFromPath(
+                    card.cardBackUrl,
+                    800,
+                    800,
+                    0.85,
+                    bleed,
+                    cardWidth,
+                    cardHeight
+                );
+            } else {
+                // In web, cardBackUrl is a blob URL that can be fetched
+                const response = await fetch(card.cardBackUrl);
+                const blob = await response.blob();
+                const file = new File([blob], `${card.name || 'card'}-back.jpg`, { type: blob.type });
+
+                newThumbnailUrl = await generateThumbnailAsync(
+                    file,
+                    800,
+                    800,
+                    0.85,
+                    bleed,
+                    cardWidth,
+                    cardHeight
+                );
+            }
 
             if (card.cardBackThumbnailUrl) {
                 URL.revokeObjectURL(card.cardBackThumbnailUrl);

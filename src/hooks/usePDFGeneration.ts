@@ -18,6 +18,7 @@ export function usePDFGeneration() {
     const [pdfUrl, setPdfUrl] = useState<string | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
     const [generationProgress, setGenerationProgress] = useState<number>(0);
+    const [error, setError] = useState<string | null>(null);
     const pdfManagerRef = useRef<PDFManager | null>(null);
 
     // Track the state when PDF was last generated
@@ -59,6 +60,7 @@ export function usePDFGeneration() {
         if (cardOrder.length === 0) {
             setPdfUrl(null);
             setIsGenerating(false);
+            setError(null);
             lastGeneratedStateRef.current = null;
         }
     }, [cardOrder.length]);
@@ -70,6 +72,7 @@ export function usePDFGeneration() {
 
         setIsGenerating(true);
         setGenerationProgress(0);
+        setError(null);
 
         const cardsArray = cardOrder.map(id => cardMap.get(id)).filter((card): card is CardImage => card !== undefined);
 
@@ -119,24 +122,20 @@ export function usePDFGeneration() {
                         ? { width: selectedPage.width, height: selectedPage.height, margin: 10 }
                         : { width: 210, height: 297, margin: 10 };
 
+                    // Map cards to minimal representation, preserving nulls for gaps
                     const minimalCards = cardsWithSkippedSlots.map(card => {
-                        if (card === null) {
-                            return null;
-                        } else {
-                            return {
-                                id: card.id,
-                                imageUrl: card.imageUrl,
-                                name: card.name,
-                                bleed: card.bleed,
-                                useCustomBleed: card.useCustomBleed,
-                                cardBackUrl: card.cardBackUrl,
-                                cardBackBleed: card.cardBackBleed,
-                                useCustomCardBackBleed: card.useCustomCardBackBleed,
-                            };
-                        }
+                        if (card === null) return null;
+                        return {
+                            id: card.id,
+                            imageUrl: card.imageUrl,
+                            name: card.name,
+                            bleed: card.bleed,
+                            useCustomBleed: card.useCustomBleed,
+                            cardBackUrl: card.cardBackUrl,
+                            cardBackBleed: card.cardBackBleed,
+                            useCustomCardBackBleed: card.useCustomCardBackBleed,
+                        };
                     });
-
-                    console.log(minimalCards)
 
                     // Call Rust backend with proper types
                     const result = await invoke<string>('generate_cardlist', {
@@ -145,9 +144,11 @@ export function usePDFGeneration() {
                             outputPath: path,
                             pageWidth: pageSettings.width,
                             pageHeight: pageSettings.height,
-                            pageMargin: pageSettings.margin,
                             cardWidth: cardWidth,
                             cardHeight: cardHeight,
+                            outputBleed: outputBleed,
+                            enableCardBacks: enableCardBacks,
+                            defaultCardBackUrl: defaultCardBackUrl,
                         }
                     });
 
@@ -172,8 +173,14 @@ export function usePDFGeneration() {
 
                 setPdfUrl(pdfUrlResult);
             }
-        } catch (error) {
-            console.error("Failed to generate PDF:", error);
+        } catch (err) {
+            console.error("Failed to generate PDF:", err);
+            // Tauri commands reject with a plain string, not an Error
+            setError(
+                typeof err === "string" ? err
+                    : err instanceof Error ? err.message
+                    : "Unknown error"
+            );
             setPdfUrl(null);
         } finally {
             setIsGenerating(false);
@@ -194,6 +201,7 @@ export function usePDFGeneration() {
         pdfUrl,
         isGenerating,
         generationProgress,
+        error,
         handleGeneratePDF,
         handleDownloadPDF,
     };
