@@ -1,7 +1,9 @@
 import { useEffect, useRef } from "react";
 import { useProjectSettingsStore, useProjectSettingsHydrated } from "../stores/projectSettingsStore";
+import { useAppSettingsStore } from "../stores/appSettingsStore";
 import { useCardStore } from "../stores/cardStore";
-import { generateThumbnailAsync } from "../utils/asyncThumbnailGeneration";
+import { getThumbnail } from "../utils/thumbnails";
+import { revokeSource } from "../utils/imageSource";
 
 /**
  * Watches for changes to default bleed settings and regenerates thumbnails
@@ -9,6 +11,7 @@ import { generateThumbnailAsync } from "../utils/asyncThumbnailGeneration";
  */
 export function useThumbnailRegeneration() {
     const cardMap = useCardStore((state) => state.cardMap);
+    const libraryFolder = useAppSettingsStore((state) => state.libraryFolder);
     const cardOrder = useCardStore((state) => state.cardOrder);
     const setCardMap = useCardStore((state) => state.setCardMap);
     const defaultBleed = useProjectSettingsStore((state) => state.defaultBleed);
@@ -16,7 +19,7 @@ export function useThumbnailRegeneration() {
     const cardWidth = useProjectSettingsStore((state) => state.cardWidth);
     const cardHeight = useProjectSettingsStore((state) => state.cardHeight);
     const defaultCardBack = useProjectSettingsStore((state) => state.defaultCardBack);
-    const setDefaultCardBackThumbnailUrl = useCardStore((state) => state.setDefaultCardBackThumbnailUrl);
+    const setDefaultCardBackThumbnail = useCardStore((state) => state.setDefaultCardBackThumbnail);
 
     const prevDefaultBleedRef = useRef<number>(defaultBleed);
     const prevDefaultCardBackBleedRef = useRef<number>(defaultCardBackBleed);
@@ -55,19 +58,9 @@ export function useThumbnailRegeneration() {
                     return newMap;
                 });
 
-                const newThumbnailUrl = await generateThumbnailAsync(
-                    card.image,
-                    800,
-                    800,
-                    0.85,
-                    defaultBleed,
-                    cardWidth,
-                    cardHeight
-                );
+                const newThumbnailUrl = await getThumbnail(card.image, { bleed: defaultBleed, cardWidth: cardWidth, cardHeight: cardHeight }, libraryFolder);
 
-                if (card.thumbnailUrl) {
-                    URL.revokeObjectURL(card.thumbnailUrl);
-                }
+                revokeSource(card.thumbnail);
 
                 setCardMap((prev) => {
                     const newMap = new Map(prev);
@@ -75,7 +68,7 @@ export function useThumbnailRegeneration() {
                     if (currentCard && !currentCard.useCustomBleed) {
                         newMap.set(card.id, {
                             ...currentCard,
-                            thumbnailUrl: newThumbnailUrl,
+                            thumbnail: newThumbnailUrl,
                             thumbnailLoading: false
                         });
                     }
@@ -93,7 +86,7 @@ export function useThumbnailRegeneration() {
                 });
             }
         });
-    }, [hydrated, defaultBleed, cardWidth, cardHeight, cardOrder, cardMap, setCardMap]);
+    }, [libraryFolder, hydrated, defaultBleed, cardWidth, cardHeight, cardOrder, cardMap, setCardMap]);
 
     // Regenerate back thumbnails when defaultCardBackBleed changes
     useEffect(() => {
@@ -129,19 +122,9 @@ export function useThumbnailRegeneration() {
                     return newMap;
                 });
 
-                const newThumbnailUrl = await generateThumbnailAsync(
-                    card.cardBack,
-                    800,
-                    800,
-                    0.85,
-                    defaultCardBackBleed,
-                    cardWidth,
-                    cardHeight
-                );
+                const newThumbnailUrl = await getThumbnail(card.cardBack, { bleed: defaultCardBackBleed, cardWidth: cardWidth, cardHeight: cardHeight }, libraryFolder);
 
-                if (card.cardBackThumbnailUrl) {
-                    URL.revokeObjectURL(card.cardBackThumbnailUrl);
-                }
+                revokeSource(card.cardBackThumbnail);
 
                 setCardMap((prev) => {
                     const newMap = new Map(prev);
@@ -149,7 +132,7 @@ export function useThumbnailRegeneration() {
                     if (currentCard && !currentCard.useCustomCardBackBleed) {
                         newMap.set(card.id, {
                             ...currentCard,
-                            cardBackThumbnailUrl: newThumbnailUrl,
+                            cardBackThumbnail: newThumbnailUrl,
                             cardBackThumbnailLoading: false
                         });
                     }
@@ -167,7 +150,7 @@ export function useThumbnailRegeneration() {
                 });
             }
         });
-    }, [hydrated, defaultCardBackBleed, cardWidth, cardHeight, cardOrder, cardMap, setCardMap]);
+    }, [libraryFolder, hydrated, defaultCardBackBleed, cardWidth, cardHeight, cardOrder, cardMap, setCardMap]);
 
     // Regenerate default card back thumbnail when defaultCardBackBleed changes
     useEffect(() => {
@@ -175,22 +158,14 @@ export function useThumbnailRegeneration() {
 
         const regenerateDefaultCardBackThumbnail = async () => {
             try {
-                const newThumbnailUrl = await generateThumbnailAsync(
-                    defaultCardBack,
-                    800,
-                    800,
-                    0.85,
-                    defaultCardBackBleed,
-                    cardWidth,
-                    cardHeight
-                );
+                const newThumbnailUrl = await getThumbnail(defaultCardBack, { bleed: defaultCardBackBleed, cardWidth: cardWidth, cardHeight: cardHeight }, libraryFolder);
 
-                setDefaultCardBackThumbnailUrl(newThumbnailUrl);
+                setDefaultCardBackThumbnail(newThumbnailUrl);
             } catch (error) {
                 console.error('Failed to regenerate default card back thumbnail:', error);
             }
         };
 
         regenerateDefaultCardBackThumbnail();
-    }, [defaultCardBackBleed, cardWidth, cardHeight, defaultCardBack, setDefaultCardBackThumbnailUrl]);
+    }, [libraryFolder, defaultCardBackBleed, cardWidth, cardHeight, defaultCardBack, setDefaultCardBackThumbnail]);
 }

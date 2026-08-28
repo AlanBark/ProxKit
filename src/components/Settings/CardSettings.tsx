@@ -24,7 +24,7 @@ function CardSettings() {
     const enableCardBacks = useProjectSettingsStore((state) => state.enableCardBacks);
     const setEnableCardBacks = useProjectSettingsStore((state) => state.setEnableCardBacks);
     const defaultCardBack = useProjectSettingsStore((state) => state.defaultCardBack);
-    const defaultCardBackThumbnailUrl = useCardStore((state) => state.defaultCardBackThumbnailUrl);
+    const defaultCardBackThumbnail = useCardStore((state) => state.defaultCardBackThumbnail);
     // const groupByCardBacks = useProjectSettingsStore((state) => state.groupByCardBacks);
     // const setGroupByCardBacks = useProjectSettingsStore((state) => state.setGroupByCardBacks);
     const showAllCardBacks = useProjectSettingsStore((state) => state.showAllCardBacks);
@@ -264,7 +264,7 @@ function CardSettings() {
                         {defaultCardBack ? (
                             <>
                                 <img
-                                    src={defaultCardBackThumbnailUrl ?? toDisplayUrl(defaultCardBack)}
+                                    src={toDisplayUrl(defaultCardBackThumbnail ?? defaultCardBack)}
                                     alt="Default card back"
                                     className="w-full h-full object-contain rounded"
                                 />

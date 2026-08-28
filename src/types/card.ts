@@ -25,8 +25,8 @@ export interface CardImage {
     id: string;
     /** Front image. Undefined while a placeholder card is still downloading. */
     image?: ImageSource;
-    /** Display thumbnail. Always a blob URL - it is canvas output. */
-    thumbnailUrl?: string;
+    /** Display thumbnail: a cached file on desktop, otherwise canvas output. */
+    thumbnail?: ImageSource;
     /** Whether the front thumbnail is being generated */
     thumbnailLoading?: boolean;
     name?: string;
@@ -39,8 +39,8 @@ export interface CardImage {
     useCustomBleed: boolean;
     /** Back image specific to this card, overriding the default back. */
     cardBack?: ImageSource;
-    /** Display thumbnail for the back. Always a blob URL. */
-    cardBackThumbnailUrl?: string;
+    /** Display thumbnail for the back. */
+    cardBackThumbnail?: ImageSource;
     /** Whether the back thumbnail is being generated */
     cardBackThumbnailLoading?: boolean;
     cardBackBleed: number; // bleed amount in millimetres for back image

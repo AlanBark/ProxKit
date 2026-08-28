@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { parseMPCFillXML } from '../utils/mpcfill/xmlParser';
-import { downloadMultipleImages } from '../utils/mpcfill/driveDownloader';
+import { resolveDriveImages } from '../utils/mpcfill/imageResolver';
+import { useAppSettingsStore } from '../stores/appSettingsStore';
+import type { ImageSource } from '../types/card';
 import type { MPCFillOrder } from '../utils/mpcfill/types';
 
 /**
@@ -12,11 +14,13 @@ export function useMPCFillImport() {
     const [error, setError] = useState<string | null>(null);
     const [lastImportedOrder, setLastImportedOrder] = useState<MPCFillOrder | null>(null);
 
+    const libraryFolder = useAppSettingsStore((state) => state.libraryFolder);
+
     const handleXMLImport = async (
         file: File,
-        onFileDownloaded: (file: File, index: number) => void,
-        onFileBackDownloaded: (file: File, index: number) => void,
-        onDefaultCardBackDownloaded: (file: File) => void
+        onFileDownloaded: (source: ImageSource, index: number) => void,
+        onFileBackDownloaded: (source: ImageSource, index: number) => void,
+        onDefaultCardBackDownloaded: (source: ImageSource) => void
     ) => {
         setIsImporting(true);
         setImportProgress(0);
@@ -75,10 +79,11 @@ export function useMPCFillImport() {
                 });
             }
 
-            // Image download with callbacks as each file downloads
-            await downloadMultipleImages(
+            // Resolved from the image library where one is set, downloaded otherwise
+            await resolveDriveImages(
                 filesToDownload.map(f => ({ id: f.id, name: f.name })),
-                (file: File, _id: string, index: number) => {
+                libraryFolder,
+                (source: ImageSource, _id: string, index: number) => {
                     completedCount++;
                     setImportProgress(Math.round((completedCount / filesToDownload.length) * 100));
 
@@ -86,11 +91,11 @@ export function useMPCFillImport() {
                     const fileInfo = filesToDownload[index];
 
                     if (fileInfo.type === 'cardback') {
-                        onDefaultCardBackDownloaded(file);
+                        onDefaultCardBackDownloaded(source);
                     } else if (fileInfo.type === 'front') {
-                        onFileDownloaded(file, fileInfo.cardIndex!);
+                        onFileDownloaded(source, fileInfo.cardIndex!);
                     } else if (fileInfo.type === 'back') {
-                        onFileBackDownloaded(file, fileInfo.cardIndex!);
+                        onFileBackDownloaded(source, fileInfo.cardIndex!);
                     }
                 }
             );

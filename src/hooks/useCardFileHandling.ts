@@ -1,14 +1,16 @@
 import { useCallback, type RefObject } from "react";
 import { useProjectSettingsStore } from "../stores/projectSettingsStore";
+import { useAppSettingsStore } from "../stores/appSettingsStore";
 import { useCardStore } from "../stores/cardStore";
-import { generateThumbnailAsync } from "../utils/asyncThumbnailGeneration";
-import { sourceFromFile } from "../utils/imageSource";
+import { getThumbnail } from "../utils/thumbnails";
+import { revokeSource, sourceFromFile } from "../utils/imageSource";
 import { pickImagesFromDisk, sourceDisplayName } from "../utils/imagePicker";
 import { isTauri } from "../utils/platform";
 import type { CardImage, ImageSource } from "../types/card";
 
 export function useCardFileHandling() {
     const setCardMap = useCardStore((state) => state.setCardMap);
+    const libraryFolder = useAppSettingsStore((state) => state.libraryFolder);
     const setCardOrder = useCardStore((state) => state.setCardOrder);
     const defaultBleed = useProjectSettingsStore((state) => state.defaultBleed);
     const defaultCardBackBleed = useProjectSettingsStore((state) => state.defaultCardBackBleed);
@@ -24,7 +26,7 @@ export function useCardFileHandling() {
         const newCards: CardImage[] = incoming.map(({ source, name }) => ({
             id: crypto.randomUUID(),
             image: source,
-            thumbnailUrl: undefined,
+            thumbnail: undefined,
             thumbnailLoading: true,
             name,
             bleed: defaultBleed,
@@ -42,17 +44,9 @@ export function useCardFileHandling() {
         setCardOrder((prev) => [...prev, ...newCards.map(card => card.id)]);
 
         await Promise.all(newCards.map(async (card) => {
-            let thumbnailUrl: string | undefined;
+            let thumbnail: ImageSource | undefined;
             try {
-                thumbnailUrl = await generateThumbnailAsync(
-                    card.image!,
-                    800,
-                    800,
-                    0.85,
-                    defaultBleed,
-                    cardWidth,
-                    cardHeight
-                );
+                thumbnail = await getThumbnail(card.image!, { bleed: defaultBleed, cardWidth: cardWidth, cardHeight: cardHeight }, libraryFolder);
             } catch (error) {
                 console.warn('Failed to create thumbnail for', card.name, ':', error);
             }
@@ -66,16 +60,16 @@ export function useCardFileHandling() {
                     return prev;
                 }
                 const newMap = new Map(prev);
-                newMap.set(card.id, { ...existingCard, thumbnailUrl, thumbnailLoading: false });
+                newMap.set(card.id, { ...existingCard, thumbnail, thumbnailLoading: false });
                 return newMap;
             });
 
             // Nothing owns the thumbnail now, so release it rather than leak.
-            if (orphaned && thumbnailUrl) {
-                URL.revokeObjectURL(thumbnailUrl);
+            if (orphaned) {
+                revokeSource(thumbnail);
             }
         }));
-    }, [defaultBleed, defaultCardBackBleed, cardWidth, cardHeight, setCardMap, setCardOrder]);
+    }, [libraryFolder, defaultBleed, defaultCardBackBleed, cardWidth, cardHeight, setCardMap, setCardOrder]);
 
     /** Desktop: the dialog hands back filesystem paths. */
     const handleSourcesSelected = useCallback(async (sources: ImageSource[]) => {

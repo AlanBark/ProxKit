@@ -19,9 +19,6 @@ export function AppSettingsModal({ isOpen, onClose }: AppSettingsModalProps) {
             <ModalContent>
                 <ModalHeader className="flex flex-col gap-1">
                     Application Settings
-                    <span className="text-xs font-normal text-default-500">
-                        These apply to every project, and are kept between sessions.
-                    </span>
                 </ModalHeader>
 
                 <ModalBody>
@@ -30,8 +27,6 @@ export function AppSettingsModal({ isOpen, onClose }: AppSettingsModalProps) {
                     ) : (
                         <p className="text-sm text-default-600">
                             There are no application settings in the browser version.
-                            The desktop app stores downloaded card images in a folder
-                            you choose, so imports can reuse them.
                         </p>
                     )}
                 </ModalBody>

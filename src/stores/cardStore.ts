@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { CardImage } from '../types/card';
+import type { CardImage, ImageSource } from '../types/card';
 
 /**
  * The working card list and anything derived from it.
@@ -12,18 +12,18 @@ interface CardState {
     cardMap: Map<string, CardImage>;
     cardOrder: string[];
 
-    /** Thumbnail for the default card back. Derived, so regenerated per session. */
-    defaultCardBackThumbnailUrl: string | null;
+    /** Thumbnail for the default card back. Derived, so not persisted. */
+    defaultCardBackThumbnail: ImageSource | null;
 
     setCardMap: (map: Map<string, CardImage> | ((prev: Map<string, CardImage>) => Map<string, CardImage>)) => void;
     setCardOrder: (order: string[] | ((prev: string[]) => string[])) => void;
-    setDefaultCardBackThumbnailUrl: (url: string | null) => void;
+    setDefaultCardBackThumbnail: (source: ImageSource | null) => void;
 }
 
 export const useCardStore = create<CardState>((set) => ({
     cardMap: new Map(),
     cardOrder: [],
-    defaultCardBackThumbnailUrl: null,
+    defaultCardBackThumbnail: null,
 
     setCardMap: (map) => set((state) => ({
         cardMap: typeof map === 'function' ? map(state.cardMap) : map
@@ -31,5 +31,5 @@ export const useCardStore = create<CardState>((set) => ({
     setCardOrder: (order) => set((state) => ({
         cardOrder: typeof order === 'function' ? order(state.cardOrder) : order
     })),
-    setDefaultCardBackThumbnailUrl: (url) => set({ defaultCardBackThumbnailUrl: url }),
+    setDefaultCardBackThumbnail: (source) => set({ defaultCardBackThumbnail: source }),
 }));

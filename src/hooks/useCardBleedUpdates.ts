@@ -1,11 +1,14 @@
 import { useCallback } from "react";
 import { useProjectSettingsStore } from "../stores/projectSettingsStore";
+import { useAppSettingsStore } from "../stores/appSettingsStore";
 import { useCardStore } from "../stores/cardStore";
-import { generateThumbnailAsync } from "../utils/asyncThumbnailGeneration";
+import { getThumbnail } from "../utils/thumbnails";
 import type { CardImage, ImageSource } from "../types/card";
+import { revokeSource } from "../utils/imageSource";
 
 export function useCardBleedUpdates() {
     const cardMap = useCardStore((state) => state.cardMap);
+    const libraryFolder = useAppSettingsStore((state) => state.libraryFolder);
     const setCardMap = useCardStore((state) => state.setCardMap);
     const cardWidth = useProjectSettingsStore((state) => state.cardWidth);
     const cardHeight = useProjectSettingsStore((state) => state.cardHeight);
@@ -51,14 +54,9 @@ export function useCardBleedUpdates() {
         });
 
         try {
-            const newThumbnailUrl = await generateThumbnailAsync(
-                source, 800, 800, 0.85, bleed, cardWidth, cardHeight
-            );
+            const newThumbnailUrl = await getThumbnail(source, { bleed: bleed, cardWidth: cardWidth, cardHeight: cardHeight }, libraryFolder);
 
-            const previousThumbnail = isFront ? card.thumbnailUrl : card.cardBackThumbnailUrl;
-            if (previousThumbnail) {
-                URL.revokeObjectURL(previousThumbnail);
-            }
+            revokeSource(isFront ? card.thumbnail : card.cardBackThumbnail);
 
             setCardMap((prev) => {
                 const currentCard = prev.get(cardId);
@@ -67,8 +65,8 @@ export function useCardBleedUpdates() {
                 newMap.set(cardId, {
                     ...currentCard,
                     ...(isFront
-                        ? { thumbnailUrl: newThumbnailUrl, thumbnailLoading: false }
-                        : { cardBackThumbnailUrl: newThumbnailUrl, cardBackThumbnailLoading: false }),
+                        ? { thumbnail: newThumbnailUrl, thumbnailLoading: false }
+                        : { cardBackThumbnail: newThumbnailUrl, cardBackThumbnailLoading: false }),
                 });
                 return newMap;
             });
@@ -82,7 +80,7 @@ export function useCardBleedUpdates() {
                 return newMap;
             });
         }
-    }, [cardMap, cardWidth, cardHeight, setCardMap]);
+    }, [libraryFolder, cardMap, cardWidth, cardHeight, setCardMap]);
 
     const handleUpdateBleed = useCallback(
         (cardId: string, bleed: number) => updateBleed(cardId, bleed, "front"),

@@ -3,12 +3,13 @@ import { FileUp, HelpCircle } from "lucide-react";
 import { Button, ButtonGroup, Card, CardBody } from "@heroui/react";
 import { useMPCFillImport } from "../hooks/useMPCFillImport";
 import { useProjectSettingsStore } from "../stores/projectSettingsStore";
+import { useAppSettingsStore } from "../stores/appSettingsStore";
 import { useCardStore } from "../stores/cardStore";
 import { useCardBackManagement } from "../hooks/useCardBackManagement";
-import { sourceFromFile } from "../utils/imageSource";
+import type { ImageSource } from "../types/card";
 import { parseMPCFillXML } from "../utils/mpcfill/xmlParser";
 import type { CardImage } from "../types/card";
-import { generateThumbnailAsync } from "../utils/asyncThumbnailGeneration";
+import { getThumbnail } from "../utils/thumbnails";
 import XmlHelpModal from "./XmlHelpModal";
 
 export function XMLUpload() {
@@ -18,6 +19,7 @@ export function XMLUpload() {
 
     // Get settings and state from store
     const defaultBleed = useProjectSettingsStore((state) => state.defaultBleed);
+    const libraryFolder = useAppSettingsStore((state) => state.libraryFolder);
     const defaultCardBackBleed = useProjectSettingsStore((state) => state.defaultCardBackBleed);
     const cardWidth = useProjectSettingsStore((state) => state.cardWidth);
     const cardHeight = useProjectSettingsStore((state) => state.cardHeight);
@@ -31,27 +33,17 @@ export function XMLUpload() {
     const { handleUpdateCardBack, handleUpdateDefaultCardBack } = useCardBackManagement();
 
     const handleCardDownloaded = async (
-        downloadedFile: File,
+        image: ImageSource,
         index: number,
         placeholderCardIds: string[],
-        backFile?: File
+        backImage?: ImageSource
     ) => {
         const cardId = placeholderCardIds[index];
         if (!cardId) return;
 
-        const image = sourceFromFile(downloadedFile);
-
         // Generate thumbnail asynchronously
         try {
-            const thumbnailUrl = await generateThumbnailAsync(
-                image,
-                800,
-                800,
-                0.85,
-                defaultBleed,
-                cardWidth,
-                cardHeight
-            );
+            const thumbnail = await getThumbnail(image, { bleed: defaultBleed, cardWidth: cardWidth, cardHeight: cardHeight }, libraryFolder);
             setCardMap((prev: Map<string, CardImage>) => {
                 const updated = new Map(prev);
                 const card = updated.get(cardId);
@@ -59,14 +51,14 @@ export function XMLUpload() {
                     updated.set(cardId, {
                         ...card,
                         image,
-                        thumbnailUrl,
+                        thumbnail,
                         thumbnailLoading: false,
                     });
                 }
                 return updated;
             });
         } catch (error) {
-            console.error(`Failed to generate thumbnail for ${downloadedFile.name}:`, error);
+            console.error('Failed to generate thumbnail for an imported card:', error);
             setCardMap((prev: Map<string, CardImage>) => {
                 const updated = new Map(prev);
                 const card = updated.get(cardId);
@@ -82,33 +74,23 @@ export function XMLUpload() {
         }
 
         // If this card has a unique back, set it
-        if (backFile) {
+        if (backImage) {
             setEnableCardBacks(true);
-            await handleUpdateCardBack(cardId, sourceFromFile(backFile));
+            await handleUpdateCardBack(cardId, backImage);
         }
     };
 
     const handleCardBackDownloaded = async (
-        cardBackFile: File,
+        cardBack: ImageSource,
         index: number,
         placeholderCardIds: string[]
     ) => {
         const cardId = placeholderCardIds[index];
         if (!cardId) return;
 
-        const cardBack = sourceFromFile(cardBackFile);
-
         // Generate thumbnail asynchronously for card back
         try {
-            const cardBackThumbnailUrl = await generateThumbnailAsync(
-                cardBack,
-                800,
-                800,
-                0.85,
-                defaultCardBackBleed,
-                cardWidth,
-                cardHeight
-            );
+            const cardBackThumbnail = await getThumbnail(cardBack, { bleed: defaultCardBackBleed, cardWidth: cardWidth, cardHeight: cardHeight }, libraryFolder);
             setCardMap((prev: Map<string, CardImage>) => {
                 const updated = new Map(prev);
                 const card = updated.get(cardId);
@@ -116,14 +98,14 @@ export function XMLUpload() {
                     updated.set(cardId, {
                         ...card,
                         cardBack,
-                        cardBackThumbnailUrl,
+                        cardBackThumbnail,
                         cardBackThumbnailLoading: false,
                     });
                 }
                 return updated;
             });
         } catch (error) {
-            console.error(`Failed to generate thumbnail for card back ${cardBackFile.name}:`, error);
+            console.error('Failed to generate thumbnail for an imported card back:', error);
             setCardMap((prev: Map<string, CardImage>) => {
                 const updated = new Map(prev);
                 const card = updated.get(cardId);
@@ -141,9 +123,9 @@ export function XMLUpload() {
         setEnableCardBacks(true);
     };
 
-    const handleCardBackDefaultDownloaded = async (cardBackFile: File) => {
+    const handleCardBackDefaultDownloaded = async (cardBack: ImageSource) => {
         setEnableCardBacks(true);
-        await handleUpdateDefaultCardBack(sourceFromFile(cardBackFile));
+        await handleUpdateDefaultCardBack(cardBack);
     };
 
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -176,7 +158,7 @@ export function XMLUpload() {
             const cardId = placeholderCardIds[index];
             newCardMap.set(cardId, {
                 id: cardId,
-                thumbnailUrl: undefined,
+                thumbnail: undefined,
                 thumbnailLoading: true, // Show loading state
                 name: card.name,
                 bleed: defaultBleed,
@@ -193,11 +175,11 @@ export function XMLUpload() {
         // Start XML import with callbacks
         await handleXMLImport(
             file,
-            (downloadedFile: File, index: number) => {
-                handleCardDownloaded(downloadedFile, index, placeholderCardIds);
+            (image: ImageSource, index: number) => {
+                handleCardDownloaded(image, index, placeholderCardIds);
             },
-            (cardBackFile: File, index: number) => {
-                handleCardBackDownloaded(cardBackFile, index, placeholderCardIds);
+            (cardBack: ImageSource, index: number) => {
+                handleCardBackDownloaded(cardBack, index, placeholderCardIds);
             },
             handleCardBackDefaultDownloaded,
         );

@@ -53,9 +53,6 @@ export function GettingStarted() {
             <ModalContent>
                 <ModalHeader className="flex flex-col gap-1">
                     Welcome to ProxKit
-                    <span className="text-xs font-normal text-default-500">
-                        One quick thing before you start.
-                    </span>
                 </ModalHeader>
 
                 <ModalBody>

@@ -22,13 +22,9 @@ export function removeCard(
         if (card) {
             // Cleanup blob URLs
             revokeSource(card.image);
+            revokeSource(card.thumbnail);
             revokeSource(card.cardBack);
-            if (card.thumbnailUrl) {
-                URL.revokeObjectURL(card.thumbnailUrl);
-            }
-            if (card.cardBackThumbnailUrl) {
-                URL.revokeObjectURL(card.cardBackThumbnailUrl);
-            }
+            revokeSource(card.cardBackThumbnail);
         }
         newCardMap.delete(cardId);
     }
@@ -45,13 +41,9 @@ export function removeCard(
 export function removeAllCards(cardMap: Map<string, CardImage>): void {
     for (const card of cardMap.values()) {
         revokeSource(card.image);
+        revokeSource(card.thumbnail);
         revokeSource(card.cardBack);
-        if (card.thumbnailUrl) {
-            URL.revokeObjectURL(card.thumbnailUrl);
-        }
-        if (card.cardBackThumbnailUrl) {
-            URL.revokeObjectURL(card.cardBackThumbnailUrl);
-        }
+        revokeSource(card.cardBackThumbnail);
     }
 }
 

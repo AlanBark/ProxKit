@@ -24,7 +24,7 @@ export function Card({ card, cardIndex, gridPosition }: CardProps) {
     const cardHeight = useProjectSettingsStore((state) => state.cardHeight);
     const showAllCardBacks = useProjectSettingsStore((state) => state.showAllCardBacks);
     const defaultCardBack = useProjectSettingsStore((state) => state.defaultCardBack);
-    const defaultCardBackThumbnailUrl = useCardStore((state) => state.defaultCardBackThumbnailUrl);
+    const defaultCardBackThumbnail = useCardStore((state) => state.defaultCardBackThumbnail);
     const cardMap = useCardStore((state) => state.cardMap);
     const cardOrder = useCardStore((state) => state.cardOrder);
     const setCardMap = useCardStore((state) => state.setCardMap);
@@ -64,17 +64,17 @@ export function Card({ card, cardIndex, gridPosition }: CardProps) {
     // Convert to displayable URLs (handles Tauri filesystem paths).
     // Must stay above the early return below to keep hook order stable for empty slots.
     const cardBackImage = useMemo(() =>
-        card?.cardBackThumbnailUrl
-        ?? toDisplayUrl(card?.cardBack)
-        ?? defaultCardBackThumbnailUrl
-        ?? toDisplayUrl(defaultCardBack),
-        [card?.cardBackThumbnailUrl, card?.cardBack, defaultCardBackThumbnailUrl, defaultCardBack]
+        toDisplayUrl(
+            card?.cardBackThumbnail ?? card?.cardBack
+            ?? defaultCardBackThumbnail ?? defaultCardBack
+        ),
+        [card?.cardBackThumbnail, card?.cardBack, defaultCardBackThumbnail, defaultCardBack]
     );
 
     // Convert front image to displayable URL
     const frontImageSrc = useMemo(() =>
-        card?.thumbnailUrl ?? toDisplayUrl(card?.image),
-        [card?.thumbnailUrl, card?.image]
+        toDisplayUrl(card?.thumbnail ?? card?.image),
+        [card?.thumbnail, card?.image]
     );
 
     // Return empty div if no card
