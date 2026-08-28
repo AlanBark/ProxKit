@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import type { CardImage } from "../types/card";
 import { usePrintAndCutStore, PAGE_SIZE_OPTIONS } from "../stores/printAndCutStore";
 import { generateDxfUrl } from "../utils/pdf/dxfGenerator";
+import { CARDS_PER_PAGE } from "../utils/pdf/cardLayoutUtils";
 
 /**
  * Hook for managing DXF cut file generation from card data.
@@ -10,6 +11,18 @@ export function useDXFGeneration() {
     const [dxfUrl, setDxfUrl] = useState<string | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    // The live URL, mirrored into a ref so cleanup paths revoke the CURRENT one
+    // rather than whatever the effect closed over when it last ran.
+    const dxfUrlRef = useRef<string | null>(null);
+
+    const replaceDxfUrl = useCallback((url: string | null) => {
+        if (dxfUrlRef.current) {
+            URL.revokeObjectURL(dxfUrlRef.current);
+        }
+        dxfUrlRef.current = url;
+        setDxfUrl(url);
+    }, []);
 
     // Get card and settings from store
     const cardMap = usePrintAndCutStore((state) => state.cardMap);
@@ -23,13 +36,10 @@ export function useDXFGeneration() {
     // Clear DXF URL when cards are removed
     useEffect(() => {
         if (cardOrder.length === 0) {
-            if (dxfUrl) {
-                URL.revokeObjectURL(dxfUrl);
-            }
-            setDxfUrl(null);
+            replaceDxfUrl(null);
             setError(null);
         }
-    }, [cardOrder.length, dxfUrl]);
+    }, [cardOrder.length, replaceDxfUrl]);
 
     // Auto-generate DXF when card data or settings change
     useEffect(() => {
@@ -55,7 +65,6 @@ export function useDXFGeneration() {
 
                 // Transform cards array to include nulls for skipped slots
                 const skipSlotsArray = Array.from(skipSlots).sort((a, b) => a - b);
-                const CARDS_PER_PAGE = 8;
                 const availableSlotsPerPage = CARDS_PER_PAGE - skipSlotsArray.length;
                 const totalPages = Math.ceil(cardsArray.length / availableSlotsPerPage);
 
@@ -73,11 +82,6 @@ export function useDXFGeneration() {
                     }
                 }
 
-                // Revoke old URL if it exists
-                if (dxfUrl) {
-                    URL.revokeObjectURL(dxfUrl);
-                }
-
                 const newDxfUrl = generateDxfUrl(
                     cardsWithSkippedSlots,
                     pageSettings,
@@ -87,11 +91,11 @@ export function useDXFGeneration() {
                     []
                 );
 
-                setDxfUrl(newDxfUrl);
+                replaceDxfUrl(newDxfUrl);
             } catch (err) {
                 console.error("Failed to generate DXF:", err);
                 setError(err instanceof Error ? err.message : "Unknown error");
-                setDxfUrl(null);
+                replaceDxfUrl(null);
             } finally {
                 setIsGenerating(false);
             }
@@ -99,13 +103,15 @@ export function useDXFGeneration() {
 
         generateDxf();
 
-        // Cleanup revoke URL on unmount
-        return () => {
-            if (dxfUrl) {
-                URL.revokeObjectURL(dxfUrl);
-            }
-        };
-    }, [cardMap, cardOrder, pageSize, cardWidth, cardHeight, outputBleed, skipSlots]);
+    }, [cardMap, cardOrder, pageSize, cardWidth, cardHeight, outputBleed, skipSlots, replaceDxfUrl]);
+
+    // Release the last URL when the hook goes away.
+    useEffect(() => () => {
+        if (dxfUrlRef.current) {
+            URL.revokeObjectURL(dxfUrlRef.current);
+            dxfUrlRef.current = null;
+        }
+    }, []);
 
     const handleDownloadDXF = () => {
         if (!dxfUrl) return;

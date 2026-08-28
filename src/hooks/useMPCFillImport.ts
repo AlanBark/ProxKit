@@ -44,11 +44,6 @@ export function useMPCFillImport() {
             setLastImportedOrder(order);
 
             let completedCount = 0;
-            let totalFiles = order.cards.length;
-            if (order.cardback !== null) {
-                totalFiles += 1;
-            }
-
             // Build array of files to download
             const filesToDownload: { id: string; name: string; type: 'front' | 'back' | 'cardback'; cardIndex?: number }[] = [];
 

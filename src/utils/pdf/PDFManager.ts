@@ -5,6 +5,7 @@ import {
     type PDFWorkerMessage,
 } from "./workerTypes";
 import { PDFDocument } from "pdf-lib";
+import { CARDS_PER_PAGE } from "./cardLayoutUtils";
 
 /**
  * Progress callback for PDF generation
@@ -14,7 +15,6 @@ export type ProgressCallback = (current: number, total: number, percentage: numb
 /**
  * Configuration for worker pool
  */
-const CARDS_PER_PAGE = 8; // 4x2 grid
 const MAX_WORKERS = 4; // Maximum concurrent workers
 
 /**
@@ -305,7 +305,7 @@ export class PDFManager {
                                 }
                                 break;
 
-                            case PDFWorkerMessageType.GENERATE_PDF_SUCCESS:
+                            case PDFWorkerMessageType.GENERATE_PDF_SUCCESS: {
                                 const transferTime = performance.now() - workerStart;
                                 console.log(`[PDFManager] Worker ${chunkIndex} completed in ${transferTime.toFixed(2)}ms (data transferred)`);
 
@@ -321,6 +321,7 @@ export class PDFManager {
                                     });
                                 }
                                 break;
+                            }
 
                             case PDFWorkerMessageType.GENERATE_PDF_ERROR:
                                 worker.removeEventListener("message", handleMessage);

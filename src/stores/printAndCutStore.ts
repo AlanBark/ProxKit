@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { Selection } from '@heroui/react';
 import { CARD_DIMENSIONS, type CardImage, type ImageSource } from '../types/card';
+import { CARDS_PER_PAGE } from '../utils/pdf/cardLayoutUtils';
 
 export const PAGE_SIZE_OPTIONS = [
     { key: "A4", label: "A4", width: 210, height: 297 },
@@ -100,9 +101,7 @@ export const usePrintAndCutStore = create<PrintAndCutState>((set) => ({
             newSkipSlots.delete(slotIndex);
         } else {
             // Validate: ensure at least 1 slot per page is not skipped
-            // Maximum slots per page is 8 (indices 0-7)
-            const MAX_SLOTS = 8;
-            if (newSkipSlots.size >= MAX_SLOTS - 1) {
+            if (newSkipSlots.size >= CARDS_PER_PAGE - 1) {
                 // Already skipping 7 slots, can't skip the 8th
                 console.warn(`Cannot skip slot ${slotIndex}: at least 1 slot per page must remain active`);
                 return state; // Return unchanged state

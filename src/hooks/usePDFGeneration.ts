@@ -5,6 +5,7 @@ import { usePrintAndCutStore, PAGE_SIZE_OPTIONS } from "../stores/printAndCutSto
 import { save } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { toBackendPath } from "../utils/imageSource";
+import { CARDS_PER_PAGE } from "../utils/pdf/cardLayoutUtils";
 
 /**
  * Hook for managing PDF generation from card data.
@@ -79,7 +80,6 @@ export function usePDFGeneration() {
 
         // Transform cards array to include nulls for skipped slots
         const skipSlotsArray = Array.from(skipSlots).sort((a, b) => a - b);
-        const CARDS_PER_PAGE = 8;
         const availableSlotsPerPage = CARDS_PER_PAGE - skipSlotsArray.length;
         const totalPages = Math.ceil(cardsArray.length / availableSlotsPerPage);
 

@@ -5,10 +5,10 @@ import { useState, useMemo, useRef } from "react";
 import { usePrintAndCutStore } from "../stores/printAndCutStore";
 import { ImageIcon, ChevronLeft, ChevronRight, Ban, Check } from "lucide-react";
 import { Box } from "./Box";
+import { CARDS_PER_PAGE } from "../utils/pdf/cardLayoutUtils";
 import { motion, AnimatePresence } from "framer-motion";
 
 // @TODO dynamic somehow
-const CARDS_PER_PAGE = 8;
 
 // The main goal here is to display a whole page of cards, without compromising card aspect ratio
 

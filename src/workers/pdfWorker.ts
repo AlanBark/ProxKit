@@ -344,7 +344,6 @@ async function generateChunk(
     });
 
     // Process each page
-    let imageCount = 0;
     let actualPageNum = 0; // Track actual page number including backs
 
     for (let pageNum = 0; pageNum < totalPages; pageNum++) {
@@ -402,7 +401,6 @@ async function generateChunk(
                 gridLayout,
                 pdfRef: pdf
             });
-            imageCount++;
 
             // Send progress update
             const cardIndex = startIdx + i;
