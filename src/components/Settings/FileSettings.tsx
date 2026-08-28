@@ -6,8 +6,11 @@ function FileSettings() {
     const pageSize = useProjectSettingsStore((state) => state.pageSize);
     const setPageSize = useProjectSettingsStore((state) => state.setPageSize);
 
+    // Flex gap rather than space-y: HeroUI's outside label puts a margin on an
+    // inner wrapper, which collapses through the root and swallows sibling
+    // margins. Flex items do not margin-collapse.
     return (
-        <div className="mb-3 space-y-4">
+        <div className="mb-3 flex flex-col gap-4">
             <PresetSelect />
 
             <Select

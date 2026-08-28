@@ -13,15 +13,14 @@ export const PAGE_SIZE_OPTIONS = [
 ] as const;
 
 /**
- * The settings a preset fixes: the physical format being printed.
+ * The settings a preset fixes: the card itself.
  *
- * Deliberately excludes workflow state (whether backs are enabled, how the
- * preview is grouped) and skipped slots, which describe a job or a printer
- * rather than a card format.
+ * Page size is deliberately not included - the same cards are printed on
+ * whatever paper is loaded, so that stays a separate choice. Workflow state
+ * (whether backs are enabled, how the preview is grouped) and skipped slots
+ * describe a job or a printer rather than a card, and are also excluded.
  */
 export interface PresetValues {
-    /** Key from PAGE_SIZE_OPTIONS. */
-    pageSize: string;
     cardWidth: number;
     cardHeight: number;
     defaultBleed: number;
@@ -105,7 +104,6 @@ export const useProjectSettingsStore = create<ProjectSettingsState>()(
             setGroupByCardBacks: (group) => set({ groupByCardBacks: group }),
             setShowAllCardBacks: (show) => set({ showAllCardBacks: show }),
             applyPreset: (values) => set({
-                pageSize: new Set([values.pageSize]),
                 cardWidth: values.cardWidth,
                 cardHeight: values.cardHeight,
                 defaultBleed: values.defaultBleed,

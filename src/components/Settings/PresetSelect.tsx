@@ -5,12 +5,14 @@ import { BUILT_IN_PRESETS, matchPreset } from "../../stores/presets";
 /**
  * Picks a card format.
  *
- * The active preset is derived from the current settings rather than stored,
- * so editing a card size or bleed by hand drops the selection back to Custom
+ * Page size is a separate control: the same cards get printed on whatever paper
+ * is loaded, so a preset says nothing about it.
+ *
+ * The active preset is derived from the current settings rather than stored, so
+ * editing a card size or bleed by hand drops the selection back to Custom
  * instead of leaving a preset named that no longer describes the job.
  */
 export function PresetSelect() {
-    const pageSize = useProjectSettingsStore((state) => state.pageSize);
     const cardWidth = useProjectSettingsStore((state) => state.cardWidth);
     const cardHeight = useProjectSettingsStore((state) => state.cardHeight);
     const defaultBleed = useProjectSettingsStore((state) => state.defaultBleed);
@@ -19,7 +21,6 @@ export function PresetSelect() {
     const applyPreset = useProjectSettingsStore((state) => state.applyPreset);
 
     const active = matchPreset({
-        pageSize,
         cardWidth,
         cardHeight,
         defaultBleed,
