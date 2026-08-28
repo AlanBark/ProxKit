@@ -8,8 +8,8 @@ export function blobSource(url: string): ImageSource {
 }
 
 /** Wrap a path to a file on disk. Desktop only. */
-export function pathSource(path: string): ImageSource {
-    return { kind: "path", path };
+export function pathSource(path: string, driveId?: string): ImageSource {
+    return driveId ? { kind: "path", path, driveId } : { kind: "path", path };
 }
 
 /** Take ownership of a File's bytes as a blob URL. */

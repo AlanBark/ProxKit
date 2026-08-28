@@ -16,11 +16,17 @@ interface AppSettingsState {
     libraryFolder: string | null;
     /** Directory of the last saved PDF, used to seed the save dialog. */
     lastOutputDir: string | null;
+    /** Directory of the last opened or saved project. */
+    lastProjectDir: string | null;
+    /** Where projects are kept and listed from. Null means the app data folder. */
+    projectsFolder: string | null;
     /** Whether first-run setup has been seen, so it is not shown again. */
     hasCompletedSetup: boolean;
 
     setLibraryFolder: (folder: string | null) => void;
     setLastOutputDir: (dir: string | null) => void;
+    setLastProjectDir: (dir: string | null) => void;
+    setProjectsFolder: (folder: string | null) => void;
     setHasCompletedSetup: (done: boolean) => void;
 }
 
@@ -29,10 +35,14 @@ export const useAppSettingsStore = create<AppSettingsState>()(
         (set) => ({
             libraryFolder: null,
             lastOutputDir: null,
+            lastProjectDir: null,
+            projectsFolder: null,
             hasCompletedSetup: false,
 
             setLibraryFolder: (folder) => set({ libraryFolder: folder }),
             setLastOutputDir: (dir) => set({ lastOutputDir: dir }),
+            setLastProjectDir: (dir) => set({ lastProjectDir: dir }),
+            setProjectsFolder: (folder) => set({ projectsFolder: folder }),
             setHasCompletedSetup: (done) => set({ hasCompletedSetup: done }),
         }),
         {

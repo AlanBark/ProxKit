@@ -1,7 +1,10 @@
 mod commands;
 mod utils;
 
-use commands::{generate_cardlist, library_fetch, library_find, save_text_file, thumbnail_find, thumbnail_save};
+use commands::{
+  delete_file, generate_cardlist, library_fetch, library_find, list_files, path_exists,
+  read_text_file, rename_file, save_text_file, thumbnail_find, thumbnail_save,
+};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -24,7 +27,12 @@ pub fn run() {
       library_fetch,
       thumbnail_find,
       thumbnail_save,
-      save_text_file
+      save_text_file,
+      read_text_file,
+      path_exists,
+      list_files,
+      delete_file,
+      rename_file
     ])
     .run(tauri::generate_context!())
     .expect("error while running tauri application");

@@ -19,7 +19,8 @@ export async function pickImagesFromDisk(multiple: boolean = false): Promise<Ima
 
     if (!selected) return [];
     const paths = Array.isArray(selected) ? selected : [selected];
-    return paths.map(pathSource);
+    // Not `paths.map(pathSource)`: that would pass the array index as driveId.
+    return paths.map((path) => pathSource(path));
 }
 
 /** Convenience wrapper for the single-image case. */

@@ -1,4 +1,6 @@
 use base64::Engine;
+use serde::Serialize;
+use ts_rs::TS;
 use std::path::{Path, PathBuf};
 
 /// Google Apps Script proxy that serves Drive-hosted card art as base64 text.
@@ -199,7 +201,113 @@ pub fn thumbnail_save(folder: String, key: String, data: String) -> Result<Strin
 /// the native save dialog rather than from application code.
 #[tauri::command]
 pub fn save_text_file(path: String, contents: String) -> Result<(), String> {
+    // The projects folder is created on first save rather than at startup, so
+    // the directory may legitimately not exist yet.
+    if let Some(parent) = Path::new(&path).parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("Could not create {}: {}", parent.display(), e))?;
+    }
     std::fs::write(&path, contents).map_err(|e| format!("Could not write {}: {}", path, e))
+}
+
+/// Reads a text file the user chose in an open dialog.
+///
+/// The counterpart to save_text_file, used for project files.
+#[tauri::command]
+pub fn read_text_file(path: String) -> Result<String, String> {
+    std::fs::read_to_string(&path).map_err(|e| format!("Could not read {}: {}", path, e))
+}
+
+/// Whether a file still exists at this path.
+///
+/// Opening a project checks every image this way before deciding whether it
+/// needs recovering, so it has to be cheap.
+#[tauri::command]
+pub fn path_exists(path: String) -> bool {
+    Path::new(&path).is_file()
+}
+
+/// One file found in a folder listing.
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../src/types/generated/")]
+pub struct DirectoryEntry {
+    pub path: String,
+    pub file_name: String,
+    /// Last modified, as milliseconds since the Unix epoch.
+    pub modified_ms: f64,
+}
+
+/// Lists files with the given extension, newest first.
+///
+/// A folder that does not exist yet is an empty listing rather than an error:
+/// the projects folder is created on first save, not on first look.
+#[tauri::command]
+pub fn list_files(folder: String, extension: String) -> Result<Vec<DirectoryEntry>, String> {
+    let dir = Path::new(&folder);
+    if !dir.is_dir() {
+        return Ok(Vec::new());
+    }
+
+    let entries = std::fs::read_dir(dir)
+        .map_err(|e| format!("Could not read {}: {}", folder, e))?;
+
+    let mut files: Vec<DirectoryEntry> = Vec::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        let matches_extension = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .is_some_and(|e| e.eq_ignore_ascii_case(&extension));
+        if !matches_extension {
+            continue;
+        }
+
+        let modified_ms = entry
+            .metadata()
+            .ok()
+            .and_then(|m| m.modified().ok())
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|d| d.as_millis() as f64)
+            .unwrap_or(0.0);
+
+        files.push(DirectoryEntry {
+            path: path.to_string_lossy().into_owned(),
+            file_name: path
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_default(),
+            modified_ms,
+        });
+    }
+
+    files.sort_by(|a, b| b.modified_ms.total_cmp(&a.modified_ms));
+    Ok(files)
+}
+
+/// Deletes a file the user chose to remove.
+#[tauri::command]
+pub fn delete_file(path: String) -> Result<(), String> {
+    std::fs::remove_file(&path).map_err(|e| format!("Could not delete {}: {}", path, e))
+}
+
+/// Renames a file, refusing to overwrite an existing one.
+///
+/// Used when a project is renamed from its tile. Clobbering a project that
+/// happened to share the new name would lose work silently.
+#[tauri::command]
+pub fn rename_file(from: String, to: String) -> Result<(), String> {
+    let target = Path::new(&to);
+    if target.exists() {
+        return Err(format!(
+            "{} already exists",
+            target.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or(to.clone())
+        ));
+    }
+    std::fs::rename(&from, &to).map_err(|e| format!("Could not rename {}: {}", from, e))
 }
 
 #[cfg(test)]

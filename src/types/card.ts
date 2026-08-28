@@ -18,8 +18,13 @@ export const CARD_DIMENSIONS = {
 export type ImageSource =
     /** An object URL owned by the app. Must be revoked when discarded. */
     | { kind: "blob"; url: string }
-    /** A file on disk. Desktop only; readable by the Rust backend. */
-    | { kind: "path"; path: string };
+    /**
+     * A file on disk. Desktop only; readable by the Rust backend.
+     *
+     * `driveId` is set when the file came from an MPCFill import, and is what
+     * lets a saved project re-download the image if the file has since gone.
+     */
+    | { kind: "path"; path: string; driveId?: string };
 
 export interface CardImage {
     id: string;

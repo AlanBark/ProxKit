@@ -1,4 +1,4 @@
-import { Download, ChevronRight, HelpCircle, Settings } from "lucide-react";
+import { Download, ChevronRight, HelpCircle, Settings, Save } from "lucide-react";
 import { FileUpload } from "../FileUpload";
 import { XMLUpload } from "../XMLUpload";
 import { Box } from "../Box";
@@ -15,6 +15,9 @@ import gitHubLogo from "../../assets/github-mark-white.svg"
 import { useNavigate } from "react-router"
 import DxfHelpModal from "./DxfHelpModal";
 import { AppSettingsModal } from "./AppSettingsModal";
+import { useProjectAutosave } from "../../hooks/useProjectAutosave";
+import { useProjectFile } from "../../hooks/useProjectFile";
+import { SaveProjectModal } from "./SaveProjectModal";
 import { useState } from "react";
 
 export function Sidebar({ className = "" }) {
@@ -47,6 +50,24 @@ export function Sidebar({ className = "" }) {
 
     const { isImporting } = useMPCFillImport();
 
+    const projectPath = useCardStore((state) => state.projectPath);
+    const saveState = useProjectAutosave();
+    const { saveProjectAs, isBusy: isSavingProject, status: projectStatus } = useProjectFile();
+    const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+
+    // An unsaved project has no file to go back to, so leaving discards it.
+    const handleLeave = async () => {
+        if (!projectPath && cardOrder.length > 0) {
+            const { ask } = await import("@tauri-apps/plugin-dialog");
+            const discard = await ask("This project has not been saved. Discard it?", {
+                title: "Unsaved project",
+                kind: "warning",
+            });
+            if (!discard) return;
+        }
+        navigate('/');
+    };
+
     // Check if any cards are still loading
     const hasLoadingCards = Array.from(cardMap.values()).some(
         card => card.thumbnailLoading || !card.image
@@ -61,15 +82,42 @@ export function Sidebar({ className = "" }) {
                         {/* Breadcrumb */}
                         <div className="flex items-center gap-2 text-lg">
                             <button
-                                onClick={() => navigate('/')}
+                                onClick={handleLeave}
                                 className="hover:opacity-70 transition cursor-pointer"
                             >
                                 <span className={textStyles.primary}>ProxKit</span>
                             </button>
                             <ChevronRight className="w-4 h-4 opacity-50" />
                             <h1 className={`font-bold ${textStyles.primary}`}>
-                                Print and Cut
+                                {projectPath
+                                    ? basename(projectPath).replace(/\.proxkit$/i, "")
+                                    : "Untitled"}
                             </h1>
+
+                            {/* Unsaved work needs a nudge; saved work looks after itself. */}
+                            {!projectPath ? (
+                                <button
+                                    onClick={() => setIsSaveModalOpen(true)}
+                                    title="Save project"
+                                    aria-label="Save project"
+                                    className="cursor-pointer opacity-60 hover:opacity-100 transition"
+                                >
+                                    <Save className="w-4 h-4" />
+                                </button>
+                            ) : (
+                                saveState.kind !== "idle" && (
+                                    <span
+                                        className={`text-xs ${saveState.kind === "error" ? "text-danger" : "opacity-50"}`}
+                                        title={saveState.kind === "error" ? saveState.message : undefined}
+                                    >
+                                        {saveState.kind === "saving"
+                                            ? "Saving…"
+                                            : saveState.kind === "saved"
+                                              ? "Saved"
+                                              : "Not saved"}
+                                    </span>
+                                )
+                            )}
                         </div>
                         <div className="flex items-center gap-3">
                         <button
@@ -139,6 +187,9 @@ export function Sidebar({ className = "" }) {
                             </Button>
                         </ButtonGroup>
                     </div>
+                    {projectStatus?.kind === "error" && (
+                        <p className="text-sm text-danger break-words">{projectStatus.message}</p>
+                    )}
 
                     {pdfError && (
                         <p className="text-sm text-danger break-words">
@@ -172,6 +223,13 @@ export function Sidebar({ className = "" }) {
 
                 <div className="grow"></div>
             </Box>
+
+            <SaveProjectModal
+                isOpen={isSaveModalOpen}
+                onClose={() => setIsSaveModalOpen(false)}
+                onSave={saveProjectAs}
+                isBusy={isSavingProject}
+            />
 
             <AppSettingsModal
                 isOpen={isAppSettingsOpen}

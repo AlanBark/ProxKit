@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { ImageSource } from "../types/card";
 import { pathSource } from "./imageSource";
 import { isTauri } from "./platform";
+import type { DirectoryEntry } from "../types/generated/DirectoryEntry";
 
 /**
  * The image library: a user-chosen folder of card artwork on disk.
@@ -28,7 +29,7 @@ export async function findInLibrary(
         folder: libraryFolder,
         driveId,
     });
-    return path ? pathSource(path) : null;
+    return path ? pathSource(path, driveId) : null;
 }
 
 /**
@@ -50,7 +51,7 @@ export async function fetchIntoLibrary(
         // The proxy expects the caller's origin, as the web build sends.
         origin: window.location.hostname,
     });
-    return pathSource(path);
+    return pathSource(path, driveId);
 }
 
 /** A cached thumbnail for this key, if one has been written before. */
@@ -77,4 +78,36 @@ export async function cacheThumbnail(
         data: jpegBase64,
     });
     return pathSource(path);
+}
+
+/** Whether a file still exists at this path. Desktop only. */
+export async function pathExists(path: string): Promise<boolean> {
+    if (!isTauri) return false;
+    return invoke<boolean>("path_exists", { path });
+}
+
+/** Reads a text file chosen by the user. Desktop only. */
+export async function readTextFile(path: string): Promise<string> {
+    return invoke<string>("read_text_file", { path });
+}
+
+/** Writes text to a path chosen by the user. Desktop only. */
+export async function saveTextFile(path: string, contents: string): Promise<void> {
+    await invoke<void>("save_text_file", { path, contents });
+}
+
+/** Files with the given extension in a folder, newest first. Desktop only. */
+export async function listFiles(folder: string, extension: string): Promise<DirectoryEntry[]> {
+    if (!isTauri) return [];
+    return invoke<DirectoryEntry[]>("list_files", { folder, extension });
+}
+
+/** Permanently removes a file. Desktop only. */
+export async function deleteFile(path: string): Promise<void> {
+    await invoke<void>("delete_file", { path });
+}
+
+/** Renames a file, failing rather than overwriting. Desktop only. */
+export async function renameFile(from: string, to: string): Promise<void> {
+    await invoke<void>("rename_file", { from, to });
 }
