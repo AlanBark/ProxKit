@@ -19,8 +19,9 @@ export interface Preset extends PresetValues {
 export const BUILT_IN_PRESETS: readonly Preset[] = [
     {
         id: "mtg-a4",
-        label: "Magic: The Gathering (A4)",
-        description: `${CARD_DIMENSIONS.width} x ${CARD_DIMENSIONS.height}mm, 8 per page`,
+        label: "MTG",
+        // Names the page size, since the label no longer does.
+        description: `A4, ${CARD_DIMENSIONS.width} x ${CARD_DIMENSIONS.height}mm, 8 per page`,
         pageSize: "A4",
         cardWidth: CARD_DIMENSIONS.width,
         cardHeight: CARD_DIMENSIONS.height,

@@ -28,29 +28,27 @@ export function PresetSelect() {
     });
 
     return (
-        <div className="mb-3">
-            <Select
-                label="Preset"
-                selectedKeys={active ? new Set([active.id]) : new Set()}
-                placeholder="Custom"
-                onSelectionChange={(keys) => {
-                    if (keys === "all") return;
-                    const [id] = keys;
-                    const preset = BUILT_IN_PRESETS.find((p) => p.id === id);
-                    if (preset) applyPreset(preset);
-                }}
-                size="sm"
-                variant="flat"
-                radius="sm"
-                labelPlacement="outside"
-                classNames={{ trigger: "cursor-pointer" }}
-            >
-                {BUILT_IN_PRESETS.map((preset) => (
-                    <SelectItem key={preset.id} description={preset.description}>
-                        {preset.label}
-                    </SelectItem>
-                ))}
-            </Select>
-        </div>
+        <Select
+            label="Preset"
+            selectedKeys={active ? new Set([active.id]) : new Set()}
+            placeholder="Custom"
+            onSelectionChange={(keys) => {
+                if (keys === "all") return;
+                const [id] = keys;
+                const preset = BUILT_IN_PRESETS.find((p) => p.id === id);
+                if (preset) applyPreset(preset);
+            }}
+            size="sm"
+            variant="flat"
+            radius="sm"
+            labelPlacement="outside"
+            classNames={{ trigger: "cursor-pointer" }}
+        >
+            {BUILT_IN_PRESETS.map((preset) => (
+                <SelectItem key={preset.id} description={preset.description}>
+                    {preset.label}
+                </SelectItem>
+            ))}
+        </Select>
     );
 }

@@ -7,7 +7,7 @@ function FileSettings() {
     const setPageSize = useProjectSettingsStore((state) => state.setPageSize);
 
     return (
-        <div className="mb-3">
+        <div className="mb-3 space-y-4">
             <PresetSelect />
 
             <Select
