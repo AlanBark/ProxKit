@@ -36,3 +36,13 @@ reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt", "macros"] }
+
+# Image decoding, cropping and PDF writing all happen in dependencies. Built
+# unoptimized they are roughly an order of magnitude slower, which is why a dev
+# build exported PDFs more slowly than the browser did. Our own crate stays at
+# a low opt-level so backtraces and debugging still behave.
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.dev]
+opt-level = 1

@@ -89,13 +89,51 @@ pub struct PdfGenerationRequest {
     pub output_path: String,
 }
 
+/// High enough that recompressing already-lossy card art is not visible in
+/// print, low enough to keep the PDF a sane size.
+const JPEG_QUALITY: u8 = 92;
+
+/// Whether every pixel is fully opaque.
+///
+/// An image can carry an alpha channel without using it - edge extension always
+/// produces RGBA, for instance, but never anything transparent. Checking the
+/// pixels rather than the type keeps those on the fast path.
+fn is_opaque(img: &DynamicImage) -> bool {
+    match img {
+        DynamicImage::ImageRgb8(_) | DynamicImage::ImageRgb16(_) | DynamicImage::ImageRgb32F(_) => true,
+        DynamicImage::ImageLuma8(_) | DynamicImage::ImageLuma16(_) => true,
+        _ => img.to_rgba8().pixels().all(|p| p.0[3] == u8::MAX),
+    }
+}
+
+/// Identifies a prepared image by everything that changes how it is cropped.
+///
+/// Card dimensions are part of it because the crop is computed as a proportion
+/// of the card, so the same file at a different card size is a different image.
+fn image_key(card: &CardImagePosition) -> String {
+    format!(
+        "{}:{}:{}:{}x{}",
+        card.file_path,
+        card.source_bleed_mm,
+        card.output_bleed_mm,
+        card.card_width_mm,
+        card.card_height_mm
+    )
+}
+
 /// Generates a PDF with images positioned on pages using Krilla with Rayon for parallel processing
 ///
 /// This function handles bleed cropping similar to pdfWorker.ts:
 /// - Each card image has a source_bleed_mm (bleed in the original image)
 /// - Each card has an output_bleed_mm (how much bleed to keep in output)
 /// - Images are cropped by (source_bleed - output_bleed) from each side
-pub async fn generate_pdf(request: PdfGenerationRequest) -> Result<PdfGenerationOutcome, String> {
+pub async fn generate_pdf<F>(
+    request: PdfGenerationRequest,
+    on_progress: F,
+) -> Result<PdfGenerationOutcome, String>
+where
+    F: Fn(usize, usize) + Sync + Send,
+{
     // Validate input
     if request.pages.is_empty() {
         return Err("No pages provided".to_string());
@@ -114,35 +152,45 @@ pub async fn generate_pdf(request: PdfGenerationRequest) -> Result<PdfGeneration
     // =====================================================
     // STEP 1: Load and crop all images in parallel
     // =====================================================
-    let cropped_images: Vec<(String, Result<CroppedImageResult, String>)> = all_card_images
+    // The same artwork placed several times only needs decoding once. Card lists
+    // are full of duplicates, and this used to crop every copy and then discard
+    // all but one of the results.
+    let mut unique: std::collections::HashMap<String, &CardImagePosition> =
+        std::collections::HashMap::new();
+    for card_img in &all_card_images {
+        unique.entry(image_key(card_img)).or_insert(card_img);
+    }
+
+    let unique_images: Vec<(String, &CardImagePosition)> = unique.into_iter().collect();
+    let total = unique_images.len();
+    log::info!("{} unique images to prepare ({} placements)", total, all_card_images.len());
+
+    let completed = std::sync::atomic::AtomicUsize::new(0);
+    let prepared: Vec<(String, String, Result<CroppedImageResult, String>)> = unique_images
         .par_iter()
-        .map(|card_img| {
+        .map(|(key, card_img)| {
             let result = load_and_crop_image(card_img);
-            // Key includes bleed info to handle same image with different bleeds
-            let key = format!("{}:{}:{}", card_img.file_path, card_img.source_bleed_mm, card_img.output_bleed_mm);
-            (key, result)
+            let done = completed.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+            on_progress(done, total);
+            (key.clone(), card_img.file_path.clone(), result)
         })
         .collect();
 
-    // Check for loading errors and build image map
-    // Map stores image + its actual dimensions in mm
     // A single unreadable file should cost you that card, not the whole run -
     // one bad download in a sixty-card list used to produce no PDF at all.
-    let mut image_map: std::collections::HashMap<String, CroppedImageResult> = std::collections::HashMap::new();
+    let mut image_map: std::collections::HashMap<String, CroppedImageResult> =
+        std::collections::HashMap::new();
     let mut skipped: Vec<SkippedImage> = Vec::new();
 
-    for ((key, result), card_img) in cropped_images.into_iter().zip(all_card_images.iter()) {
+    for (key, file_path, result) in prepared {
         match result {
             Ok(cropped_result) => {
                 image_map.insert(key, cropped_result);
             }
             Err(e) => {
                 log::error!("Skipping image: {}", e);
-                if !skipped.iter().any(|s| s.file_path == card_img.file_path) {
-                    skipped.push(SkippedImage {
-                        file_path: card_img.file_path.clone(),
-                        reason: e,
-                    });
+                if !skipped.iter().any(|s| s.file_path == file_path) {
+                    skipped.push(SkippedImage { file_path, reason: e });
                 }
             }
         }
@@ -194,7 +242,7 @@ pub async fn generate_pdf(request: PdfGenerationRequest) -> Result<PdfGeneration
 
         // Draw card images on top
         for card_img in &page_layout.card_images {
-            let key = format!("{}:{}:{}", card_img.file_path, card_img.source_bleed_mm, card_img.output_bleed_mm);
+            let key = image_key(card_img);
 
             if let Some(cropped_result) = image_map.get(&key) {
                 // Convert cropped image dimensions from mm to points
@@ -310,15 +358,33 @@ fn load_and_crop_image(card_img: &CardImagePosition) -> Result<CroppedImageResul
         resample_clamped(&img, cropped_width_px, cropped_height_px, crop_left_px, crop_top_px)
     };
 
-    // Convert to PNG bytes for krilla
-    let mut png_bytes: Vec<u8> = Vec::new();
-    cropped_img.write_to(&mut std::io::Cursor::new(&mut png_bytes), ImgFormat::Png)
-        .map_err(|e| format!("Failed to encode cropped image as PNG: {}", e))?;
+    // Card art is photographic and almost always arrives as JPEG already, so
+    // re-encoding it losslessly as PNG cost a great deal of time and produced
+    // enormous PDFs. Encode opaque images as JPEG and keep PNG only where the
+    // alpha channel is actually carrying something.
+    let image = if is_opaque(&cropped_img) {
+        let mut jpeg_bytes: Vec<u8> = Vec::new();
+        let mut cursor = std::io::Cursor::new(&mut jpeg_bytes);
+        let mut encoder =
+            image::codecs::jpeg::JpegEncoder::new_with_quality(&mut cursor, JPEG_QUALITY);
+        encoder
+            .encode_image(&cropped_img.to_rgb8())
+            .map_err(|e| format!("Failed to encode cropped image as JPEG: {}", e))?;
+        drop(cursor);
 
-    // Create krilla Image from PNG bytes
-    let data: Data = Arc::new(png_bytes).into();
-    let image = Image::from_png(data, false)
-        .map_err(|e| format!("Failed to create krilla image: {}", e))?;
+        let data: Data = Arc::new(jpeg_bytes).into();
+        Image::from_jpeg(data, false)
+            .map_err(|e| format!("Failed to create krilla image: {}", e))?
+    } else {
+        let mut png_bytes: Vec<u8> = Vec::new();
+        cropped_img
+            .write_to(&mut std::io::Cursor::new(&mut png_bytes), ImgFormat::Png)
+            .map_err(|e| format!("Failed to encode cropped image as PNG: {}", e))?;
+
+        let data: Data = Arc::new(png_bytes).into();
+        Image::from_png(data, false)
+            .map_err(|e| format!("Failed to create krilla image: {}", e))?
+    };
 
     Ok(CroppedImageResult {
         image,
@@ -454,7 +520,9 @@ mod tests {
                 card_at(&bad.to_string_lossy()),
             ],
         );
-        let outcome = generate_pdf(request).await.expect("should still produce a PDF");
+        let outcome = generate_pdf(request, |_, _| {})
+            .await
+            .expect("should still produce a PDF");
 
         assert_eq!(outcome.skipped.len(), 1);
         assert!(outcome.skipped[0].file_path.ends_with("bad.png"));
@@ -474,7 +542,7 @@ mod tests {
         std::fs::write(&bad, b"nope").unwrap();
 
         let request = request_for(&dir, vec![card_at(&bad.to_string_lossy())]);
-        let result = generate_pdf(request).await;
+        let result = generate_pdf(request, |_, _| {}).await;
 
         assert!(result.is_err());
         let _ = std::fs::remove_dir_all(&dir);

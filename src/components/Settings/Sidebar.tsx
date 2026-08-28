@@ -5,6 +5,7 @@ import { Box } from "../Box";
 import { textStyles } from "../../theme/classNames";
 import { useCardStore } from "../../stores/cardStore";
 import { usePDFGeneration } from "../../hooks/usePDFGeneration";
+import { basename, dirname } from "../../utils/paths";
 import { useDXFGeneration } from "../../hooks/useDXFGeneration";
 import { useMPCFillImport } from "../../hooks/useMPCFillImport";
 import { Button, ButtonGroup } from '@heroui/react';
@@ -33,6 +34,7 @@ export function Sidebar({ className = "" }) {
         handleGeneratePDF,
         error: pdfError,
         skipped: skippedCards,
+        savedPath,
     } = usePDFGeneration();
 
     // Get DXF state and actions
@@ -106,7 +108,9 @@ export function Sidebar({ className = "" }) {
                             )}
                             <span className="flex items-center justify-center gap-2 relative z-10">
                                 <Download className="w-5 h-5" />
-                                {pdfError ? "PDF Error" : "Generate PDF"}
+                                {isGenerating
+                                    ? `Generating ${generationProgress}%`
+                                    : pdfError ? "PDF Error" : "Generate PDF"}
                             </span>
                         </Button>
 
@@ -139,6 +143,12 @@ export function Sidebar({ className = "" }) {
                     {pdfError && (
                         <p className="text-sm text-danger break-words">
                             {pdfError}
+                        </p>
+                    )}
+
+                    {savedPath && !pdfError && (
+                        <p className="text-sm text-success break-words">
+                            Saved {basename(savedPath)} to {dirname(savedPath) ?? "disk"}
                         </p>
                     )}
 

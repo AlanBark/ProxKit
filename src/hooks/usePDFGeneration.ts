@@ -5,6 +5,7 @@ import { useAppSettingsStore } from "../stores/appSettingsStore";
 import { useCardStore } from "../stores/cardStore";
 import { save } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { toBackendPath } from "../utils/imageSource";
 import { layoutPages, slotsToCards } from "../utils/pdf/cardLayoutUtils";
 import { basename, dirname, joinPath } from "../utils/paths";
@@ -31,6 +32,8 @@ export function usePDFGeneration() {
     const [error, setError] = useState<string | null>(null);
     /** Cards the backend could not render. The PDF still exists without them. */
     const [skipped, setSkipped] = useState<string[]>([]);
+    /** Where the last PDF was written, so the user gets confirmation. */
+    const [savedPath, setSavedPath] = useState<string | null>(null);
     const pdfManagerRef = useRef<PDFManager | null>(null);
 
     // Track the state when PDF was last generated
@@ -69,6 +72,24 @@ export function usePDFGeneration() {
         };
     }, [pageSize, cardWidth, cardHeight, outputBleed]);
 
+    // The desktop backend reports image-preparation progress as it goes; without
+    // this the window looks frozen for the whole export.
+    useEffect(() => {
+        if (!window.__TAURI_INTERNALS__) return;
+
+        const unlisten = listen<{ done: number; total: number }>(
+            'cardlist-progress',
+            (event) => {
+                const { done, total } = event.payload;
+                if (total > 0) {
+                    setGenerationProgress(Math.round((done / total) * 100));
+                }
+            }
+        );
+
+        return () => { unlisten.then((off) => off()); };
+    }, []);
+
     // Clear PDF URLs when cards are removed
     useEffect(() => {
         if (cardOrder.length === 0) {
@@ -76,6 +97,7 @@ export function usePDFGeneration() {
             setIsGenerating(false);
             setError(null);
             setSkipped([]);
+            setSavedPath(null);
             lastGeneratedStateRef.current = null;
         }
     }, [cardOrder.length]);
@@ -89,6 +111,7 @@ export function usePDFGeneration() {
         setGenerationProgress(0);
         setError(null);
         setSkipped([]);
+        setSavedPath(null);
 
         const cardsWithSkippedSlots = slotsToCards(layoutPages(cardOrder, cardMap, skipSlots));
 
@@ -162,6 +185,7 @@ export function usePDFGeneration() {
                     console.log('PDF generated:', result.outputPath);
                     setLastOutputDir(dirname(path));
                     setSkipped(result.skipped.map(item => basename(item.filePath)));
+                    setSavedPath(result.outputPath);
                 }
 
             } else {
@@ -212,6 +236,7 @@ export function usePDFGeneration() {
         generationProgress,
         error,
         skipped,
+        savedPath,
         handleGeneratePDF,
         handleDownloadPDF,
     };

@@ -1,5 +1,16 @@
 use serde::{Deserialize, Serialize};
+use tauri::Emitter;
 use crate::utils::pdf_utils::{self, CardImagePosition, EmbeddedImage, ImageFormat, PageLayout, PdfGenerationOutcome, PdfGenerationRequest};
+
+/// Event the frontend listens on for image-preparation progress.
+const PROGRESS_EVENT: &str = "cardlist-progress";
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct GenerationProgress {
+    done: usize,
+    total: usize,
+}
 
 /// Grid layout constants matching pdfWorker.ts
 const GRID_COLS: usize = 4;
@@ -89,7 +100,10 @@ fn calculate_mirrored_column(original_col: usize) -> usize {
 ///
 /// Uses a fixed 4x2 grid layout matching pdfWorker.ts
 #[tauri::command]
-pub async fn generate_cardlist(request: CardListGenerationRequest) -> Result<PdfGenerationOutcome, String> {
+pub async fn generate_cardlist(
+    app: tauri::AppHandle,
+    request: CardListGenerationRequest,
+) -> Result<PdfGenerationOutcome, String> {
     log::info!("generate_cardlist called with {} card slots", request.cards.len());
 
     // Validate input - check if there are any actual cards (not just gaps)
@@ -295,5 +309,13 @@ pub async fn generate_cardlist(request: CardListGenerationRequest) -> Result<Pdf
 
     log::info!("Calling pdf_utils to generate {} pages", pdf_request.pages.len());
 
-    pdf_utils::generate_pdf(pdf_request).await
+    // Preparing the images is the slow part, so report it as it happens rather
+    // than leaving the window looking frozen.
+    pdf_utils::generate_pdf(pdf_request, move |done, total| {
+        let _ = app.emit(
+            PROGRESS_EVENT,
+            GenerationProgress { done, total },
+        );
+    })
+    .await
 }
