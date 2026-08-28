@@ -1,16 +1,24 @@
+import type { ImageSource } from "../types/card";
+import { toDisplayUrl } from "./imageSource";
+
 /**
- * Creates a lower-resolution thumbnail from an image file
- * @param file The original image file
- * @param maxWidth Maximum width for the thumbnail (default 800px)
- * @param maxHeight Maximum height for the thumbnail (default 800px)
- * @param quality JPEG quality 0-1 (default 0.85)
- * @param bleedMm Bleed amount in millimeters to crop from all sides (default 0)
- * @param cardWidthMm Card width in millimeters (default 63mm for Magic cards)
- * @param cardHeightMm Card height in millimeters (default 88mm for Magic cards)
+ * Creates a lower-resolution thumbnail from an image source.
+ *
+ * Works for both blob sources and on-disk paths: the source is resolved to a
+ * URL the webview can load, then cropped and resized on a canvas. This used to
+ * exist twice - once for Files, once for Tauri paths - with identical bodies.
+ *
+ * @param source The image to thumbnail
+ * @param maxWidth Maximum width for the thumbnail
+ * @param maxHeight Maximum height for the thumbnail
+ * @param quality JPEG quality 0-1
+ * @param bleedMm Bleed amount in millimetres to crop from all sides
+ * @param cardWidthMm Card width in millimetres
+ * @param cardHeightMm Card height in millimetres
  * @returns Promise resolving to a blob URL of the thumbnail
  */
 export async function createThumbnail(
-    file: File,
+    source: ImageSource,
     maxWidth: number = 400,
     maxHeight: number = 400,
     quality: number = 0.85,
@@ -18,14 +26,21 @@ export async function createThumbnail(
     cardWidthMm: number = 63,
     cardHeightMm: number = 88
 ): Promise<string> {
+    const src = toDisplayUrl(source);
+    if (!src) {
+        throw new Error("Cannot create a thumbnail from an empty image source");
+    }
+
     return new Promise((resolve, reject) => {
         const img = new Image();
-        const objectUrl = URL.createObjectURL(file);
+
+        // asset:// URLs are a different origin to the webview, so the canvas
+        // would be tainted without this. Object URLs are same-origin already.
+        if (source.kind === "path") {
+            img.crossOrigin = "anonymous";
+        }
 
         img.onload = () => {
-            // Clean up the temporary object URL
-            URL.revokeObjectURL(objectUrl);
-
             // Calculate bleed in pixels based on image dimensions
             const pxPerMmWidth = img.width / cardWidthMm;
             const pxPerMmHeight = img.height / cardHeightMm;
@@ -79,8 +94,7 @@ export async function createThumbnail(
                         reject(new Error('Failed to create thumbnail blob'));
                         return;
                     }
-                    const thumbnailUrl = URL.createObjectURL(blob);
-                    resolve(thumbnailUrl);
+                    resolve(URL.createObjectURL(blob));
                 },
                 'image/jpeg',
                 quality
@@ -88,10 +102,9 @@ export async function createThumbnail(
         };
 
         img.onerror = () => {
-            URL.revokeObjectURL(objectUrl);
-            reject(new Error('Failed to load image'));
+            reject(new Error(`Failed to load image for thumbnailing: ${src}`));
         };
 
-        img.src = objectUrl;
+        img.src = src;
     });
 }

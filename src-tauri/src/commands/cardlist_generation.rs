@@ -14,12 +14,13 @@ const REGISTRATION_LETTER: &[u8] = include_bytes!("../assets/letter_registration
 #[serde(rename_all = "camelCase")]
 pub struct CardImageData {
     pub id: String,
-    pub image_url: String,
+    /// Absolute path to the front image on disk.
+    pub image_path: String,
     pub name: Option<String>,
     pub bleed: f32,
     pub use_custom_bleed: bool,
-    #[serde(rename = "cardBackUrl")]
-    pub card_back_url: Option<String>,
+    /// Absolute path to this card's own back image, if it has one.
+    pub card_back_path: Option<String>,
     pub card_back_bleed: f32,
     pub use_custom_card_back_bleed: bool,
 }
@@ -36,7 +37,7 @@ pub struct CardListGenerationRequest {
     pub card_height: f32,
     pub output_bleed: f32,
     pub enable_card_backs: bool,
-    pub default_card_back_url: Option<String>,
+    pub default_card_back_path: Option<String>,
 }
 
 /// Grid layout configuration for card placement
@@ -206,7 +207,7 @@ pub async fn generate_cardlist(request: CardListGenerationRequest) -> Result<Str
             );
 
             front_images.push(CardImagePosition {
-                file_path: card.image_url.clone(),
+                file_path: card.image_path.clone(),
                 cell_x,
                 cell_y,
                 cell_width: cell_width_pts,
@@ -242,11 +243,11 @@ pub async fn generate_cardlist(request: CardListGenerationRequest) -> Result<Str
                 };
 
                 // Determine which card back URL to use
-                let card_back_url = card.card_back_url.as_ref()
-                    .or(request.default_card_back_url.as_ref());
+                let card_back_path = card.card_back_path.as_ref()
+                    .or(request.default_card_back_path.as_ref());
 
                 // Skip if no card back available
-                let Some(back_url) = card_back_url else {
+                let Some(back_path) = card_back_path else {
                     continue;
                 };
 
@@ -262,7 +263,7 @@ pub async fn generate_cardlist(request: CardListGenerationRequest) -> Result<Str
                 let source_bleed = card.card_back_bleed;
 
                 back_images.push(CardImagePosition {
-                    file_path: back_url.clone(),
+                    file_path: back_path.clone(),
                     cell_x,
                     cell_y,
                     cell_width: cell_width_pts,

@@ -1,15 +1,17 @@
 import { createThumbnail } from "./imageUtils";
+import type { ImageSource } from "../types/card";
 
 /**
  * Async wrapper around createThumbnail that schedules work during idle time.
  *
- * Uses requestIdleCallback to avoid blocking the main thread during thumbnail generation,
- * falling back to setTimeout if requestIdleCallback is not available.
+ * Uses requestIdleCallback to avoid blocking the main thread during thumbnail
+ * generation, falling back to setTimeout if requestIdleCallback is unavailable.
  *
- * This is an optimization layer - the actual thumbnail creation happens in imageUtils.createThumbnail().
+ * This is an optimization layer - the actual thumbnail creation happens in
+ * imageUtils.createThumbnail().
  */
 export async function generateThumbnailAsync(
-    file: File,
+    source: ImageSource,
     maxWidth: number,
     maxHeight: number,
     quality: number,
@@ -17,29 +19,16 @@ export async function generateThumbnailAsync(
     cardWidth: number,
     cardHeight: number
 ): Promise<string> {
-    const generateThumbnail = () => {
-        return createThumbnail(file, maxWidth, maxHeight, quality, bleed, cardWidth, cardHeight);
-    };
+    const generateThumbnail = () =>
+        createThumbnail(source, maxWidth, maxHeight, quality, bleed, cardWidth, cardHeight);
 
-    return new Promise<string>((resolve, reject) => {
-        if ('requestIdleCallback' in window) {
-            requestIdleCallback(async () => {
-                try {
-                    const url = await generateThumbnail();
-                    resolve(url);
-                } catch (error) {
-                    reject(error);
-                }
-            });
+    return new Promise((resolve, reject) => {
+        const run = () => generateThumbnail().then(resolve, reject);
+
+        if (typeof requestIdleCallback === "function") {
+            requestIdleCallback(() => run());
         } else {
-            setTimeout(async () => {
-                try {
-                    const url = await generateThumbnail();
-                    resolve(url);
-                } catch (error) {
-                    reject(error);
-                }
-            }, 0);
+            setTimeout(run, 0);
         }
     });
 }

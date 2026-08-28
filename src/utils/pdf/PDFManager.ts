@@ -1,4 +1,4 @@
-import type { CardImage, PageSettings } from "../../types/card";
+import type { CardImage, ImageSource, PageSettings } from "../../types/card";
 import {
     PDFWorkerMessageType,
     type GeneratePDFRequest,
@@ -227,11 +227,11 @@ export class PDFManager {
      *
      * @param cards Array of cards (null = blank placeholder)
      * @param enableCardBacks Whether to generate card back pages
-     * @param defaultCardBackUrl Default card back image URL
+     * @param defaultCardBack Default card back image
      * @param skipSlots Array of slot indices to skip (0-7 for 8-card grid)
      * @returns Promise resolving to blob URL of generated PDF
      */
-    public async generatePDF(cards: (CardImage | null)[], enableCardBacks: boolean = false, defaultCardBackUrl: string | null = null, skipSlots: number[] = []): Promise<string> {
+    public async generatePDF(cards: (CardImage | null)[], enableCardBacks: boolean = false, defaultCardBack: ImageSource | null = null, skipSlots: number[] = []): Promise<string> {
         const startTime = performance.now();
         console.log(`[PDFManager] Starting PDF generation for ${cards.length} cards`);
 
@@ -352,7 +352,7 @@ export class PDFManager {
                             cardHeight: this.cardHeight,
                             outputBleed: this.outputBleed,
                             enableCardBacks: enableCardBacks,
-                            defaultCardBackUrl: defaultCardBackUrl,
+                            defaultCardBack: defaultCardBack,
                             skipSlots: skipSlots,
                             requestId: chunkRequestId,
                         },

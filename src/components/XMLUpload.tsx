@@ -4,6 +4,7 @@ import { Button, ButtonGroup, Card, CardBody } from "@heroui/react";
 import { useMPCFillImport } from "../hooks/useMPCFillImport";
 import { usePrintAndCutStore } from "../stores/printAndCutStore";
 import { useCardBackManagement } from "../hooks/useCardBackManagement";
+import { sourceFromFile } from "../utils/imageSource";
 import { parseMPCFillXML } from "../utils/mpcfill/xmlParser";
 import type { CardImage } from "../types/card";
 import { generateThumbnailAsync } from "../utils/asyncThumbnailGeneration";
@@ -37,12 +38,12 @@ export function XMLUpload() {
         const cardId = placeholderCardIds[index];
         if (!cardId) return;
 
-        const imageUrl = URL.createObjectURL(downloadedFile);
+        const image = sourceFromFile(downloadedFile);
 
         // Generate thumbnail asynchronously
         try {
             const thumbnailUrl = await generateThumbnailAsync(
-                downloadedFile,
+                image,
                 800,
                 800,
                 0.85,
@@ -56,7 +57,7 @@ export function XMLUpload() {
                 if (card) {
                     updated.set(cardId, {
                         ...card,
-                        imageUrl,
+                        image,
                         thumbnailUrl,
                         thumbnailLoading: false,
                     });
@@ -71,7 +72,7 @@ export function XMLUpload() {
                 if (card) {
                     updated.set(cardId, {
                         ...card,
-                        imageUrl,
+                        image,
                         thumbnailLoading: false,
                     });
                 }
@@ -82,7 +83,7 @@ export function XMLUpload() {
         // If this card has a unique back, set it
         if (backFile) {
             setEnableCardBacks(true);
-            await handleUpdateCardBack(cardId, backFile);
+            await handleUpdateCardBack(cardId, sourceFromFile(backFile));
         }
     };
 
@@ -94,12 +95,12 @@ export function XMLUpload() {
         const cardId = placeholderCardIds[index];
         if (!cardId) return;
 
-        const cardBackUrl = URL.createObjectURL(cardBackFile);
+        const cardBack = sourceFromFile(cardBackFile);
 
         // Generate thumbnail asynchronously for card back
         try {
             const cardBackThumbnailUrl = await generateThumbnailAsync(
-                cardBackFile,
+                cardBack,
                 800,
                 800,
                 0.85,
@@ -113,7 +114,7 @@ export function XMLUpload() {
                 if (card) {
                     updated.set(cardId, {
                         ...card,
-                        cardBackUrl,
+                        cardBack,
                         cardBackThumbnailUrl,
                         cardBackThumbnailLoading: false,
                     });
@@ -128,7 +129,7 @@ export function XMLUpload() {
                 if (card) {
                     updated.set(cardId, {
                         ...card,
-                        cardBackUrl,
+                        cardBack,
                         cardBackThumbnailLoading: false,
                     });
                 }
@@ -141,7 +142,7 @@ export function XMLUpload() {
 
     const handleCardBackDefaultDownloaded = async (cardBackFile: File) => {
         setEnableCardBacks(true);
-        await handleUpdateDefaultCardBack(cardBackFile);
+        await handleUpdateDefaultCardBack(sourceFromFile(cardBackFile));
     };
 
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -174,7 +175,6 @@ export function XMLUpload() {
             const cardId = placeholderCardIds[index];
             newCardMap.set(cardId, {
                 id: cardId,
-                imageUrl: '', // Empty string will be handled by Card component
                 thumbnailUrl: undefined,
                 thumbnailLoading: true, // Show loading state
                 name: card.name,

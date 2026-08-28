@@ -14,12 +14,11 @@ export function useThumbnailRegeneration() {
     const defaultCardBackBleed = usePrintAndCutStore((state) => state.defaultCardBackBleed);
     const cardWidth = usePrintAndCutStore((state) => state.cardWidth);
     const cardHeight = usePrintAndCutStore((state) => state.cardHeight);
-    const defaultCardBackUrl = usePrintAndCutStore((state) => state.defaultCardBackUrl);
+    const defaultCardBack = usePrintAndCutStore((state) => state.defaultCardBack);
     const setDefaultCardBackThumbnailUrl = usePrintAndCutStore((state) => state.setDefaultCardBackThumbnailUrl);
 
     const prevDefaultBleedRef = useRef<number>(defaultBleed);
     const prevDefaultCardBackBleedRef = useRef<number>(defaultCardBackBleed);
-    const defaultCardBackFileRef = useRef<File | null>(null);
 
     // Regenerate front thumbnails when defaultBleed changes
     useEffect(() => {
@@ -35,7 +34,7 @@ export function useThumbnailRegeneration() {
         prevDefaultBleedRef.current = defaultBleed;
 
         cardsToUpdate.forEach(async (card) => {
-            if (!card) return;
+            if (!card?.image) return;
 
             try {
                 setCardMap((prev) => {
@@ -47,12 +46,8 @@ export function useThumbnailRegeneration() {
                     return newMap;
                 });
 
-                const response = await fetch(card.imageUrl);
-                const blob = await response.blob();
-                const file = new File([blob], card.name || 'image.jpg', { type: blob.type });
-
                 const newThumbnailUrl = await generateThumbnailAsync(
-                    file,
+                    card.image,
                     800,
                     800,
                     0.85,
@@ -103,13 +98,13 @@ export function useThumbnailRegeneration() {
             .filter((card) =>
                 card !== undefined &&
                 !card.useCustomCardBackBleed &&
-                card.cardBackUrl !== undefined
+                card.cardBack !== undefined
             );
 
         prevDefaultCardBackBleedRef.current = defaultCardBackBleed;
 
         cardsToUpdate.forEach(async (card) => {
-            if (!card || !card.cardBackUrl) return;
+            if (!card?.cardBack) return;
 
             try {
                 setCardMap((prev) => {
@@ -121,12 +116,8 @@ export function useThumbnailRegeneration() {
                     return newMap;
                 });
 
-                const response = await fetch(card.cardBackUrl);
-                const blob = await response.blob();
-                const file = new File([blob], `${card.name || 'card'}-back.jpg`, { type: blob.type });
-
                 const newThumbnailUrl = await generateThumbnailAsync(
-                    file,
+                    card.cardBack,
                     800,
                     800,
                     0.85,
@@ -167,14 +158,12 @@ export function useThumbnailRegeneration() {
 
     // Regenerate default card back thumbnail when defaultCardBackBleed changes
     useEffect(() => {
-        if (!defaultCardBackFileRef.current || !defaultCardBackUrl) return;
+        if (!defaultCardBack) return;
 
         const regenerateDefaultCardBackThumbnail = async () => {
             try {
-                const file = defaultCardBackFileRef.current!;
-
                 const newThumbnailUrl = await generateThumbnailAsync(
-                    file,
+                    defaultCardBack,
                     800,
                     800,
                     0.85,
@@ -190,5 +179,5 @@ export function useThumbnailRegeneration() {
         };
 
         regenerateDefaultCardBackThumbnail();
-    }, [defaultCardBackBleed, cardWidth, cardHeight, defaultCardBackUrl, setDefaultCardBackThumbnailUrl]);
+    }, [defaultCardBackBleed, cardWidth, cardHeight, defaultCardBack, setDefaultCardBackThumbnailUrl]);
 }

@@ -6,27 +6,9 @@ import { usePrintAndCutStore } from "../stores/printAndCutStore";
 import { useCardBleedUpdates } from "../hooks/useCardBleedUpdates";
 import { useCardBackManagement } from "../hooks/useCardBackManagement";
 import { removeCard, duplicateCard } from "../utils/cardOperations";
-import { convertFileSrc } from "@tauri-apps/api/core";
-
-const isTauri = !!(window as unknown as { __TAURI_INTERNALS__: unknown }).__TAURI_INTERNALS__;
-
-/**
- * Convert a path to a displayable URL
- * In Tauri, filesystem paths need to be converted to asset:// URLs
- * In web, blob URLs can be used directly
- */
-function toDisplayUrl(path: string | null | undefined): string | undefined {
-    if (!path) return undefined;
-    // If it's already a blob URL or data URL, use it directly
-    if (path.startsWith('blob:') || path.startsWith('data:') || path.startsWith('http')) {
-        return path;
-    }
-    // In Tauri, convert filesystem paths to asset:// URLs
-    if (isTauri) {
-        return convertFileSrc(path, "asset");
-    }
-    return path;
-}
+import { toDisplayUrl, sourceFromFile } from "../utils/imageSource";
+import { pickImageFromDisk } from "../utils/imagePicker";
+import { isTauri } from "../utils/platform";
 
 interface CardProps {
     cardIndex: number,
@@ -40,7 +22,7 @@ export function Card({ card, cardIndex, gridPosition }: CardProps) {
     const cardWidth = usePrintAndCutStore((state) => state.cardWidth);
     const cardHeight = usePrintAndCutStore((state) => state.cardHeight);
     const showAllCardBacks = usePrintAndCutStore((state) => state.showAllCardBacks);
-    const defaultCardBackUrl = usePrintAndCutStore((state) => state.defaultCardBackUrl);
+    const defaultCardBack = usePrintAndCutStore((state) => state.defaultCardBack);
     const defaultCardBackThumbnailUrl = usePrintAndCutStore((state) => state.defaultCardBackThumbnailUrl);
     const cardMap = usePrintAndCutStore((state) => state.cardMap);
     const cardOrder = usePrintAndCutStore((state) => state.cardOrder);
@@ -81,14 +63,17 @@ export function Card({ card, cardIndex, gridPosition }: CardProps) {
     // Convert to displayable URLs (handles Tauri filesystem paths).
     // Must stay above the early return below to keep hook order stable for empty slots.
     const cardBackImage = useMemo(() =>
-        toDisplayUrl(card?.cardBackThumbnailUrl || card?.cardBackUrl || defaultCardBackThumbnailUrl || defaultCardBackUrl),
-        [card?.cardBackThumbnailUrl, card?.cardBackUrl, defaultCardBackThumbnailUrl, defaultCardBackUrl]
+        card?.cardBackThumbnailUrl
+        ?? toDisplayUrl(card?.cardBack)
+        ?? defaultCardBackThumbnailUrl
+        ?? toDisplayUrl(defaultCardBack),
+        [card?.cardBackThumbnailUrl, card?.cardBack, defaultCardBackThumbnailUrl, defaultCardBack]
     );
 
     // Convert front image to displayable URL
     const frontImageSrc = useMemo(() =>
-        toDisplayUrl(card?.thumbnailUrl || card?.imageUrl),
-        [card?.thumbnailUrl, card?.imageUrl]
+        card?.thumbnailUrl ?? toDisplayUrl(card?.image),
+        [card?.thumbnailUrl, card?.image]
     );
 
     // Return empty div if no card
@@ -99,7 +84,7 @@ export function Card({ card, cardIndex, gridPosition }: CardProps) {
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const files = event.target.files;
         if (files && files.length > 0) {
-            handleUpdateCardBack(card.id, files[0]);
+            handleUpdateCardBack(card.id, sourceFromFile(files[0]));
         }
         // Reset input
         if (fileInputRef.current) {
@@ -107,7 +92,14 @@ export function Card({ card, cardIndex, gridPosition }: CardProps) {
         }
     };
 
-    const handleUploadCardBack = () => {
+    const handleUploadCardBack = async () => {
+        // On desktop go through the native dialog so the back has a real file on
+        // disk - the Rust backend cannot read an in-memory blob.
+        if (isTauri) {
+            const source = await pickImageFromDisk();
+            if (source) await handleUpdateCardBack(card.id, source);
+            return;
+        }
         fileInputRef.current?.click();
     };
 
@@ -357,9 +349,9 @@ export function Card({ card, cardIndex, gridPosition }: CardProps) {
                                             className="flex-1"
                                         >
                                             <Upload className="w-4 h-4" />
-                                            {card.cardBackUrl ? 'Change Card Back' : 'Upload Card Back'}
+                                            {card.cardBack ? 'Change Card Back' : 'Upload Card Back'}
                                         </Button>
-                                        {card.cardBackUrl && (
+                                        {card.cardBack && (
                                             <Button
                                                 size="sm"
                                                 color="danger"

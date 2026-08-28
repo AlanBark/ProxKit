@@ -1,4 +1,5 @@
 import type { CardImage } from "../types/card";
+import { revokeSource } from "./imageSource";
 
 /**
  * Removes a card at the specified index
@@ -20,12 +21,10 @@ export function removeCard(
         const card = cardMap.get(cardId);
         if (card) {
             // Cleanup blob URLs
-            URL.revokeObjectURL(card.imageUrl);
+            revokeSource(card.image);
+            revokeSource(card.cardBack);
             if (card.thumbnailUrl) {
                 URL.revokeObjectURL(card.thumbnailUrl);
-            }
-            if (card.cardBackUrl) {
-                URL.revokeObjectURL(card.cardBackUrl);
             }
             if (card.cardBackThumbnailUrl) {
                 URL.revokeObjectURL(card.cardBackThumbnailUrl);
@@ -45,12 +44,10 @@ export function removeCard(
  */
 export function removeAllCards(cardMap: Map<string, CardImage>): void {
     for (const card of cardMap.values()) {
-        URL.revokeObjectURL(card.imageUrl);
+        revokeSource(card.image);
+        revokeSource(card.cardBack);
         if (card.thumbnailUrl) {
             URL.revokeObjectURL(card.thumbnailUrl);
-        }
-        if (card.cardBackUrl) {
-            URL.revokeObjectURL(card.cardBackUrl);
         }
         if (card.cardBackThumbnailUrl) {
             URL.revokeObjectURL(card.cardBackThumbnailUrl);
@@ -94,8 +91,8 @@ export function groupCardsByBacks(
 
         if (!cardA || !cardB) return 0;
 
-        const aHasCustomBack = cardA.cardBackUrl !== undefined;
-        const bHasCustomBack = cardB.cardBackUrl !== undefined;
+        const aHasCustomBack = cardA.cardBack !== undefined;
+        const bHasCustomBack = cardB.cardBack !== undefined;
 
         if (aHasCustomBack === bHasCustomBack) return 0;
 

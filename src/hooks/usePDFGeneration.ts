@@ -4,6 +4,7 @@ import type { CardImage } from "../types/card";
 import { usePrintAndCutStore, PAGE_SIZE_OPTIONS } from "../stores/printAndCutStore";
 import { save } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
+import { toBackendPath } from "../utils/imageSource";
 
 /**
  * Hook for managing PDF generation from card data.
@@ -32,7 +33,7 @@ export function usePDFGeneration() {
     const cardHeight = usePrintAndCutStore((state) => state.cardHeight);
     const outputBleed = usePrintAndCutStore((state) => state.outputBleed);
     const enableCardBacks = usePrintAndCutStore((state) => state.enableCardBacks);
-    const defaultCardBackUrl = usePrintAndCutStore((state) => state.defaultCardBackUrl);
+    const defaultCardBack = usePrintAndCutStore((state) => state.defaultCardBack);
     const skipSlots = usePrintAndCutStore((state) => state.skipSlots);
 
     // Initialize PDF manager when settings change
@@ -122,16 +123,23 @@ export function usePDFGeneration() {
                         ? { width: selectedPage.width, height: selectedPage.height, margin: 10 }
                         : { width: 210, height: 297, margin: 10 };
 
-                    // Map cards to minimal representation, preserving nulls for gaps
+                    // Map cards to minimal representation, preserving nulls for gaps.
+                    // toBackendPath rejects in-memory sources here, at the boundary,
+                    // rather than letting Rust fail on a blob: URL further down.
                     const minimalCards = cardsWithSkippedSlots.map(card => {
                         if (card === null) return null;
+                        if (!card.image) {
+                            throw new Error(`"${card.name ?? card.id}" has no image loaded yet.`);
+                        }
                         return {
                             id: card.id,
-                            imageUrl: card.imageUrl,
+                            imagePath: toBackendPath(card.image, card.name),
                             name: card.name,
                             bleed: card.bleed,
                             useCustomBleed: card.useCustomBleed,
-                            cardBackUrl: card.cardBackUrl,
+                            cardBackPath: card.cardBack
+                                ? toBackendPath(card.cardBack, `${card.name ?? card.id} (back)`)
+                                : null,
                             cardBackBleed: card.cardBackBleed,
                             useCustomCardBackBleed: card.useCustomCardBackBleed,
                         };
@@ -148,7 +156,9 @@ export function usePDFGeneration() {
                             cardHeight: cardHeight,
                             outputBleed: outputBleed,
                             enableCardBacks: enableCardBacks,
-                            defaultCardBackUrl: defaultCardBackUrl,
+                            defaultCardBackPath: defaultCardBack
+                                ? toBackendPath(defaultCardBack, 'The default card back')
+                                : null,
                         }
                     });
 
@@ -167,7 +177,7 @@ export function usePDFGeneration() {
                 const pdfUrlResult = await pdfManagerRef.current.generatePDF(
                     cardsWithSkippedSlots,
                     enableCardBacks,
-                    defaultCardBackUrl,
+                    defaultCardBack,
                     Array.from(skipSlots)
                 );
 

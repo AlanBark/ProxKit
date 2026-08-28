@@ -9,7 +9,7 @@ import {
     type PDFWorkerMessage
 } from "../utils/pdf/workerTypes";
 
-import type { CardImage, PageSettings } from "../types/card";
+import type { CardImage, ImageSource, PageSettings } from "../types/card";
 
 import {
     calculateGridLayout,
@@ -51,6 +51,21 @@ let isCancelled = false;
  * @param flipHorizontal If true, flip the image horizontally (for card backs)
  * @returns Object containing the cropped image bytes and actual dimensions in mm
  */
+/**
+ * Resolves an image source to a URL this worker can fetch().
+ *
+ * The web pipeline only ever handles in-memory sources; disk paths belong to
+ * the Rust backend, so reaching here with one is a programming error rather
+ * than a user-facing condition.
+ */
+function sourceUrl(source: ImageSource): string {
+    if (source.kind === "blob") return source.url;
+    throw new Error(
+        "The web PDF pipeline cannot read images from disk - these cards must " +
+        "go through the desktop backend."
+    );
+}
+
 async function cropImageBleed(
     imageUrl: string,
     bleed: number,
@@ -170,22 +185,22 @@ async function cropAndPlaceCardBack({
     position,
     gridLayout,
     pdfRef,
-    defaultCardBackUrl
-}: PlaceImageParams & { defaultCardBackUrl: string | null }): Promise<void> {
+    defaultCardBack
+}: PlaceImageParams & { defaultCardBack: ImageSource | null }): Promise<void> {
     // Determine which card back to use
-    const cardBackUrl = card.cardBackUrl || defaultCardBackUrl;
+    const cardBackSource = card.cardBack ?? defaultCardBack;
 
     // If no card back exists, don't place anything
-    if (!cardBackUrl) {
+    if (!cardBackSource) {
         return;
     }
 
     // Get the appropriate bleed value for the back
-    const backBleed = card.cardBackUrl ? card.cardBackBleed : card.cardBackBleed;
+    const backBleed = card.cardBackBleed;
 
     // Crop the card back image (NO flip - only positions are mirrored)
     const croppedImage = await cropImageBleed(
-        cardBackUrl,
+        sourceUrl(cardBackSource),
         backBleed,
         cardWidth,
         cardHeight,
@@ -243,7 +258,7 @@ async function cropAndPlaceImage({
 
     // Crop the image to remove bleed
     const croppedImage = await cropImageBleed(
-        card.imageUrl,
+        sourceUrl(card.image!),
         card.bleed,
         cardWidth,
         cardHeight,
@@ -295,7 +310,7 @@ async function generateChunk(
     cardHeight: number,
     outputBleed: number,
     enableCardBacks: boolean,
-    defaultCardBackUrl: string | null,
+    defaultCardBack: ImageSource | null,
     skipSlots: number[],
     requestId: string
 ): Promise<{ pdfBytes: Uint8Array; totalPages: number }> {
@@ -456,7 +471,7 @@ async function generateChunk(
                     position,
                     gridLayout,
                     pdfRef: pdf,
-                    defaultCardBackUrl
+                    defaultCardBack
                 });
             }
 
@@ -483,7 +498,7 @@ self.addEventListener('message', async (event: MessageEvent<PDFWorkerMessage>) =
 
     switch (message.type) {
         case PDFWorkerMessageType.GENERATE_PDF: {
-            const { cards, pageSettings, cardWidth, cardHeight, outputBleed, enableCardBacks, defaultCardBackUrl, skipSlots, requestId } = message.payload;
+            const { cards, pageSettings, cardWidth, cardHeight, outputBleed, enableCardBacks, defaultCardBack, skipSlots, requestId } = message.payload;
 
             // Store current request ID and reset cancellation flag
             currentRequestId = requestId;
@@ -498,7 +513,7 @@ self.addEventListener('message', async (event: MessageEvent<PDFWorkerMessage>) =
                     cardHeight,
                     outputBleed,
                     enableCardBacks,
-                    defaultCardBackUrl,
+                    defaultCardBack,
                     skipSlots,
                     requestId
                 );

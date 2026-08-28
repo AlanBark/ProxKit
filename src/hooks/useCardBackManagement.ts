@@ -1,119 +1,119 @@
 import { useCallback } from "react";
 import { usePrintAndCutStore } from "../stores/printAndCutStore";
 import { generateThumbnailAsync } from "../utils/asyncThumbnailGeneration";
+import { revokeSource } from "../utils/imageSource";
+import type { ImageSource } from "../types/card";
 
 export function useCardBackManagement() {
     const cardMap = usePrintAndCutStore((state) => state.cardMap);
     const setCardMap = usePrintAndCutStore((state) => state.setCardMap);
-    const setDefaultCardBackUrl = usePrintAndCutStore((state) => state.setDefaultCardBackUrl);
+    const defaultCardBack = usePrintAndCutStore((state) => state.defaultCardBack);
+    const setDefaultCardBack = usePrintAndCutStore((state) => state.setDefaultCardBack);
+    const defaultCardBackThumbnailUrl = usePrintAndCutStore((state) => state.defaultCardBackThumbnailUrl);
     const setDefaultCardBackThumbnailUrl = usePrintAndCutStore((state) => state.setDefaultCardBackThumbnailUrl);
     const defaultCardBackBleed = usePrintAndCutStore((state) => state.defaultCardBackBleed);
     const cardWidth = usePrintAndCutStore((state) => state.cardWidth);
     const cardHeight = usePrintAndCutStore((state) => state.cardHeight);
 
-    const handleUpdateCardBack = useCallback(async (cardId: string, file: File | null) => {
+    /**
+     * Sets or clears this card's own back image.
+     *
+     * Takes an ImageSource rather than a File so that desktop callers can pass a
+     * path from the native dialog. Passing a blob source on desktop is legal but
+     * that card cannot be rendered by the Rust backend until it has been written
+     * to the image library.
+     */
+    const handleUpdateCardBack = useCallback(async (cardId: string, source: ImageSource | null) => {
         const card = cardMap.get(cardId);
         if (!card) return;
 
-        // Cleanup old URLs
-        if (card.cardBackUrl) {
-            URL.revokeObjectURL(card.cardBackUrl);
-        }
+        // Release whatever the card was holding before.
+        revokeSource(card.cardBack);
         if (card.cardBackThumbnailUrl) {
             URL.revokeObjectURL(card.cardBackThumbnailUrl);
         }
 
-        if (!file) {
+        if (!source) {
             setCardMap((prev) => {
                 const newMap = new Map(prev);
                 newMap.set(cardId, {
                     ...card,
-                    cardBackUrl: undefined,
+                    cardBack: undefined,
                     cardBackThumbnailUrl: undefined,
-                    cardBackThumbnailLoading: false
+                    cardBackThumbnailLoading: false,
                 });
                 return newMap;
             });
             return;
         }
 
-        const cardBackUrl = URL.createObjectURL(file);
-
         setCardMap((prev) => {
             const newMap = new Map(prev);
             newMap.set(cardId, {
                 ...card,
-                cardBackUrl,
-                cardBackThumbnailLoading: true
+                cardBack: source,
+                cardBackThumbnailUrl: undefined,
+                cardBackThumbnailLoading: true,
             });
             return newMap;
         });
 
         try {
             const cardBackThumbnailUrl = await generateThumbnailAsync(
-                file,
-                800,
-                800,
-                0.85,
-                card.cardBackBleed,
-                cardWidth,
-                cardHeight
+                source, 800, 800, 0.85, defaultCardBackBleed, cardWidth, cardHeight
             );
-
             setCardMap((prev) => {
+                const currentCard = prev.get(cardId);
+                if (!currentCard) return prev;
                 const newMap = new Map(prev);
-                const currentCard = newMap.get(cardId);
-                if (currentCard) {
-                    newMap.set(cardId, {
-                        ...currentCard,
-                        cardBackThumbnailUrl,
-                        cardBackThumbnailLoading: false
-                    });
-                }
+                newMap.set(cardId, { ...currentCard, cardBackThumbnailUrl, cardBackThumbnailLoading: false });
                 return newMap;
             });
         } catch (error) {
             console.error('Failed to generate card back thumbnail:', error);
             setCardMap((prev) => {
+                const currentCard = prev.get(cardId);
+                if (!currentCard) return prev;
                 const newMap = new Map(prev);
-                const currentCard = newMap.get(cardId);
-                if (currentCard) {
-                    newMap.set(cardId, {
-                        ...currentCard,
-                        cardBackThumbnailLoading: false
-                    });
-                }
+                newMap.set(cardId, { ...currentCard, cardBackThumbnailLoading: false });
                 return newMap;
             });
         }
-    }, [cardMap, cardWidth, cardHeight, setCardMap]);
+    }, [cardMap, defaultCardBackBleed, cardWidth, cardHeight, setCardMap]);
 
-    const handleUpdateDefaultCardBack = useCallback(async (file: File | null) => {
-        if (!file) {
-            setDefaultCardBackUrl(null);
+    /** Sets or clears the back image used by every card without its own. */
+    const handleUpdateDefaultCardBack = useCallback(async (source: ImageSource | null) => {
+        revokeSource(defaultCardBack);
+        if (defaultCardBackThumbnailUrl) {
+            URL.revokeObjectURL(defaultCardBackThumbnailUrl);
+        }
+
+        if (!source) {
+            setDefaultCardBack(null);
             setDefaultCardBackThumbnailUrl(null);
             return;
         }
 
-        const cardBackUrl = URL.createObjectURL(file);
-        setDefaultCardBackUrl(cardBackUrl);
+        setDefaultCardBack(source);
+        setDefaultCardBackThumbnailUrl(null);
 
         try {
             const thumbnailUrl = await generateThumbnailAsync(
-                file,
-                800,
-                800,
-                0.85,
-                defaultCardBackBleed,
-                cardWidth,
-                cardHeight
+                source, 800, 800, 0.85, defaultCardBackBleed, cardWidth, cardHeight
             );
-
             setDefaultCardBackThumbnailUrl(thumbnailUrl);
         } catch (error) {
             console.error('Failed to generate default card back thumbnail:', error);
         }
-    }, [defaultCardBackBleed, cardWidth, cardHeight, setDefaultCardBackUrl, setDefaultCardBackThumbnailUrl]);
+    }, [
+        defaultCardBack,
+        defaultCardBackThumbnailUrl,
+        defaultCardBackBleed,
+        cardWidth,
+        cardHeight,
+        setDefaultCardBack,
+        setDefaultCardBackThumbnailUrl,
+    ]);
 
     return { handleUpdateCardBack, handleUpdateDefaultCardBack };
 }

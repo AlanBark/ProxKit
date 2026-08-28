@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { Selection } from '@heroui/react';
-import { CARD_DIMENSIONS, type CardImage } from '../types/card';
+import { CARD_DIMENSIONS, type CardImage, type ImageSource } from '../types/card';
 
 export const PAGE_SIZE_OPTIONS = [
     { key: "A4", label: "A4", width: 210, height: 297 },
@@ -24,7 +24,7 @@ interface PrintAndCutState {
 
     // Card back settings
     enableCardBacks: boolean;
-    defaultCardBackUrl: string | null;
+    defaultCardBack: ImageSource | null;
     defaultCardBackThumbnailUrl: string | null;
     groupByCardBacks: boolean;
     showAllCardBacks: boolean;
@@ -44,7 +44,7 @@ interface PrintAndCutState {
     setDefaultCardBackBleed: (bleed: number) => void;
     setOutputBleed: (bleed: number) => void;
     setEnableCardBacks: (enabled: boolean) => void;
-    setDefaultCardBackUrl: (url: string | null) => void;
+    setDefaultCardBack: (source: ImageSource | null) => void;
     setDefaultCardBackThumbnailUrl: (url: string | null) => void;
     setGroupByCardBacks: (group: boolean) => void;
     setShowAllCardBacks: (show: boolean) => void;
@@ -65,7 +65,7 @@ export const usePrintAndCutStore = create<PrintAndCutState>((set) => ({
     defaultCardBackBleed: CARD_DIMENSIONS.standardBleed,
     outputBleed: CARD_DIMENSIONS.outputBleed,
     enableCardBacks: false,
-    defaultCardBackUrl: null,
+    defaultCardBack: null,
     defaultCardBackThumbnailUrl: null,
     groupByCardBacks: false,
     showAllCardBacks: false,
@@ -87,7 +87,7 @@ export const usePrintAndCutStore = create<PrintAndCutState>((set) => ({
     setDefaultCardBackBleed: (bleed) => set({ defaultCardBackBleed: bleed }),
     setOutputBleed: (bleed) => set({ outputBleed: bleed }),
     setEnableCardBacks: (enabled) => set({ enableCardBacks: enabled }),
-    setDefaultCardBackUrl: (url) => set({ defaultCardBackUrl: url }),
+    setDefaultCardBack: (source) => set({ defaultCardBack: source }),
     setDefaultCardBackThumbnailUrl: (url) => set({ defaultCardBackThumbnailUrl: url }),
     setGroupByCardBacks: (group) => set({ groupByCardBacks: group }),
     setShowAllCardBacks: (show) => set({ showAllCardBacks: show }),

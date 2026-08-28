@@ -4,6 +4,9 @@ import { useCardBackManagement } from "../../hooks/useCardBackManagement";
 import { useRef, useState } from "react";
 import { Upload, Trash2, CircleHelp } from "lucide-react";
 import { textStyles } from "../../theme/classNames";
+import { toDisplayUrl, sourceFromFile } from "../../utils/imageSource";
+import { pickImageFromDisk } from "../../utils/imagePicker";
+import { isTauri } from "../../utils/platform";
 import frontInputBleedExample from "../../assets/front-input-bleed-example.png";
 import doubleSidedExample from "../../assets/double-sided-example.jpg";
 
@@ -19,7 +22,7 @@ function CardSettings() {
     const setDefaultCardBackBleed = usePrintAndCutStore((state) => state.setDefaultCardBackBleed);
     const enableCardBacks = usePrintAndCutStore((state) => state.enableCardBacks);
     const setEnableCardBacks = usePrintAndCutStore((state) => state.setEnableCardBacks);
-    const defaultCardBackUrl = usePrintAndCutStore((state) => state.defaultCardBackUrl);
+    const defaultCardBack = usePrintAndCutStore((state) => state.defaultCardBack);
     const defaultCardBackThumbnailUrl = usePrintAndCutStore((state) => state.defaultCardBackThumbnailUrl);
     // const groupByCardBacks = usePrintAndCutStore((state) => state.groupByCardBacks);
     // const setGroupByCardBacks = usePrintAndCutStore((state) => state.setGroupByCardBacks);
@@ -35,7 +38,7 @@ function CardSettings() {
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const files = event.target.files;
         if (files && files.length > 0) {
-            handleUpdateDefaultCardBack(files[0]);
+            handleUpdateDefaultCardBack(sourceFromFile(files[0]));
         }
         // Reset input
         if (fileInputRef.current) {
@@ -43,7 +46,12 @@ function CardSettings() {
         }
     };
 
-    const handleUploadClick = () => {
+    const handleUploadClick = async () => {
+        if (isTauri) {
+            const source = await pickImageFromDisk();
+            if (source) await handleUpdateDefaultCardBack(source);
+            return;
+        }
         fileInputRef.current?.click();
     };
 
@@ -252,10 +260,10 @@ function CardSettings() {
                             aspectRatio: `${cardWidth} / ${cardHeight}`,
                         }}
                     >
-                        {defaultCardBackUrl ? (
+                        {defaultCardBack ? (
                             <>
                                 <img
-                                    src={defaultCardBackThumbnailUrl || defaultCardBackUrl}
+                                    src={defaultCardBackThumbnailUrl ?? toDisplayUrl(defaultCardBack)}
                                     alt="Default card back"
                                     className="w-full h-full object-contain rounded"
                                 />

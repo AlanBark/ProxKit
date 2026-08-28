@@ -1,4 +1,4 @@
-import type { CardImage, PageSettings } from "../../types/card";
+import type { CardImage, PageSettings, ImageSource } from "../../types/card";
 
 /**
  * Message types for communication between main thread and PDF worker
@@ -29,7 +29,7 @@ export interface GeneratePDFRequest {
         cardHeight: number;
         outputBleed: number; // Output bleed margin in mm
         enableCardBacks: boolean; // Whether to generate card back pages
-        defaultCardBackUrl: string | null; // Default card back image URL
+        defaultCardBack: ImageSource | null; // Default card back image
         skipSlots: number[]; // Array of slot indices to skip (0-7 for 8-card grid)
         requestId: string; // Unique ID to match request/response
     };

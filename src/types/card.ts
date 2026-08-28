@@ -7,19 +7,45 @@ export const CARD_DIMENSIONS = {
     outputBleed: 0.5
 } as const;
 
+/**
+ * Where an image's bytes actually live.
+ *
+ * This distinction used to be implicit in a bare `string`, which meant every
+ * consumer had to guess whether it held a blob URL or a filesystem path - and
+ * they guessed differently. Switch on `kind` instead; see utils/imageSource.ts
+ * for the accessors.
+ */
+export type ImageSource =
+    /** An object URL owned by the app. Must be revoked when discarded. */
+    | { kind: "blob"; url: string }
+    /** A file on disk. Desktop only; readable by the Rust backend. */
+    | { kind: "path"; path: string };
+
 export interface CardImage {
     id: string;
-    imageUrl: string;
-    thumbnailUrl?: string; // Lower-res version for UI display
-    thumbnailLoading?: boolean; // Whether thumbnail is being generated
+    /** Front image. Undefined while a placeholder card is still downloading. */
+    image?: ImageSource;
+    /** Display thumbnail. Always a blob URL - it is canvas output. */
+    thumbnailUrl?: string;
+    /** Whether the front thumbnail is being generated */
+    thumbnailLoading?: boolean;
     name?: string;
-    bleed: number; // bleed amount in millimeters for front image
-    useCustomBleed: boolean; // true if user manually set a custom bleed for this card
-    cardBackUrl?: string; // Custom back image for this specific card (original blob URL)
-    cardBackThumbnailUrl?: string; // Lower-res version of card back for UI display
-    cardBackThumbnailLoading?: boolean; // Whether card back thumbnail is being generated
-    cardBackBleed: number; // bleed amount in millimeters for back image
-    useCustomCardBackBleed: boolean; // true if user manually set a custom back bleed for this card
+    bleed: number; // bleed amount in millimetres for front image
+    /**
+     * Marks `bleed` as user-overridden so it is not re-synced when the default
+     * changes. It does NOT gate whether bleed applies - `bleed` is always the
+     * effective value.
+     */
+    useCustomBleed: boolean;
+    /** Back image specific to this card, overriding the default back. */
+    cardBack?: ImageSource;
+    /** Display thumbnail for the back. Always a blob URL. */
+    cardBackThumbnailUrl?: string;
+    /** Whether the back thumbnail is being generated */
+    cardBackThumbnailLoading?: boolean;
+    cardBackBleed: number; // bleed amount in millimetres for back image
+    /** As `useCustomBleed`, but for the back image. */
+    useCustomCardBackBleed: boolean;
 }
 
 export interface PageSettings {

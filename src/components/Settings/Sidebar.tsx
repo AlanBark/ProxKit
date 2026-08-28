@@ -44,7 +44,7 @@ export function Sidebar({ className = "" }) {
 
     // Check if any cards are still loading
     const hasLoadingCards = Array.from(cardMap.values()).some(
-        card => card.thumbnailLoading || !card.imageUrl
+        card => card.thumbnailLoading || !card.image
     );
 
     return (
