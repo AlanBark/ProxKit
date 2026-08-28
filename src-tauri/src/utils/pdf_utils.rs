@@ -5,6 +5,7 @@ use krilla::geom::{Size, Transform};
 use rayon::prelude::*;
 use std::sync::Arc;
 use image::{DynamicImage, GenericImageView, ImageFormat as ImgFormat, RgbaImage};
+use ts_rs::TS;
 
 /// MM to points conversion factor
 const MM_TO_POINTS: f32 = 2.83465;
@@ -68,16 +69,18 @@ pub struct PageLayout {
 }
 
 /// One card that could not be rendered, and why.
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../src/types/generated/")]
 pub struct SkippedImage {
     pub file_path: String,
     pub reason: String,
 }
 
 /// Result of a generation run. A run can succeed while individual cards fail.
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../src/types/generated/")]
 pub struct PdfGenerationOutcome {
     pub output_path: String,
     pub skipped: Vec<SkippedImage>,

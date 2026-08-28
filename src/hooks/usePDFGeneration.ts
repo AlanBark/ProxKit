@@ -9,12 +9,10 @@ import { listen } from '@tauri-apps/api/event';
 import { toBackendPath } from "../utils/imageSource";
 import { layoutPages, slotsToCards } from "../utils/pdf/cardLayoutUtils";
 import { basename, dirname, joinPath } from "../utils/paths";
-
-/** Shape of the Rust generate_cardlist response. */
-interface GenerationOutcome {
-    outputPath: string;
-    skipped: { filePath: string; reason: string }[];
-}
+import type { CardImageData } from "../types/generated/CardImageData";
+import type { CardListGenerationRequest } from "../types/generated/CardListGenerationRequest";
+import type { GenerationProgress } from "../types/generated/GenerationProgress";
+import type { PdfGenerationOutcome } from "../types/generated/PdfGenerationOutcome";
 
 /**
  * Hook for managing PDF generation from card data.
@@ -77,7 +75,7 @@ export function usePDFGeneration() {
     useEffect(() => {
         if (!window.__TAURI_INTERNALS__) return;
 
-        const unlisten = listen<{ done: number; total: number }>(
+        const unlisten = listen<GenerationProgress>(
             'cardlist-progress',
             (event) => {
                 const { done, total } = event.payload;
@@ -143,10 +141,14 @@ export function usePDFGeneration() {
                         ? { width: selectedPage.width, height: selectedPage.height, margin: 10 }
                         : { width: 210, height: 297, margin: 10 };
 
-                    // Map cards to minimal representation, preserving nulls for gaps.
+                    // Map cards to the backend's representation, preserving nulls for
+                    // gaps. Typed against the generated definition, so a field the Rust
+                    // side does not declare is a compile error rather than a value that
+                    // is silently ignored.
+                    const minimalCards: (CardImageData | null)[] =
                     // toBackendPath rejects in-memory sources here, at the boundary,
                     // rather than letting Rust fail on a blob: URL further down.
-                    const minimalCards = cardsWithSkippedSlots.map(card => {
+                        cardsWithSkippedSlots.map(card => {
                         if (card === null) return null;
                         if (!card.image) {
                             throw new Error(`"${card.name ?? card.id}" has no image loaded yet.`);
@@ -154,7 +156,9 @@ export function usePDFGeneration() {
                         return {
                             id: card.id,
                             imagePath: toBackendPath(card.image, card.name),
-                            name: card.name,
+                            // Explicitly null, not undefined: JSON.stringify drops
+                            // undefined properties, and the field would arrive missing.
+                            name: card.name ?? null,
                             bleed: card.bleed,
                             useCustomBleed: card.useCustomBleed,
                             cardBackPath: card.cardBack
@@ -165,22 +169,21 @@ export function usePDFGeneration() {
                         };
                     });
 
-                    // Call Rust backend with proper types
-                    const result = await invoke<GenerationOutcome>('generate_cardlist', {
-                        request: {
-                            cards: minimalCards,
-                            outputPath: path,
-                            pageWidth: pageSettings.width,
-                            pageHeight: pageSettings.height,
-                            cardWidth: cardWidth,
-                            cardHeight: cardHeight,
-                            outputBleed: outputBleed,
-                            enableCardBacks: enableCardBacks,
-                            defaultCardBackPath: defaultCardBack
-                                ? toBackendPath(defaultCardBack, 'The default card back')
-                                : null,
-                        }
-                    });
+                    const request: CardListGenerationRequest = {
+                        cards: minimalCards,
+                        outputPath: path,
+                        pageWidth: pageSettings.width,
+                        pageHeight: pageSettings.height,
+                        cardWidth: cardWidth,
+                        cardHeight: cardHeight,
+                        outputBleed: outputBleed,
+                        enableCardBacks: enableCardBacks,
+                        defaultCardBackPath: defaultCardBack
+                            ? toBackendPath(defaultCardBack, 'The default card back')
+                            : null,
+                    };
+
+                    const result = await invoke<PdfGenerationOutcome>('generate_cardlist', { request });
 
                     console.log('PDF generated:', result.outputPath);
                     setLastOutputDir(dirname(path));

@@ -1,13 +1,15 @@
 use serde::{Deserialize, Serialize};
 use tauri::Emitter;
+use ts_rs::TS;
 use crate::utils::pdf_utils::{self, CardImagePosition, EmbeddedImage, ImageFormat, PageLayout, PdfGenerationOutcome, PdfGenerationRequest};
 
 /// Event the frontend listens on for image-preparation progress.
 const PROGRESS_EVENT: &str = "cardlist-progress";
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
-struct GenerationProgress {
+#[ts(export, export_to = "../../src/types/generated/")]
+pub struct GenerationProgress {
     done: usize,
     total: usize,
 }
@@ -21,8 +23,9 @@ const CARDS_PER_PAGE: usize = GRID_COLS * GRID_ROWS; // 8 cards per page
 const REGISTRATION_A4: &[u8] = include_bytes!("../assets/a4_registration.jpg");
 const REGISTRATION_LETTER: &[u8] = include_bytes!("../assets/letter_registration.jpg");
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../src/types/generated/")]
 pub struct CardImageData {
     pub id: String,
     /// Absolute path to the front image on disk.
@@ -37,8 +40,9 @@ pub struct CardImageData {
 }
 
 /// Request from frontend for cardlist generation
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "../../src/types/generated/")]
 pub struct CardListGenerationRequest {
     pub cards: Vec<Option<CardImageData>>,
     pub output_path: String,

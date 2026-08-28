@@ -10,7 +10,9 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "types:generate": "cd src-tauri && cargo test --lib",
+    "types:check": "npm run types:generate && git add -A -N src/types/generated && git diff --exit-code src/types/generated"
   },
   "dependencies": {
     "@heroui/react": "^2.8.5",

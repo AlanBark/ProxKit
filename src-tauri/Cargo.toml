@@ -32,6 +32,9 @@ krilla = { version = "0.6.0", features = ["rayon"] }
 rayon = "1.10"
 image = "0.25"
 base64 = "0.22"
+# Generates the TypeScript definitions for everything crossing the IPC
+# boundary, so the two sides cannot describe the same payload differently.
+ts-rs = "12"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "charset"] }
 
 [dev-dependencies]
