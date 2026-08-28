@@ -8,7 +8,13 @@ import { save } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { toBackendPath } from "../utils/imageSource";
 import { CARDS_PER_PAGE } from "../utils/pdf/cardLayoutUtils";
-import { dirname, joinPath } from "../utils/paths";
+import { basename, dirname, joinPath } from "../utils/paths";
+
+/** Shape of the Rust generate_cardlist response. */
+interface GenerationOutcome {
+    outputPath: string;
+    skipped: { filePath: string; reason: string }[];
+}
 
 /**
  * Hook for managing PDF generation from card data.
@@ -24,6 +30,8 @@ export function usePDFGeneration() {
     const [isGenerating, setIsGenerating] = useState(false);
     const [generationProgress, setGenerationProgress] = useState<number>(0);
     const [error, setError] = useState<string | null>(null);
+    /** Cards the backend could not render. The PDF still exists without them. */
+    const [skipped, setSkipped] = useState<string[]>([]);
     const pdfManagerRef = useRef<PDFManager | null>(null);
 
     // Track the state when PDF was last generated
@@ -68,6 +76,7 @@ export function usePDFGeneration() {
             setPdfUrl(null);
             setIsGenerating(false);
             setError(null);
+            setSkipped([]);
             lastGeneratedStateRef.current = null;
         }
     }, [cardOrder.length]);
@@ -80,6 +89,7 @@ export function usePDFGeneration() {
         setIsGenerating(true);
         setGenerationProgress(0);
         setError(null);
+        setSkipped([]);
 
         const cardsArray = cardOrder.map(id => cardMap.get(id)).filter((card): card is CardImage => card !== undefined);
 
@@ -153,7 +163,7 @@ export function usePDFGeneration() {
                     });
 
                     // Call Rust backend with proper types
-                    const result = await invoke<string>('generate_cardlist', {
+                    const result = await invoke<GenerationOutcome>('generate_cardlist', {
                         request: {
                             cards: minimalCards,
                             outputPath: path,
@@ -169,8 +179,9 @@ export function usePDFGeneration() {
                         }
                     });
 
-                    console.log('PDF generated:', result);
+                    console.log('PDF generated:', result.outputPath);
                     setLastOutputDir(dirname(path));
+                    setSkipped(result.skipped.map(item => basename(item.filePath)));
                 }
 
             } else {
@@ -220,6 +231,7 @@ export function usePDFGeneration() {
         isGenerating,
         generationProgress,
         error,
+        skipped,
         handleGeneratePDF,
         handleDownloadPDF,
     };

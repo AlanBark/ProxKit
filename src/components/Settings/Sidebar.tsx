@@ -32,6 +32,7 @@ export function Sidebar({ className = "" }) {
         generationProgress,
         handleGeneratePDF,
         error: pdfError,
+        skipped: skippedCards,
     } = usePDFGeneration();
 
     // Get DXF state and actions
@@ -138,6 +139,15 @@ export function Sidebar({ className = "" }) {
                     {pdfError && (
                         <p className="text-sm text-danger break-words">
                             {pdfError}
+                        </p>
+                    )}
+
+                    {/* The PDF was written; these cards just are not in it. */}
+                    {skippedCards.length > 0 && (
+                        <p className="text-sm text-warning break-words">
+                            {skippedCards.length === 1
+                                ? `1 card could not be read and was left out: ${skippedCards[0]}`
+                                : `${skippedCards.length} cards could not be read and were left out: ${skippedCards.join(", ")}`}
                         </p>
                     )}
                 </div>

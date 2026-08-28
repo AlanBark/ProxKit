@@ -4,6 +4,11 @@ import { useProjectSettingsStore, PAGE_SIZE_OPTIONS } from "../stores/projectSet
 import { useCardStore } from "../stores/cardStore";
 import { generateDxfUrl } from "../utils/pdf/dxfGenerator";
 import { CARDS_PER_PAGE } from "../utils/pdf/cardLayoutUtils";
+import { save } from '@tauri-apps/plugin-dialog';
+import { invoke } from '@tauri-apps/api/core';
+import { isTauri } from '../utils/platform';
+import { dirname, joinPath } from '../utils/paths';
+import { useAppSettingsStore } from '../stores/appSettingsStore';
 
 /**
  * Hook for managing DXF cut file generation from card data.
@@ -33,6 +38,8 @@ export function useDXFGeneration() {
     const cardHeight = useProjectSettingsStore((state) => state.cardHeight);
     const outputBleed = useProjectSettingsStore((state) => state.outputBleed);
     const skipSlots = useProjectSettingsStore((state) => state.skipSlots);
+    const lastOutputDir = useAppSettingsStore((state) => state.lastOutputDir);
+    const setLastOutputDir = useAppSettingsStore((state) => state.setLastOutputDir);
 
     // Clear DXF URL when cards are removed
     useEffect(() => {
@@ -114,13 +121,40 @@ export function useDXFGeneration() {
         }
     }, []);
 
-    const handleDownloadDXF = () => {
+    const handleDownloadDXF = async () => {
         if (!dxfUrl) return;
 
-        const link = document.createElement("a");
-        link.href = dxfUrl;
-        link.download = `cut-file-${new Date().getTime()}.dxf`;
-        link.click();
+        const fileName = `cut-file-${new Date().getTime()}.dxf`;
+
+        if (!isTauri) {
+            const link = document.createElement("a");
+            link.href = dxfUrl;
+            link.download = fileName;
+            link.click();
+            return;
+        }
+
+        // Desktop: go through the native save dialog, as PDF export does. An
+        // <a download> is inert or inconsistent inside a webview.
+        try {
+            const path = await save({
+                title: 'Save Cut File',
+                defaultPath: lastOutputDir ? joinPath(lastOutputDir, fileName) : fileName,
+                filters: [{ name: 'DXF', extensions: ['dxf'] }],
+            });
+            if (path === null) return;
+
+            const contents = await (await fetch(dxfUrl)).text();
+            await invoke('save_text_file', { path, contents });
+            setLastOutputDir(dirname(path));
+        } catch (err) {
+            console.error("Failed to save DXF:", err);
+            setError(
+                typeof err === "string" ? err
+                    : err instanceof Error ? err.message
+                    : "Could not save the cut file"
+            );
+        }
     };
 
     return {

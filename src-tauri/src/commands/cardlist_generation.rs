@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use crate::utils::pdf_utils::{self, CardImagePosition, EmbeddedImage, ImageFormat, PageLayout, PdfGenerationRequest};
+use crate::utils::pdf_utils::{self, CardImagePosition, EmbeddedImage, ImageFormat, PageLayout, PdfGenerationOutcome, PdfGenerationRequest};
 
 /// Grid layout constants matching pdfWorker.ts
 const GRID_COLS: usize = 4;
@@ -89,7 +89,7 @@ fn calculate_mirrored_column(original_col: usize) -> usize {
 ///
 /// Uses a fixed 4x2 grid layout matching pdfWorker.ts
 #[tauri::command]
-pub async fn generate_cardlist(request: CardListGenerationRequest) -> Result<String, String> {
+pub async fn generate_cardlist(request: CardListGenerationRequest) -> Result<PdfGenerationOutcome, String> {
     log::info!("generate_cardlist called with {} card slots", request.cards.len());
 
     // Validate input - check if there are any actual cards (not just gaps)

@@ -192,6 +192,16 @@ pub fn thumbnail_save(folder: String, key: String, data: String) -> Result<Strin
     Ok(path.to_string_lossy().into_owned())
 }
 
+/// Writes text to a path the user chose in a save dialog.
+///
+/// Used for the DXF cut file, which is generated in the frontend and is small
+/// enough that routing it through IPC costs nothing. The path always comes from
+/// the native save dialog rather than from application code.
+#[tauri::command]
+pub fn save_text_file(path: String, contents: String) -> Result<(), String> {
+    std::fs::write(&path, contents).map_err(|e| format!("Could not write {}: {}", path, e))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -67,6 +67,22 @@ pub struct PageLayout {
     pub background: Option<EmbeddedImage>,
 }
 
+/// One card that could not be rendered, and why.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SkippedImage {
+    pub file_path: String,
+    pub reason: String,
+}
+
+/// Result of a generation run. A run can succeed while individual cards fail.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PdfGenerationOutcome {
+    pub output_path: String,
+    pub skipped: Vec<SkippedImage>,
+}
+
 #[derive(Debug, Clone)]
 pub struct PdfGenerationRequest {
     pub pages: Vec<PageLayout>,
@@ -79,7 +95,7 @@ pub struct PdfGenerationRequest {
 /// - Each card image has a source_bleed_mm (bleed in the original image)
 /// - Each card has an output_bleed_mm (how much bleed to keep in output)
 /// - Images are cropped by (source_bleed - output_bleed) from each side
-pub async fn generate_pdf(request: PdfGenerationRequest) -> Result<String, String> {
+pub async fn generate_pdf(request: PdfGenerationRequest) -> Result<PdfGenerationOutcome, String> {
     // Validate input
     if request.pages.is_empty() {
         return Err("No pages provided".to_string());
@@ -110,20 +126,42 @@ pub async fn generate_pdf(request: PdfGenerationRequest) -> Result<String, Strin
 
     // Check for loading errors and build image map
     // Map stores image + its actual dimensions in mm
+    // A single unreadable file should cost you that card, not the whole run -
+    // one bad download in a sixty-card list used to produce no PDF at all.
     let mut image_map: std::collections::HashMap<String, CroppedImageResult> = std::collections::HashMap::new();
-    for (key, result) in cropped_images {
+    let mut skipped: Vec<SkippedImage> = Vec::new();
+
+    for ((key, result), card_img) in cropped_images.into_iter().zip(all_card_images.iter()) {
         match result {
             Ok(cropped_result) => {
                 image_map.insert(key, cropped_result);
             }
             Err(e) => {
-                log::error!("Failed to load/crop image: {}", e);
-                return Err(e);
+                log::error!("Skipping image: {}", e);
+                if !skipped.iter().any(|s| s.file_path == card_img.file_path) {
+                    skipped.push(SkippedImage {
+                        file_path: card_img.file_path.clone(),
+                        reason: e,
+                    });
+                }
             }
         }
     }
 
-    log::info!("Loaded and cropped {} unique images", image_map.len());
+    // Nothing rendered at all is a failure, not a partial success.
+    if image_map.is_empty() && !all_card_images.is_empty() {
+        return Err(format!(
+            "None of the {} card images could be read. First problem: {}",
+            all_card_images.len(),
+            skipped.first().map(|s| s.reason.as_str()).unwrap_or("unknown")
+        ));
+    }
+
+    log::info!(
+        "Loaded and cropped {} unique images, skipped {}",
+        image_map.len(),
+        skipped.len()
+    );
 
     // =====================================================
     // STEP 2: Create PDF document and add pages
@@ -198,7 +236,10 @@ pub async fn generate_pdf(request: PdfGenerationRequest) -> Result<String, Strin
         .map_err(|e| format!("Failed to write PDF to {}: {}", request.output_path, e))?;
 
     log::info!("PDF generated successfully at {}", request.output_path);
-    Ok(request.output_path.clone())
+    Ok(PdfGenerationOutcome {
+        output_path: request.output_path.clone(),
+        skipped,
+    })
 }
 
 /// Load and crop an image based on bleed settings
@@ -366,6 +407,77 @@ mod tests {
                 assert_eq!(out.get_pixel(x as u32, y as u32), want, "at ({}, {})", x, y);
             }
         }
+    }
+
+    fn card_at(path: &str) -> CardImagePosition {
+        CardImagePosition {
+            file_path: path.to_string(),
+            cell_x: 0.0,
+            cell_y: 0.0,
+            cell_width: 180.0,
+            cell_height: 250.0,
+            source_bleed_mm: 0.0,
+            output_bleed_mm: 0.0,
+            card_width_mm: 63.0,
+            card_height_mm: 88.0,
+        }
+    }
+
+    fn request_for(dir: &std::path::Path, cards: Vec<CardImagePosition>) -> PdfGenerationRequest {
+        PdfGenerationRequest {
+            pages: vec![PageLayout {
+                width: 800.0,
+                height: 600.0,
+                card_images: cards,
+                background: None,
+            }],
+            output_path: dir.join("out.pdf").to_string_lossy().into_owned(),
+        }
+    }
+
+    /// A single unreadable file must cost that card, not the whole document.
+    #[tokio::test]
+    async fn skips_unreadable_images_but_still_writes_the_pdf() {
+        let dir = std::env::temp_dir().join("proxkit_pdf_partial");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let good = dir.join("good.png");
+        image::RgbImage::new(20, 20).save(&good).unwrap();
+        let bad = dir.join("bad.png");
+        std::fs::write(&bad, b"this is not an image").unwrap();
+
+        let request = request_for(
+            &dir,
+            vec![
+                card_at(&good.to_string_lossy()),
+                card_at(&bad.to_string_lossy()),
+            ],
+        );
+        let outcome = generate_pdf(request).await.expect("should still produce a PDF");
+
+        assert_eq!(outcome.skipped.len(), 1);
+        assert!(outcome.skipped[0].file_path.ends_with("bad.png"));
+        assert!(std::path::Path::new(&outcome.output_path).is_file());
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// If nothing at all could be read, that is a failure rather than an empty PDF.
+    #[tokio::test]
+    async fn fails_when_no_image_can_be_read() {
+        let dir = std::env::temp_dir().join("proxkit_pdf_all_bad");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let bad = dir.join("bad.png");
+        std::fs::write(&bad, b"nope").unwrap();
+
+        let request = request_for(&dir, vec![card_at(&bad.to_string_lossy())]);
+        let result = generate_pdf(request).await;
+
+        assert!(result.is_err());
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     /// With a zero offset and the source size, sampling must be an exact copy.
