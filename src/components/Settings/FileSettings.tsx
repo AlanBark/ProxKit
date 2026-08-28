@@ -1,5 +1,6 @@
 import { Select, SelectItem } from "@heroui/react";
 import { useProjectSettingsStore, PAGE_SIZE_OPTIONS } from "../../stores/projectSettingsStore";
+import { PresetSelect } from "./PresetSelect";
 
 function FileSettings() {
     const pageSize = useProjectSettingsStore((state) => state.pageSize);
@@ -7,6 +8,8 @@ function FileSettings() {
 
     return (
         <div className="mb-3">
+            <PresetSelect />
+
             <Select
                 label="Page Size"
                 selectedKeys={pageSize}

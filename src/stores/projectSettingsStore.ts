@@ -13,6 +13,23 @@ export const PAGE_SIZE_OPTIONS = [
 ] as const;
 
 /**
+ * The settings a preset fixes: the physical format being printed.
+ *
+ * Deliberately excludes workflow state (whether backs are enabled, how the
+ * preview is grouped) and skipped slots, which describe a job or a printer
+ * rather than a card format.
+ */
+export interface PresetValues {
+    /** Key from PAGE_SIZE_OPTIONS. */
+    pageSize: string;
+    cardWidth: number;
+    cardHeight: number;
+    defaultBleed: number;
+    defaultCardBackBleed: number;
+    outputBleed: number;
+}
+
+/**
  * Settings that describe the current print job.
  *
  * These are properties of what is being printed rather than of the install, so
@@ -58,6 +75,8 @@ interface ProjectSettingsState {
     setShowAllCardBacks: (show: boolean) => void;
     setSkipSlots: (slots: Set<number> | ((prev: Set<number>) => Set<number>)) => void;
     toggleSkipSlot: (slotIndex: number) => void;
+    /** Applies a preset's format in one update. */
+    applyPreset: (values: PresetValues) => void;
 }
 
 export const useProjectSettingsStore = create<ProjectSettingsState>()(
@@ -85,6 +104,14 @@ export const useProjectSettingsStore = create<ProjectSettingsState>()(
             setDefaultCardBack: (source) => set({ defaultCardBack: source }),
             setGroupByCardBacks: (group) => set({ groupByCardBacks: group }),
             setShowAllCardBacks: (show) => set({ showAllCardBacks: show }),
+            applyPreset: (values) => set({
+                pageSize: new Set([values.pageSize]),
+                cardWidth: values.cardWidth,
+                cardHeight: values.cardHeight,
+                defaultBleed: values.defaultBleed,
+                defaultCardBackBleed: values.defaultCardBackBleed,
+                outputBleed: values.outputBleed,
+            }),
             setSkipSlots: (slots) => set((state) => ({
                 skipSlots: typeof slots === 'function' ? slots(state.skipSlots) : slots
             })),
