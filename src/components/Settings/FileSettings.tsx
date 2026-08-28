@@ -1,9 +1,10 @@
 import { Select, SelectItem } from "@heroui/react";
-import { usePrintAndCutStore, PAGE_SIZE_OPTIONS } from "../../stores/printAndCutStore";
+import { useSettingsStore, PAGE_SIZE_OPTIONS } from "../../stores/settingsStore";
+import { LibraryFolderSetting } from "./LibraryFolderSetting";
 
 function FileSettings() {
-    const pageSize = usePrintAndCutStore((state) => state.pageSize);
-    const setPageSize = usePrintAndCutStore((state) => state.setPageSize);
+    const pageSize = useSettingsStore((state) => state.pageSize);
+    const setPageSize = useSettingsStore((state) => state.setPageSize);
 
     return (
         <div className="mb-3">
@@ -26,6 +27,10 @@ function FileSettings() {
                     </SelectItem>
                 ))}
             </Select>
+
+            <div className="mt-3">
+                <LibraryFolderSetting />
+            </div>
         </div>
     );
 }

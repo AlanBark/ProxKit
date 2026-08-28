@@ -1,13 +1,14 @@
 import { useCallback } from "react";
-import { usePrintAndCutStore } from "../stores/printAndCutStore";
+import { useSettingsStore } from "../stores/settingsStore";
+import { useCardStore } from "../stores/cardStore";
 import { generateThumbnailAsync } from "../utils/asyncThumbnailGeneration";
 import type { CardImage, ImageSource } from "../types/card";
 
 export function useCardBleedUpdates() {
-    const cardMap = usePrintAndCutStore((state) => state.cardMap);
-    const setCardMap = usePrintAndCutStore((state) => state.setCardMap);
-    const cardWidth = usePrintAndCutStore((state) => state.cardWidth);
-    const cardHeight = usePrintAndCutStore((state) => state.cardHeight);
+    const cardMap = useCardStore((state) => state.cardMap);
+    const setCardMap = useCardStore((state) => state.setCardMap);
+    const cardWidth = useSettingsStore((state) => state.cardWidth);
+    const cardHeight = useSettingsStore((state) => state.cardHeight);
 
     /**
      * Re-thumbnails one face of a card at a new bleed.

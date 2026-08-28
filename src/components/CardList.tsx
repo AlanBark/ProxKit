@@ -2,7 +2,8 @@ import { Card } from "./Card";
 import { Pagination, Button } from "@heroui/react";
 import { textStyles } from "../theme/classNames";
 import { useState, useMemo, useRef } from "react";
-import { usePrintAndCutStore } from "../stores/printAndCutStore";
+import { useSettingsStore } from "../stores/settingsStore";
+import { useCardStore } from "../stores/cardStore";
 import { ImageIcon, ChevronLeft, ChevronRight, Ban, Check } from "lucide-react";
 import { Box } from "./Box";
 import { CARDS_PER_PAGE } from "../utils/pdf/cardLayoutUtils";
@@ -18,12 +19,12 @@ export function CardList() {
     const [direction, setDirection] = useState(0); // -1 for left, 1 for right
     const isScrolling = useRef(false);
 
-    const cardMap = usePrintAndCutStore((state) => state.cardMap);
-    const cardOrder = usePrintAndCutStore((state) => state.cardOrder);
-    const cardWidth = usePrintAndCutStore((state) => state.cardWidth);
-    const cardHeight = usePrintAndCutStore((state) => state.cardHeight);
-    const skipSlots = usePrintAndCutStore((state) => state.skipSlots);
-    const toggleSkipSlot = usePrintAndCutStore((state) => state.toggleSkipSlot);
+    const cardMap = useCardStore((state) => state.cardMap);
+    const cardOrder = useCardStore((state) => state.cardOrder);
+    const cardWidth = useSettingsStore((state) => state.cardWidth);
+    const cardHeight = useSettingsStore((state) => state.cardHeight);
+    const skipSlots = useSettingsStore((state) => state.skipSlots);
+    const toggleSkipSlot = useSettingsStore((state) => state.toggleSkipSlot);
 
     // Calculate total pages accounting for skipped slots
     const availableSlotsPerPage = CARDS_PER_PAGE - skipSlots.size;

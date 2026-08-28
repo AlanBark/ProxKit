@@ -2,7 +2,8 @@ import { Trash2, Plus, Loader2, RotateCcw, Upload, Menu, Ban } from "lucide-reac
 import { Button, ButtonGroup, Input, Popover, PopoverContent, PopoverTrigger } from "@heroui/react";
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import type { CardImage } from "../types/card";
-import { usePrintAndCutStore } from "../stores/printAndCutStore";
+import { useSettingsStore } from "../stores/settingsStore";
+import { useCardStore } from "../stores/cardStore";
 import { useCardBleedUpdates } from "../hooks/useCardBleedUpdates";
 import { useCardBackManagement } from "../hooks/useCardBackManagement";
 import { removeCard, duplicateCard } from "../utils/cardOperations";
@@ -19,17 +20,17 @@ interface CardProps {
 export function Card({ card, cardIndex, gridPosition }: CardProps) {
 
     // Get settings from store
-    const cardWidth = usePrintAndCutStore((state) => state.cardWidth);
-    const cardHeight = usePrintAndCutStore((state) => state.cardHeight);
-    const showAllCardBacks = usePrintAndCutStore((state) => state.showAllCardBacks);
-    const defaultCardBack = usePrintAndCutStore((state) => state.defaultCardBack);
-    const defaultCardBackThumbnailUrl = usePrintAndCutStore((state) => state.defaultCardBackThumbnailUrl);
-    const cardMap = usePrintAndCutStore((state) => state.cardMap);
-    const cardOrder = usePrintAndCutStore((state) => state.cardOrder);
-    const setCardMap = usePrintAndCutStore((state) => state.setCardMap);
-    const setCardOrder = usePrintAndCutStore((state) => state.setCardOrder);
-    const skipSlots = usePrintAndCutStore((state) => state.skipSlots);
-    const toggleSkipSlot = usePrintAndCutStore((state) => state.toggleSkipSlot);
+    const cardWidth = useSettingsStore((state) => state.cardWidth);
+    const cardHeight = useSettingsStore((state) => state.cardHeight);
+    const showAllCardBacks = useSettingsStore((state) => state.showAllCardBacks);
+    const defaultCardBack = useSettingsStore((state) => state.defaultCardBack);
+    const defaultCardBackThumbnailUrl = useCardStore((state) => state.defaultCardBackThumbnailUrl);
+    const cardMap = useCardStore((state) => state.cardMap);
+    const cardOrder = useCardStore((state) => state.cardOrder);
+    const setCardMap = useCardStore((state) => state.setCardMap);
+    const setCardOrder = useCardStore((state) => state.setCardOrder);
+    const skipSlots = useSettingsStore((state) => state.skipSlots);
+    const toggleSkipSlot = useSettingsStore((state) => state.toggleSkipSlot);
 
     // Get hooks for card operations
     const { handleUpdateBleed, handleUpdateCardBackBleed } = useCardBleedUpdates();

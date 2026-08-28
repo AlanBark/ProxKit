@@ -2,7 +2,8 @@ import { useRef, useState } from "react";
 import { FileUp, HelpCircle } from "lucide-react";
 import { Button, ButtonGroup, Card, CardBody } from "@heroui/react";
 import { useMPCFillImport } from "../hooks/useMPCFillImport";
-import { usePrintAndCutStore } from "../stores/printAndCutStore";
+import { useSettingsStore } from "../stores/settingsStore";
+import { useCardStore } from "../stores/cardStore";
 import { useCardBackManagement } from "../hooks/useCardBackManagement";
 import { sourceFromFile } from "../utils/imageSource";
 import { parseMPCFillXML } from "../utils/mpcfill/xmlParser";
@@ -16,15 +17,15 @@ export function XMLUpload() {
     const [isXmlHelpModalOpen, setIsXmlHelpModalOpen] = useState(false);
 
     // Get settings and state from store
-    const defaultBleed = usePrintAndCutStore((state) => state.defaultBleed);
-    const defaultCardBackBleed = usePrintAndCutStore((state) => state.defaultCardBackBleed);
-    const cardWidth = usePrintAndCutStore((state) => state.cardWidth);
-    const cardHeight = usePrintAndCutStore((state) => state.cardHeight);
-    const cardMap = usePrintAndCutStore((state) => state.cardMap);
-    const cardOrder = usePrintAndCutStore((state) => state.cardOrder);
-    const setCardMap = usePrintAndCutStore((state) => state.setCardMap);
-    const setCardOrder = usePrintAndCutStore((state) => state.setCardOrder);
-    const setEnableCardBacks = usePrintAndCutStore((state) => state.setEnableCardBacks);
+    const defaultBleed = useSettingsStore((state) => state.defaultBleed);
+    const defaultCardBackBleed = useSettingsStore((state) => state.defaultCardBackBleed);
+    const cardWidth = useSettingsStore((state) => state.cardWidth);
+    const cardHeight = useSettingsStore((state) => state.cardHeight);
+    const cardMap = useCardStore((state) => state.cardMap);
+    const cardOrder = useCardStore((state) => state.cardOrder);
+    const setCardMap = useCardStore((state) => state.setCardMap);
+    const setCardOrder = useCardStore((state) => state.setCardOrder);
+    const setEnableCardBacks = useSettingsStore((state) => state.setEnableCardBacks);
 
     // Get card back management hook
     const { handleUpdateCardBack, handleUpdateDefaultCardBack } = useCardBackManagement();

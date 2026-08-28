@@ -1,5 +1,6 @@
 import { NumberInput, Checkbox, Button, Popover, PopoverTrigger, PopoverContent } from "@heroui/react";
-import { usePrintAndCutStore } from "../../stores/printAndCutStore";
+import { useSettingsStore } from "../../stores/settingsStore";
+import { useCardStore } from "../../stores/cardStore";
 import { useCardBackManagement } from "../../hooks/useCardBackManagement";
 import { useRef, useState } from "react";
 import { Upload, Trash2, CircleHelp } from "lucide-react";
@@ -12,22 +13,22 @@ import doubleSidedExample from "../../assets/double-sided-example.jpg";
 
 function CardSettings() {
     // Get settings from Zustand store
-    const cardWidth = usePrintAndCutStore((state) => state.cardWidth);
-    const setCardWidth = usePrintAndCutStore((state) => state.setCardWidth);
-    const cardHeight = usePrintAndCutStore((state) => state.cardHeight);
-    const setCardHeight = usePrintAndCutStore((state) => state.setCardHeight);
-    const defaultBleed = usePrintAndCutStore((state) => state.defaultBleed);
-    const setDefaultBleed = usePrintAndCutStore((state) => state.setDefaultBleed);
-    const defaultCardBackBleed = usePrintAndCutStore((state) => state.defaultCardBackBleed);
-    const setDefaultCardBackBleed = usePrintAndCutStore((state) => state.setDefaultCardBackBleed);
-    const enableCardBacks = usePrintAndCutStore((state) => state.enableCardBacks);
-    const setEnableCardBacks = usePrintAndCutStore((state) => state.setEnableCardBacks);
-    const defaultCardBack = usePrintAndCutStore((state) => state.defaultCardBack);
-    const defaultCardBackThumbnailUrl = usePrintAndCutStore((state) => state.defaultCardBackThumbnailUrl);
-    // const groupByCardBacks = usePrintAndCutStore((state) => state.groupByCardBacks);
-    // const setGroupByCardBacks = usePrintAndCutStore((state) => state.setGroupByCardBacks);
-    const showAllCardBacks = usePrintAndCutStore((state) => state.showAllCardBacks);
-    const setShowAllCardBacks = usePrintAndCutStore((state) => state.setShowAllCardBacks);
+    const cardWidth = useSettingsStore((state) => state.cardWidth);
+    const setCardWidth = useSettingsStore((state) => state.setCardWidth);
+    const cardHeight = useSettingsStore((state) => state.cardHeight);
+    const setCardHeight = useSettingsStore((state) => state.setCardHeight);
+    const defaultBleed = useSettingsStore((state) => state.defaultBleed);
+    const setDefaultBleed = useSettingsStore((state) => state.setDefaultBleed);
+    const defaultCardBackBleed = useSettingsStore((state) => state.defaultCardBackBleed);
+    const setDefaultCardBackBleed = useSettingsStore((state) => state.setDefaultCardBackBleed);
+    const enableCardBacks = useSettingsStore((state) => state.enableCardBacks);
+    const setEnableCardBacks = useSettingsStore((state) => state.setEnableCardBacks);
+    const defaultCardBack = useSettingsStore((state) => state.defaultCardBack);
+    const defaultCardBackThumbnailUrl = useCardStore((state) => state.defaultCardBackThumbnailUrl);
+    // const groupByCardBacks = useSettingsStore((state) => state.groupByCardBacks);
+    // const setGroupByCardBacks = useSettingsStore((state) => state.setGroupByCardBacks);
+    const showAllCardBacks = useSettingsStore((state) => state.showAllCardBacks);
+    const setShowAllCardBacks = useSettingsStore((state) => state.setShowAllCardBacks);
 
     // Get card back management hook
     const { handleUpdateDefaultCardBack } = useCardBackManagement();

@@ -1,15 +1,16 @@
 import { useEffect } from "react";
-import { usePrintAndCutStore } from "../stores/printAndCutStore";
+import { useSettingsStore } from "../stores/settingsStore";
+import { useCardStore } from "../stores/cardStore";
 import { groupCardsByBacks } from "../utils/cardOperations";
 
 /**
  * Watches for groupByCardBacks changes and automatically reorders cards
  */
 export function useCardReordering() {
-    const cardMap = usePrintAndCutStore((state) => state.cardMap);
-    const cardOrder = usePrintAndCutStore((state) => state.cardOrder);
-    const setCardOrder = usePrintAndCutStore((state) => state.setCardOrder);
-    const groupByCardBacks = usePrintAndCutStore((state) => state.groupByCardBacks);
+    const cardMap = useCardStore((state) => state.cardMap);
+    const cardOrder = useCardStore((state) => state.cardOrder);
+    const setCardOrder = useCardStore((state) => state.setCardOrder);
+    const groupByCardBacks = useSettingsStore((state) => state.groupByCardBacks);
 
     useEffect(() => {
         if (!groupByCardBacks || cardOrder.length === 0) return;

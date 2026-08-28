@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
-import { usePrintAndCutStore } from "../stores/printAndCutStore";
+import { useSettingsStore, useSettingsHydrated } from "../stores/settingsStore";
+import { useCardStore } from "../stores/cardStore";
 import { generateThumbnailAsync } from "../utils/asyncThumbnailGeneration";
 
 /**
@@ -7,21 +8,29 @@ import { generateThumbnailAsync } from "../utils/asyncThumbnailGeneration";
  * for cards that don't have custom bleed values
  */
 export function useThumbnailRegeneration() {
-    const cardMap = usePrintAndCutStore((state) => state.cardMap);
-    const cardOrder = usePrintAndCutStore((state) => state.cardOrder);
-    const setCardMap = usePrintAndCutStore((state) => state.setCardMap);
-    const defaultBleed = usePrintAndCutStore((state) => state.defaultBleed);
-    const defaultCardBackBleed = usePrintAndCutStore((state) => state.defaultCardBackBleed);
-    const cardWidth = usePrintAndCutStore((state) => state.cardWidth);
-    const cardHeight = usePrintAndCutStore((state) => state.cardHeight);
-    const defaultCardBack = usePrintAndCutStore((state) => state.defaultCardBack);
-    const setDefaultCardBackThumbnailUrl = usePrintAndCutStore((state) => state.setDefaultCardBackThumbnailUrl);
+    const cardMap = useCardStore((state) => state.cardMap);
+    const cardOrder = useCardStore((state) => state.cardOrder);
+    const setCardMap = useCardStore((state) => state.setCardMap);
+    const defaultBleed = useSettingsStore((state) => state.defaultBleed);
+    const defaultCardBackBleed = useSettingsStore((state) => state.defaultCardBackBleed);
+    const cardWidth = useSettingsStore((state) => state.cardWidth);
+    const cardHeight = useSettingsStore((state) => state.cardHeight);
+    const defaultCardBack = useSettingsStore((state) => state.defaultCardBack);
+    const setDefaultCardBackThumbnailUrl = useCardStore((state) => state.setDefaultCardBackThumbnailUrl);
 
     const prevDefaultBleedRef = useRef<number>(defaultBleed);
     const prevDefaultCardBackBleedRef = useRef<number>(defaultCardBackBleed);
 
+    // Stored settings arrive after the first render, so the defaults-to-stored
+    // change must be adopted as the baseline rather than acted on.
+    const hydrated = useSettingsHydrated();
+
     // Regenerate front thumbnails when defaultBleed changes
     useEffect(() => {
+        if (!hydrated) {
+            prevDefaultBleedRef.current = defaultBleed;
+            return;
+        }
         if (cardOrder.length === 0) return;
 
         const prevBleed = prevDefaultBleedRef.current;
@@ -84,10 +93,14 @@ export function useThumbnailRegeneration() {
                 });
             }
         });
-    }, [defaultBleed, cardWidth, cardHeight, cardOrder, cardMap, setCardMap]);
+    }, [hydrated, defaultBleed, cardWidth, cardHeight, cardOrder, cardMap, setCardMap]);
 
     // Regenerate back thumbnails when defaultCardBackBleed changes
     useEffect(() => {
+        if (!hydrated) {
+            prevDefaultCardBackBleedRef.current = defaultCardBackBleed;
+            return;
+        }
         if (cardOrder.length === 0) return;
 
         const prevCardBackBleed = prevDefaultCardBackBleedRef.current;
@@ -154,7 +167,7 @@ export function useThumbnailRegeneration() {
                 });
             }
         });
-    }, [defaultCardBackBleed, cardWidth, cardHeight, cardOrder, cardMap, setCardMap]);
+    }, [hydrated, defaultCardBackBleed, cardWidth, cardHeight, cardOrder, cardMap, setCardMap]);
 
     // Regenerate default card back thumbnail when defaultCardBackBleed changes
     useEffect(() => {

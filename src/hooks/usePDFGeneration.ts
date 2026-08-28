@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect } from "react";
 import { PDFManager } from "../utils/pdf/PDFManager";
 import type { CardImage } from "../types/card";
-import { usePrintAndCutStore, PAGE_SIZE_OPTIONS } from "../stores/printAndCutStore";
+import { useSettingsStore, PAGE_SIZE_OPTIONS } from "../stores/settingsStore";
+import { useCardStore } from "../stores/cardStore";
 import { save } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { toBackendPath } from "../utils/imageSource";
 import { CARDS_PER_PAGE } from "../utils/pdf/cardLayoutUtils";
+import { dirname, joinPath } from "../utils/paths";
 
 /**
  * Hook for managing PDF generation from card data.
@@ -27,15 +29,17 @@ export function usePDFGeneration() {
     const lastGeneratedStateRef = useRef<string | null>(null);
 
     // Get card and settings from store
-    const cardMap = usePrintAndCutStore((state) => state.cardMap);
-    const cardOrder = usePrintAndCutStore((state) => state.cardOrder);
-    const pageSize = usePrintAndCutStore((state) => state.pageSize);
-    const cardWidth = usePrintAndCutStore((state) => state.cardWidth);
-    const cardHeight = usePrintAndCutStore((state) => state.cardHeight);
-    const outputBleed = usePrintAndCutStore((state) => state.outputBleed);
-    const enableCardBacks = usePrintAndCutStore((state) => state.enableCardBacks);
-    const defaultCardBack = usePrintAndCutStore((state) => state.defaultCardBack);
-    const skipSlots = usePrintAndCutStore((state) => state.skipSlots);
+    const cardMap = useCardStore((state) => state.cardMap);
+    const cardOrder = useCardStore((state) => state.cardOrder);
+    const pageSize = useSettingsStore((state) => state.pageSize);
+    const cardWidth = useSettingsStore((state) => state.cardWidth);
+    const cardHeight = useSettingsStore((state) => state.cardHeight);
+    const outputBleed = useSettingsStore((state) => state.outputBleed);
+    const enableCardBacks = useSettingsStore((state) => state.enableCardBacks);
+    const defaultCardBack = useSettingsStore((state) => state.defaultCardBack);
+    const lastOutputDir = useSettingsStore((state) => state.lastOutputDir);
+    const setLastOutputDir = useSettingsStore((state) => state.setLastOutputDir);
+    const skipSlots = useSettingsStore((state) => state.skipSlots);
 
     // Initialize PDF manager when settings change
     useEffect(() => {
@@ -103,9 +107,11 @@ export function usePDFGeneration() {
                 // Then dispatch to rust for gen and file save
 
                 // Get save path
+                const fileName = `cards-${new Date().getTime()}.pdf`;
                 const path = await save({
                     title: 'Save Cards',
-                    defaultPath: `cards-${new Date().getTime()}.pdf`,
+                    // Reopen wherever the last PDF was written.
+                    defaultPath: lastOutputDir ? joinPath(lastOutputDir, fileName) : fileName,
                     filters: [
                         {
                             name: 'PDF',
@@ -163,6 +169,7 @@ export function usePDFGeneration() {
                     });
 
                     console.log('PDF generated:', result);
+                    setLastOutputDir(dirname(path));
                 }
 
             } else {

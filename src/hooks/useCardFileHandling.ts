@@ -1,5 +1,6 @@
 import { useCallback, type RefObject } from "react";
-import { usePrintAndCutStore } from "../stores/printAndCutStore";
+import { useSettingsStore } from "../stores/settingsStore";
+import { useCardStore } from "../stores/cardStore";
 import { generateThumbnailAsync } from "../utils/asyncThumbnailGeneration";
 import { sourceFromFile } from "../utils/imageSource";
 import { pickImagesFromDisk, sourceDisplayName } from "../utils/imagePicker";
@@ -7,12 +8,12 @@ import { isTauri } from "../utils/platform";
 import type { CardImage, ImageSource } from "../types/card";
 
 export function useCardFileHandling() {
-    const setCardMap = usePrintAndCutStore((state) => state.setCardMap);
-    const setCardOrder = usePrintAndCutStore((state) => state.setCardOrder);
-    const defaultBleed = usePrintAndCutStore((state) => state.defaultBleed);
-    const defaultCardBackBleed = usePrintAndCutStore((state) => state.defaultCardBackBleed);
-    const cardWidth = usePrintAndCutStore((state) => state.cardWidth);
-    const cardHeight = usePrintAndCutStore((state) => state.cardHeight);
+    const setCardMap = useCardStore((state) => state.setCardMap);
+    const setCardOrder = useCardStore((state) => state.setCardOrder);
+    const defaultBleed = useSettingsStore((state) => state.defaultBleed);
+    const defaultCardBackBleed = useSettingsStore((state) => state.defaultCardBackBleed);
+    const cardWidth = useSettingsStore((state) => state.cardWidth);
+    const cardHeight = useSettingsStore((state) => state.cardHeight);
 
     /**
      * Adds cards from already-resolved image sources and kicks off thumbnail

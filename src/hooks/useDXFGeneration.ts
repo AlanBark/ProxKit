@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { CardImage } from "../types/card";
-import { usePrintAndCutStore, PAGE_SIZE_OPTIONS } from "../stores/printAndCutStore";
+import { useSettingsStore, PAGE_SIZE_OPTIONS } from "../stores/settingsStore";
+import { useCardStore } from "../stores/cardStore";
 import { generateDxfUrl } from "../utils/pdf/dxfGenerator";
 import { CARDS_PER_PAGE } from "../utils/pdf/cardLayoutUtils";
 
@@ -25,13 +26,13 @@ export function useDXFGeneration() {
     }, []);
 
     // Get card and settings from store
-    const cardMap = usePrintAndCutStore((state) => state.cardMap);
-    const cardOrder = usePrintAndCutStore((state) => state.cardOrder);
-    const pageSize = usePrintAndCutStore((state) => state.pageSize);
-    const cardWidth = usePrintAndCutStore((state) => state.cardWidth);
-    const cardHeight = usePrintAndCutStore((state) => state.cardHeight);
-    const outputBleed = usePrintAndCutStore((state) => state.outputBleed);
-    const skipSlots = usePrintAndCutStore((state) => state.skipSlots);
+    const cardMap = useCardStore((state) => state.cardMap);
+    const cardOrder = useCardStore((state) => state.cardOrder);
+    const pageSize = useSettingsStore((state) => state.pageSize);
+    const cardWidth = useSettingsStore((state) => state.cardWidth);
+    const cardHeight = useSettingsStore((state) => state.cardHeight);
+    const outputBleed = useSettingsStore((state) => state.outputBleed);
+    const skipSlots = useSettingsStore((state) => state.skipSlots);
 
     // Clear DXF URL when cards are removed
     useEffect(() => {

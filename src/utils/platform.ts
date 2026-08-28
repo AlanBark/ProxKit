@@ -4,4 +4,4 @@
  * Previously this check was open-coded in four files using three different
  * idioms, which is how the two platforms drifted apart. Import this instead.
  */
-export const isTauri = "__TAURI_INTERNALS__" in window;
+export const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;

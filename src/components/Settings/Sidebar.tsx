@@ -3,7 +3,7 @@ import { FileUpload } from "../FileUpload";
 import { XMLUpload } from "../XMLUpload";
 import { Box } from "../Box";
 import { textStyles } from "../../theme/classNames";
-import { usePrintAndCutStore } from "../../stores/printAndCutStore";
+import { useCardStore } from "../../stores/cardStore";
 import { usePDFGeneration } from "../../hooks/usePDFGeneration";
 import { useDXFGeneration } from "../../hooks/useDXFGeneration";
 import { useMPCFillImport } from "../../hooks/useMPCFillImport";
@@ -20,8 +20,8 @@ export function Sidebar({ className = "" }) {
     const [isDxfHelpModalOpen, setIsDxfHelpModalOpen] = useState(false);
 
     // Get card state from store
-    const cardOrder = usePrintAndCutStore((state) => state.cardOrder);
-    const cardMap = usePrintAndCutStore((state) => state.cardMap);
+    const cardOrder = useCardStore((state) => state.cardOrder);
+    const cardMap = useCardStore((state) => state.cardMap);
 
 
     // Get PDF state and actions
