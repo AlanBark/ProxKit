@@ -89,23 +89,6 @@ pub struct PdfGenerationRequest {
     pub output_path: String,
 }
 
-/// High enough that recompressing already-lossy card art is not visible in
-/// print, low enough to keep the PDF a sane size.
-const JPEG_QUALITY: u8 = 92;
-
-/// Whether every pixel is fully opaque.
-///
-/// An image can carry an alpha channel without using it - edge extension always
-/// produces RGBA, for instance, but never anything transparent. Checking the
-/// pixels rather than the type keeps those on the fast path.
-fn is_opaque(img: &DynamicImage) -> bool {
-    match img {
-        DynamicImage::ImageRgb8(_) | DynamicImage::ImageRgb16(_) | DynamicImage::ImageRgb32F(_) => true,
-        DynamicImage::ImageLuma8(_) | DynamicImage::ImageLuma16(_) => true,
-        _ => img.to_rgba8().pixels().all(|p| p.0[3] == u8::MAX),
-    }
-}
-
 /// Identifies a prepared image by everything that changes how it is cropped.
 ///
 /// Card dimensions are part of it because the crop is computed as a proportion
@@ -358,33 +341,21 @@ fn load_and_crop_image(card_img: &CardImagePosition) -> Result<CroppedImageResul
         resample_clamped(&img, cropped_width_px, cropped_height_px, crop_left_px, crop_top_px)
     };
 
-    // Card art is photographic and almost always arrives as JPEG already, so
-    // re-encoding it losslessly as PNG cost a great deal of time and produced
-    // enormous PDFs. Encode opaque images as JPEG and keep PNG only where the
-    // alpha channel is actually carrying something.
-    let image = if is_opaque(&cropped_img) {
-        let mut jpeg_bytes: Vec<u8> = Vec::new();
-        let mut cursor = std::io::Cursor::new(&mut jpeg_bytes);
-        let mut encoder =
-            image::codecs::jpeg::JpegEncoder::new_with_quality(&mut cursor, JPEG_QUALITY);
-        encoder
-            .encode_image(&cropped_img.to_rgb8())
-            .map_err(|e| format!("Failed to encode cropped image as JPEG: {}", e))?;
-        drop(cursor);
+    // Encoded losslessly on purpose. Source art runs to 3264x4440 - about
+    // 1300 DPI across a 63mm card - and half of it arrives as lossless PNG, so
+    // re-encoding as JPEG would throw away real detail. Measurement says it
+    // buys almost nothing: at opt-level 3, PNG costs ~139ms per card against
+    // ~117ms for JPEG q92 (see benchmark_encoders_at_card_resolution). The
+    // export was slow because dependencies were built unoptimized, not because
+    // of this.
+    let mut png_bytes: Vec<u8> = Vec::new();
+    cropped_img
+        .write_to(&mut std::io::Cursor::new(&mut png_bytes), ImgFormat::Png)
+        .map_err(|e| format!("Failed to encode cropped image as PNG: {}", e))?;
 
-        let data: Data = Arc::new(jpeg_bytes).into();
-        Image::from_jpeg(data, false)
-            .map_err(|e| format!("Failed to create krilla image: {}", e))?
-    } else {
-        let mut png_bytes: Vec<u8> = Vec::new();
-        cropped_img
-            .write_to(&mut std::io::Cursor::new(&mut png_bytes), ImgFormat::Png)
-            .map_err(|e| format!("Failed to encode cropped image as PNG: {}", e))?;
-
-        let data: Data = Arc::new(png_bytes).into();
-        Image::from_png(data, false)
-            .map_err(|e| format!("Failed to create krilla image: {}", e))?
-    };
+    let data: Data = Arc::new(png_bytes).into();
+    let image = Image::from_png(data, false)
+        .map_err(|e| format!("Failed to create krilla image: {}", e))?;
 
     Ok(CroppedImageResult {
         image,
@@ -499,6 +470,48 @@ mod tests {
             }],
             output_path: dir.join("out.pdf").to_string_lossy().into_owned(),
         }
+    }
+
+    /// Encoding cost at a realistic card size, to decide what the PDF should
+    /// carry. Run with: cargo test -- --ignored --nocapture
+    #[test]
+    #[ignore]
+    fn benchmark_encoders_at_card_resolution() {
+        use std::time::Instant;
+
+        // 2192x2992 is what MPC Autofill PNG art actually is (~884 DPI).
+        let mut img = image::RgbImage::new(2192, 2992);
+        for (x, y, px) in img.enumerate_pixels_mut() {
+            *px = image::Rgb([(x % 251) as u8, (y % 241) as u8, ((x ^ y) % 233) as u8]);
+        }
+        let dynamic = DynamicImage::ImageRgb8(img);
+
+        let start = Instant::now();
+        let mut png = Vec::new();
+        dynamic.write_to(&mut std::io::Cursor::new(&mut png), ImgFormat::Png).unwrap();
+        let png_time = start.elapsed();
+
+        let mut jpeg_92 = Vec::new();
+        let start = Instant::now();
+        {
+            let mut cursor = std::io::Cursor::new(&mut jpeg_92);
+            let mut enc = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut cursor, 92);
+            enc.encode_image(&dynamic.to_rgb8()).unwrap();
+        }
+        let jpeg92_time = start.elapsed();
+
+        let mut jpeg_100 = Vec::new();
+        let start = Instant::now();
+        {
+            let mut cursor = std::io::Cursor::new(&mut jpeg_100);
+            let mut enc = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut cursor, 100);
+            enc.encode_image(&dynamic.to_rgb8()).unwrap();
+        }
+        let jpeg100_time = start.elapsed();
+
+        println!("PNG      {:>8.0?}  {:>7.1} MB", png_time, png.len() as f64 / 1048576.0);
+        println!("JPEG 92  {:>8.0?}  {:>7.1} MB", jpeg92_time, jpeg_92.len() as f64 / 1048576.0);
+        println!("JPEG 100 {:>8.0?}  {:>7.1} MB", jpeg100_time, jpeg_100.len() as f64 / 1048576.0);
     }
 
     /// A single unreadable file must cost that card, not the whole document.
