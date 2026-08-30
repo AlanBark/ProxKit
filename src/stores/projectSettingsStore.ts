@@ -93,7 +93,13 @@ export const useProjectSettingsStore = create<ProjectSettingsState>()(
             showAllCardBacks: false,
             skipSlots: new Set(),
 
-            setPageSize: (size) => set({ pageSize: size }),
+            // A page always has a size. Selection widgets can hand back an empty
+            // set when the current item is re-picked, which would otherwise leave
+            // the project with no page at all.
+            setPageSize: (size) =>
+                set((state) =>
+                    size !== "all" && size.size === 0 ? state : { pageSize: size }
+                ),
             setCardWidth: (width) => set({ cardWidth: width }),
             setCardHeight: (height) => set({ cardHeight: height }),
             setDefaultBleed: (bleed) => set({ defaultBleed: bleed }),

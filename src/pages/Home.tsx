@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { Button, Spinner } from "@heroui/react";
-import { AlertTriangle, FolderOpen, Layers, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, FolderOpen, Layers, Plus, Settings, Trash2 } from "lucide-react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { useAppSettingsStore } from "../stores/appSettingsStore";
 import { useProjectFile } from "../hooks/useProjectFile";
@@ -14,6 +14,8 @@ import {
 import { deleteFile, renameFile } from "../utils/library";
 import { textStyles } from "../theme/classNames";
 import { isTauri } from "../utils/platform";
+import { AppSettingsModal } from "../components/Settings/AppSettingsModal";
+import gitHubLogo from "../assets/github-mark-white.svg";
 
 const EDITOR_ROUTE = "/print-and-cut";
 
@@ -43,6 +45,7 @@ function Home() {
     const [isLoading, setIsLoading] = useState(isTauri);
     const [renaming, setRenaming] = useState<string | null>(null);
     const [renameError, setRenameError] = useState<string | null>(null);
+    const [isAppSettingsOpen, setIsAppSettingsOpen] = useState(false);
 
     const refresh = useCallback(async () => {
         if (!isTauri) return;
@@ -87,6 +90,28 @@ function Home() {
 
     return (
         <div className="min-h-screen p-6 flex flex-col gap-8">
+            <div className="absolute top-6 right-6 flex items-center gap-3">
+                <button
+                    onClick={() => setIsAppSettingsOpen(true)}
+                    aria-label="Application settings"
+                    title="Application settings"
+                    className="cursor-pointer"
+                >
+                    <Settings className="w-6 h-6 opacity-50 hover:opacity-100 transition" />
+                </button>
+                <a
+                    href="https://github.com/AlanBark/proxy-print-and-cut"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    <img
+                        src={gitHubLogo}
+                        alt="GitHub"
+                        className="w-6 h-6 opacity-50 hover:opacity-100 transition"
+                    />
+                </a>
+            </div>
+
             <header className="text-center pt-8 space-y-3">
                 <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-teal-300 via-cyan-400 to-purple-300 bg-clip-text text-transparent">
                     ProxKit
@@ -239,6 +264,11 @@ function Home() {
                     © {new Date().getFullYear()} Alec Parkes
                 </p>
             </footer>
+
+            <AppSettingsModal
+                isOpen={isAppSettingsOpen}
+                onClose={() => setIsAppSettingsOpen(false)}
+            />
         </div>
     );
 }

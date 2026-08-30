@@ -1,4 +1,4 @@
-import { Download, ChevronRight, HelpCircle, Settings, Save } from "lucide-react";
+import { Download, ChevronRight, HelpCircle, Save, Check, AlertTriangle } from "lucide-react";
 import { FileUpload } from "../FileUpload";
 import { XMLUpload } from "../XMLUpload";
 import { Box } from "../Box";
@@ -11,10 +11,8 @@ import { useMPCFillImport } from "../../hooks/useMPCFillImport";
 import { Button, ButtonGroup } from '@heroui/react';
 import FileSettings from "./FileSettings";
 import CardSettings from "./CardSettings";
-import gitHubLogo from "../../assets/github-mark-white.svg"
 import { useNavigate } from "react-router"
 import DxfHelpModal from "./DxfHelpModal";
-import { AppSettingsModal } from "./AppSettingsModal";
 import { useProjectAutosave } from "../../hooks/useProjectAutosave";
 import { useProjectFile } from "../../hooks/useProjectFile";
 import { SaveProjectModal } from "./SaveProjectModal";
@@ -23,7 +21,6 @@ import { useState } from "react";
 export function Sidebar({ className = "" }) {
     const navigate = useNavigate();
     const [isDxfHelpModalOpen, setIsDxfHelpModalOpen] = useState(false);
-    const [isAppSettingsOpen, setIsAppSettingsOpen] = useState(false);
 
     // Get card state from store
     const cardOrder = useCardStore((state) => state.cardOrder);
@@ -93,45 +90,8 @@ export function Sidebar({ className = "" }) {
                                     ? basename(projectPath).replace(/\.proxkit$/i, "")
                                     : "Untitled"}
                             </h1>
-
-                            {/* Unsaved work needs a nudge; saved work looks after itself. */}
-                            {!projectPath ? (
-                                <button
-                                    onClick={() => setIsSaveModalOpen(true)}
-                                    title="Save project"
-                                    aria-label="Save project"
-                                    className="cursor-pointer opacity-60 hover:opacity-100 transition"
-                                >
-                                    <Save className="w-4 h-4" />
-                                </button>
-                            ) : (
-                                saveState.kind !== "idle" && (
-                                    <span
-                                        className={`text-xs ${saveState.kind === "error" ? "text-danger" : "opacity-50"}`}
-                                        title={saveState.kind === "error" ? saveState.message : undefined}
-                                    >
-                                        {saveState.kind === "saving"
-                                            ? "Saving…"
-                                            : saveState.kind === "saved"
-                                              ? "Saved"
-                                              : "Not saved"}
-                                    </span>
-                                )
-                            )}
                         </div>
-                        <div className="flex items-center gap-3">
-                        <button
-                            onClick={() => setIsAppSettingsOpen(true)}
-                            aria-label="Application settings"
-                            title="Application settings"
-                            className="cursor-pointer"
-                        >
-                            <Settings className="w-6 h-6 opacity-50 hover:opacity-100 transition" />
-                        </button>
-                        <a href="https://github.com/AlanBark/proxy-print-and-cut" target="_blank" rel="noopener noreferrer">
-                            <img src={gitHubLogo} alt="GitHub" className="w-6 h-6 opacity-50 hover:opacity-100 transition" />
-                        </a>
-                    </div>
+
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                         <FileUpload />
@@ -186,6 +146,40 @@ export function Sidebar({ className = "" }) {
                                 <HelpCircle />
                             </Button>
                         </ButtonGroup>
+
+                        {/* Sits under the import button. Before a project has a
+                            file this is an action; afterwards it is the autosave
+                            indicator, so it changes label rather than appending to
+                            one - "Save Project saved" reads as nonsense. */}
+                        <Button
+                            onPress={() => setIsSaveModalOpen(true)}
+                            isDisabled={!!projectPath || cardOrder.length === 0}
+                            isLoading={saveState.kind === "saving"}
+                            color={saveState.kind === "error" ? "danger" : "default"}
+                            variant="ghost"
+                            title={saveState.kind === "error" ? saveState.message : undefined}
+                        >
+                            <span className="flex items-center justify-center gap-2">
+                                {!projectPath ? (
+                                    <>
+                                        <Save className="w-5 h-5" />
+                                        Save Project
+                                    </>
+                                ) : saveState.kind === "saving" ? (
+                                    "Saving…"
+                                ) : saveState.kind === "error" ? (
+                                    <>
+                                        <AlertTriangle className="w-5 h-5" />
+                                        Not saved
+                                    </>
+                                ) : (
+                                    <>
+                                        <Check className="w-5 h-5" />
+                                        Saved
+                                    </>
+                                )}
+                            </span>
+                        </Button>
                     </div>
                     {projectStatus?.kind === "error" && (
                         <p className="text-sm text-danger break-words">{projectStatus.message}</p>
@@ -229,11 +223,6 @@ export function Sidebar({ className = "" }) {
                 onClose={() => setIsSaveModalOpen(false)}
                 onSave={saveProjectAs}
                 isBusy={isSavingProject}
-            />
-
-            <AppSettingsModal
-                isOpen={isAppSettingsOpen}
-                onClose={() => setIsAppSettingsOpen(false)}
             />
 
             <DxfHelpModal

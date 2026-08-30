@@ -17,6 +17,9 @@ function FileSettings() {
                 label="Page Size"
                 selectedKeys={pageSize}
                 onSelectionChange={setPageSize}
+                // Without this, picking the already-selected size toggles it off
+                // and leaves the page with no size at all.
+                disallowEmptySelection
                 size="sm"
                 variant="flat"
                 radius="sm"

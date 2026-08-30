@@ -6,12 +6,14 @@ import {
 interface SaveProjectModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSave: (name: string) => Promise<boolean>;
+    /** Returns an error message, or null once saved. */
+    onSave: (name: string) => Promise<string | null>;
     isBusy: boolean;
 }
 
 /** Characters a filename cannot contain on Windows. */
 const ILLEGAL = /[/\\:*?"<>|]/;
+const ILLEGAL_MESSAGE = "A name cannot contain / \\ : * ? \" < > |";
 
 /**
  * Names a project so it can be saved.
@@ -21,20 +23,28 @@ const ILLEGAL = /[/\\:*?"<>|]/;
  */
 export function SaveProjectModal({ isOpen, onClose, onSave, isBusy }: SaveProjectModalProps) {
     const [name, setName] = useState("");
+    const [saveError, setSaveError] = useState<string | null>(null);
 
     const trimmed = name.trim();
+    const hasIllegal = ILLEGAL.test(trimmed);
     const problem = !trimmed
         ? null
-        : ILLEGAL.test(trimmed)
-          ? 'A name cannot contain / \\ : * ? " < > |'
-          : null;
+        : hasIllegal
+          ? ILLEGAL_MESSAGE
+          : saveError;
 
     const commit = async () => {
-        if (!trimmed || problem) return;
-        if (await onSave(trimmed)) {
-            setName("");
-            onClose();
+        if (!trimmed || hasIllegal) return;
+
+        const error = await onSave(trimmed);
+        if (error) {
+            // Shown against the field so the name can be corrected in place.
+            setSaveError(error);
+            return;
         }
+        setName("");
+        setSaveError(null);
+        onClose();
     };
 
     return (
@@ -53,7 +63,10 @@ export function SaveProjectModal({ isOpen, onClose, onSave, isBusy }: SaveProjec
                         label="Project name"
                         placeholder="Modern Burn"
                         value={name}
-                        onValueChange={setName}
+                        onValueChange={(value) => {
+                            setName(value);
+                            setSaveError(null);
+                        }}
                         onKeyDown={(e) => {
                             if (e.key === "Enter") void commit();
                         }}
@@ -73,7 +86,7 @@ export function SaveProjectModal({ isOpen, onClose, onSave, isBusy }: SaveProjec
                         color="success"
                         variant="ghost"
                         radius="sm"
-                        isDisabled={!trimmed || !!problem || isBusy}
+                        isDisabled={!trimmed || hasIllegal || isBusy}
                         isLoading={isBusy}
                         onPress={commit}
                     >

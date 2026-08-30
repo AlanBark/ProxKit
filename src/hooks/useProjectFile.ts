@@ -3,7 +3,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { useCardStore } from "../stores/cardStore";
 import { useProjectSettingsStore, PAGE_SIZE_OPTIONS } from "../stores/projectSettingsStore";
 import { useAppSettingsStore } from "../stores/appSettingsStore";
-import { readTextFile, saveTextFile } from "../utils/library";
+import { pathExists, readTextFile, saveTextFile } from "../utils/library";
 import { removeAllCards } from "../utils/cardOperations";
 import { basename, dirname } from "../utils/paths";
 import {
@@ -74,13 +74,22 @@ export function useProjectFile() {
      *
      * Binding the path is what switches autosave on, so from here the project
      * keeps itself up to date.
+     *
+     * Returns an error message, or null once saved.
      */
-    const saveProjectAs = useCallback(async (name: string): Promise<boolean> => {
+    const saveProjectAs = useCallback(async (name: string): Promise<string | null> => {
         setStatus(null);
         setIsBusy(true);
         try {
             const folder = await resolveProjectsFolder(projectsFolder);
             const path = await join(folder, `${name}.${PROJECT_EXTENSION}`);
+
+            // Never write over an existing project. Autosave overwrites by
+            // design, but that is only ever the project's own file - naming a
+            // new one onto an old one would destroy work with no warning.
+            if (await pathExists(path)) {
+                return `A project called "${name}" already exists.`;
+            }
 
             const input: SerializeInput = {
                 settings: currentSettings(settings),
@@ -91,22 +100,18 @@ export function useProjectFile() {
 
             const unsaveable = unsaveableCards(input);
             if (unsaveable.length > 0) {
-                setStatus({
-                    kind: "error",
-                    message:
-                        `${unsaveable.length} card${unsaveable.length === 1 ? "" : "s"} ` +
-                        `only exist in memory and cannot be saved: ${unsaveable.join(", ")}.`,
-                });
-                return false;
+                return (
+                    `${unsaveable.length} card${unsaveable.length === 1 ? "" : "s"} ` +
+                    `only exist in memory and cannot be saved: ${unsaveable.join(", ")}.`
+                );
             }
 
             await saveTextFile(path, JSON.stringify(serializeProject(input), null, 2));
             setProjectPath(path);
             setLastProjectDir(dirname(path));
-            return true;
+            return null;
         } catch (error) {
-            setStatus({ kind: "error", message: describe(error, "Could not save the project") });
-            return false;
+            return describe(error, "Could not save the project");
         } finally {
             setIsBusy(false);
         }

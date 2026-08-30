@@ -18,12 +18,15 @@ export type SaveState =
  * Writes the open project back to its file as it changes.
  *
  * There is no save button, so this is the only thing standing between a user's
- * work and losing it. Two rules keep that honest:
+ * work and losing it. Three rules keep that honest:
  *
  * - it never writes before the project it is watching has finished loading,
  *   which would overwrite a project with the empty state that precedes it;
  * - it refuses to write a card list containing in-memory images, which would
- *   produce a file that silently will not reopen.
+ *   produce a file that silently will not reopen;
+ * - it reports "saving" the instant something changes, not when the write
+ *   starts, so the indicator never claims work is safe while it is still
+ *   sitting in the debounce window.
  */
 export function useProjectAutosave(): SaveState {
     const [state, setState] = useState<SaveState>({ kind: "idle" });
@@ -37,17 +40,14 @@ export function useProjectAutosave(): SaveState {
     // with projectPath, what we hold belongs to a different project (or to no
     // project) and must not be written anywhere.
     const boundTo = useRef<string | null>(null);
+    // What is already on disk, so churn that changes nothing - regenerated
+    // thumbnails, mostly - neither writes nor flickers the indicator.
+    const lastWritten = useRef<string | null>(null);
 
     useEffect(() => {
         if (!projectPath) {
             boundTo.current = null;
-            setState({ kind: "idle" });
-            return;
-        }
-
-        // First run for this path is the load itself, not an edit.
-        if (boundTo.current !== projectPath) {
-            boundTo.current = projectPath;
+            lastWritten.current = null;
             setState({ kind: "idle" });
             return;
         }
@@ -70,19 +70,34 @@ export function useProjectAutosave(): SaveState {
             return;
         }
 
+        const json = JSON.stringify(serializeProject(input), null, 2);
+
+        // First run for this path is the load itself, not an edit.
+        if (boundTo.current !== projectPath) {
+            boundTo.current = projectPath;
+            lastWritten.current = json;
+            setState({ kind: "idle" });
+            return;
+        }
+
+        if (json === lastWritten.current) return;
+
+        // Say so immediately: the work is not on disk yet.
+        setState({ kind: "saving" });
+
         let cancelled = false;
         const timer = setTimeout(async () => {
-            setState({ kind: "saving" });
             try {
-                await saveTextFile(projectPath, JSON.stringify(serializeProject(input), null, 2));
-                if (!cancelled) setState({ kind: "saved", at: Date.now() });
+                await saveTextFile(projectPath, json);
+                if (cancelled) return;
+                lastWritten.current = json;
+                setState({ kind: "saved", at: Date.now() });
             } catch (error) {
-                if (!cancelled) {
-                    setState({
-                        kind: "error",
-                        message: error instanceof Error ? error.message : "Could not save",
-                    });
-                }
+                if (cancelled) return;
+                setState({
+                    kind: "error",
+                    message: error instanceof Error ? error.message : "Could not save",
+                });
             }
         }, DEBOUNCE_MS);
 
