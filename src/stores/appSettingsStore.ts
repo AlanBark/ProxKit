@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { createSettingsStorage } from './settingsStorage';
 import { settingsReplacer, settingsReviver } from './settingsSerialization';
 import { useStoreHydrated } from './useStoreHydrated';
+import { DEFAULT_THEME_ID } from '../theme/themes';
 
 /**
  * Settings that belong to this installation, not to whatever is being printed.
@@ -20,6 +21,8 @@ interface AppSettingsState {
     lastProjectDir: string | null;
     /** Where projects are kept and listed from. Null means the app data folder. */
     projectsFolder: string | null;
+    /** Id of the chosen colour theme. */
+    colorTheme: string;
     /** Whether first-run setup has been seen, so it is not shown again. */
     hasCompletedSetup: boolean;
 
@@ -27,6 +30,7 @@ interface AppSettingsState {
     setLastOutputDir: (dir: string | null) => void;
     setLastProjectDir: (dir: string | null) => void;
     setProjectsFolder: (folder: string | null) => void;
+    setColorTheme: (id: string) => void;
     setHasCompletedSetup: (done: boolean) => void;
 }
 
@@ -37,12 +41,14 @@ export const useAppSettingsStore = create<AppSettingsState>()(
             lastOutputDir: null,
             lastProjectDir: null,
             projectsFolder: null,
+            colorTheme: DEFAULT_THEME_ID,
             hasCompletedSetup: false,
 
             setLibraryFolder: (folder) => set({ libraryFolder: folder }),
             setLastOutputDir: (dir) => set({ lastOutputDir: dir }),
             setLastProjectDir: (dir) => set({ lastProjectDir: dir }),
             setProjectsFolder: (folder) => set({ projectsFolder: folder }),
+            setColorTheme: (id) => set({ colorTheme: id }),
             setHasCompletedSetup: (done) => set({ hasCompletedSetup: done }),
         }),
         {

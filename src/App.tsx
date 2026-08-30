@@ -3,8 +3,11 @@ import Home from "./pages/Home";
 import PrintAndCut from "./pages/PrintAndCut";
 import Docs from "./pages/Docs";
 import { GettingStarted } from "./components/GettingStarted";
+import { useColorTheme } from "./theme/useColorTheme";
 
 function App() {
+    useColorTheme();
+
     return (
         <>
             <GettingStarted />

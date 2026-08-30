@@ -25,9 +25,17 @@ html {
 }
 
 body {
-    background: #114357;  /* fallback for old browsers */
-    background: -webkit-linear-gradient(125deg, #000000, #114357 55%, #8f6976);
-    background: linear-gradient(125deg, #000000, #114357 55%, #8f6976);
+    /* Driven by the theme, so picking one repaints the page rather than just
+       the controls on top of it. */
+    /* Fallbacks match the default theme: the variables are set by JS, and
+       without them the first paint before the bundle runs would be blank. */
+    background: var(--gradient-via, #114357);
+    background: linear-gradient(
+        125deg,
+        var(--gradient-from, #000000),
+        var(--gradient-via, #114357) 55%,
+        var(--gradient-to, #8f6976)
+    );
 
     background-attachment: fixed;
     min-height: 100%;

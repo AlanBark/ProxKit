@@ -113,7 +113,13 @@ function Home() {
             </div>
 
             <header className="text-center pt-8 space-y-3">
-                <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-teal-300 via-cyan-400 to-purple-300 bg-clip-text text-transparent">
+                <h1
+                    className="text-5xl md:text-6xl font-bold bg-clip-text text-transparent"
+                    style={{
+                        backgroundImage:
+                            "linear-gradient(to right, var(--primary), var(--text-primary), var(--primary-hover))",
+                    }}
+                >
                     ProxKit
                 </h1>
                 <p className={`${textStyles.secondary} text-base md:text-lg`}>
@@ -132,9 +138,9 @@ function Home() {
                     // No filesystem in the browser, so no projects to list.
                     <Link
                         to={EDITOR_ROUTE}
-                        className="group block max-w-md mx-auto px-8 py-6 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all text-center"
+                        className="group block max-w-md mx-auto px-8 py-6 bg-(--bg-surface) backdrop-blur-sm rounded-xl border border-(--border) hover:bg-(--bg-hover) hover:border-(--border-hover) transition-all text-center"
                     >
-                        <span className="text-xl font-medium text-white group-hover:text-cyan-300 transition-colors">
+                        <span className="text-xl font-medium text-(--text-primary) group-hover:text-(--primary) transition-colors">
                             Print and Cut
                         </span>
                         <span className={`${textStyles.muted} block text-sm mt-1`}>

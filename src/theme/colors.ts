@@ -35,4 +35,9 @@ export const colors = {
     // Overlays
     overlayDark: 'rgba(17, 27, 34, 0.9)',
     overlayLight: 'rgba(17, 27, 34, 0.7)',
+
+    // Page background gradient, consumed by body in main.css
+    gradientFrom: '#000000',
+    gradientVia: '#114357',
+    gradientTo: '#8f6976',
 } as const;

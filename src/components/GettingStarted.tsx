@@ -4,14 +4,15 @@ import { FolderOpen, Check } from 'lucide-react';
 import { useAppSettingsStore, useAppSettingsHydrated } from '../stores/appSettingsStore';
 import { isTauri } from '../utils/platform';
 import { basename } from '../utils/paths';
+import { ThemeSetting } from './Settings/ThemeSetting';
 
 /**
  * First-run setup for the desktop app.
  *
- * Only the image library needs choosing before anything works well, so this
- * asks for that one thing and gets out of the way. It is skippable - the same
- * setting lives in Application Settings - but asking once up front avoids the
- * first MPCFill import failing for a reason that is not obvious.
+ * Two things worth settling once: where images are kept, without which the
+ * first MPCFill import fails for a reason that is not obvious, and how the app
+ * looks, which is the sort of choice nobody goes hunting for in a settings
+ * dialog. Both are skippable and both live in Application Settings afterwards.
  */
 export function GettingStarted() {
     const libraryFolder = useAppSettingsStore((state) => state.libraryFolder);
@@ -83,6 +84,10 @@ export function GettingStarted() {
                                 {basename(libraryFolder)}
                             </span>
                         )}
+                    </div>
+                
+                    <div className="border-t border-(--border) pt-4 mt-2">
+                        <ThemeSetting />
                     </div>
                 </ModalBody>
 

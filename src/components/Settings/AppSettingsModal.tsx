@@ -1,5 +1,7 @@
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Button } from '@heroui/react';
 import { LibraryFolderSetting } from './LibraryFolderSetting';
+import { ProjectsFolderSetting } from './ProjectsFolderSetting';
+import { ThemeSetting } from './ThemeSetting';
 import { isTauri } from '../../utils/platform';
 
 interface AppSettingsModalProps {
@@ -21,13 +23,14 @@ export function AppSettingsModal({ isOpen, onClose }: AppSettingsModalProps) {
                     Application Settings
                 </ModalHeader>
 
-                <ModalBody>
-                    {isTauri ? (
-                        <LibraryFolderSetting />
-                    ) : (
-                        <p className="text-sm text-default-600">
-                            There are no application settings in the browser version.
-                        </p>
+                <ModalBody className="gap-5">
+                    <ThemeSetting />
+
+                    {isTauri && (
+                        <>
+                            <LibraryFolderSetting />
+                            <ProjectsFolderSetting />
+                        </>
                     )}
                 </ModalBody>
 
