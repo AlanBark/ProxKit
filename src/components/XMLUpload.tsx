@@ -3,13 +3,11 @@ import { FileUp, HelpCircle } from "lucide-react";
 import { Button, ButtonGroup, Card, CardBody } from "@heroui/react";
 import { useMPCFillImport } from "../hooks/useMPCFillImport";
 import { useProjectSettingsStore } from "../stores/projectSettingsStore";
-import { useAppSettingsStore } from "../stores/appSettingsStore";
 import { useCardStore } from "../stores/cardStore";
 import { useCardBackManagement } from "../hooks/useCardBackManagement";
 import type { ImageSource } from "../types/card";
 import { parseMPCFillXML } from "../utils/mpcfill/xmlParser";
 import type { CardImage } from "../types/card";
-import { getThumbnail } from "../utils/thumbnails";
 import XmlHelpModal from "./XmlHelpModal";
 
 export function XMLUpload() {
@@ -19,10 +17,7 @@ export function XMLUpload() {
 
     // Get settings and state from store
     const defaultBleed = useProjectSettingsStore((state) => state.defaultBleed);
-    const libraryFolder = useAppSettingsStore((state) => state.libraryFolder);
     const defaultCardBackBleed = useProjectSettingsStore((state) => state.defaultCardBackBleed);
-    const cardWidth = useProjectSettingsStore((state) => state.cardWidth);
-    const cardHeight = useProjectSettingsStore((state) => state.cardHeight);
     const cardMap = useCardStore((state) => state.cardMap);
     const cardOrder = useCardStore((state) => state.cardOrder);
     const setCardMap = useCardStore((state) => state.setCardMap);
@@ -32,7 +27,13 @@ export function XMLUpload() {
     // Get card back management hook
     const { handleUpdateCardBack, handleUpdateDefaultCardBack } = useCardBackManagement();
 
-    const handleCardDownloaded = async (
+    /**
+     * Fills in a placeholder card once its artwork has downloaded.
+     *
+     * Only the source is stored; useThumbnailBackfill notices the placeholder
+     * has no thumbnail for it and renders one.
+     */
+    const handleCardDownloaded = (
         image: ImageSource,
         index: number,
         placeholderCardIds: string[],
@@ -41,46 +42,22 @@ export function XMLUpload() {
         const cardId = placeholderCardIds[index];
         if (!cardId) return;
 
-        // Generate thumbnail asynchronously
-        try {
-            const thumbnail = await getThumbnail(image, { bleed: defaultBleed, cardWidth: cardWidth, cardHeight: cardHeight }, libraryFolder);
-            setCardMap((prev: Map<string, CardImage>) => {
-                const updated = new Map(prev);
-                const card = updated.get(cardId);
-                if (card) {
-                    updated.set(cardId, {
-                        ...card,
-                        image,
-                        thumbnail,
-                        thumbnailLoading: false,
-                    });
-                }
-                return updated;
-            });
-        } catch (error) {
-            console.error('Failed to generate thumbnail for an imported card:', error);
-            setCardMap((prev: Map<string, CardImage>) => {
-                const updated = new Map(prev);
-                const card = updated.get(cardId);
-                if (card) {
-                    updated.set(cardId, {
-                        ...card,
-                        image,
-                        thumbnailLoading: false,
-                    });
-                }
-                return updated;
-            });
-        }
+        setCardMap((prev: Map<string, CardImage>) => {
+            const card = prev.get(cardId);
+            if (!card) return prev;
+            const updated = new Map(prev);
+            updated.set(cardId, { ...card, image });
+            return updated;
+        });
 
         // If this card has a unique back, set it
         if (backImage) {
             setEnableCardBacks(true);
-            await handleUpdateCardBack(cardId, backImage);
+            handleUpdateCardBack(cardId, backImage);
         }
     };
 
-    const handleCardBackDownloaded = async (
+    const handleCardBackDownloaded = (
         cardBack: ImageSource,
         index: number,
         placeholderCardIds: string[]
@@ -88,44 +65,20 @@ export function XMLUpload() {
         const cardId = placeholderCardIds[index];
         if (!cardId) return;
 
-        // Generate thumbnail asynchronously for card back
-        try {
-            const cardBackThumbnail = await getThumbnail(cardBack, { bleed: defaultCardBackBleed, cardWidth: cardWidth, cardHeight: cardHeight }, libraryFolder);
-            setCardMap((prev: Map<string, CardImage>) => {
-                const updated = new Map(prev);
-                const card = updated.get(cardId);
-                if (card) {
-                    updated.set(cardId, {
-                        ...card,
-                        cardBack,
-                        cardBackThumbnail,
-                        cardBackThumbnailLoading: false,
-                    });
-                }
-                return updated;
-            });
-        } catch (error) {
-            console.error('Failed to generate thumbnail for an imported card back:', error);
-            setCardMap((prev: Map<string, CardImage>) => {
-                const updated = new Map(prev);
-                const card = updated.get(cardId);
-                if (card) {
-                    updated.set(cardId, {
-                        ...card,
-                        cardBack,
-                        cardBackThumbnailLoading: false,
-                    });
-                }
-                return updated;
-            });
-        }
+        setCardMap((prev: Map<string, CardImage>) => {
+            const card = prev.get(cardId);
+            if (!card) return prev;
+            const updated = new Map(prev);
+            updated.set(cardId, { ...card, cardBack, cardBackThumbnailLoading: true });
+            return updated;
+        });
 
         setEnableCardBacks(true);
     };
 
-    const handleCardBackDefaultDownloaded = async (cardBack: ImageSource) => {
+    const handleCardBackDefaultDownloaded = (cardBack: ImageSource) => {
         setEnableCardBacks(true);
-        await handleUpdateDefaultCardBack(cardBack);
+        handleUpdateDefaultCardBack(cardBack);
     };
 
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {

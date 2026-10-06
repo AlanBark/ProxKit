@@ -2,6 +2,7 @@ import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Button } from
 import { LibraryFolderSetting } from './LibraryFolderSetting';
 import { ProjectsFolderSetting } from './ProjectsFolderSetting';
 import { ThemeSetting } from './ThemeSetting';
+import { UpdateSetting } from './UpdateSetting';
 import { isTauri } from '../../utils/platform';
 
 interface AppSettingsModalProps {
@@ -30,6 +31,7 @@ export function AppSettingsModal({ isOpen, onClose }: AppSettingsModalProps) {
                         <>
                             <LibraryFolderSetting />
                             <ProjectsFolderSetting />
+                            <UpdateSetting />
                         </>
                     )}
                 </ModalBody>

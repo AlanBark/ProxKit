@@ -14,6 +14,8 @@ interface CardState {
 
     /** Thumbnail for the default card back. Derived, so not persisted. */
     defaultCardBackThumbnail: ImageSource | null;
+    /** The key `defaultCardBackThumbnail` was rendered from; see CardImage.thumbnailKey. */
+    defaultCardBackThumbnailKey: string | null;
 
     /**
      * The project file this card list came from, and which autosave writes back
@@ -23,7 +25,7 @@ interface CardState {
 
     setCardMap: (map: Map<string, CardImage> | ((prev: Map<string, CardImage>) => Map<string, CardImage>)) => void;
     setCardOrder: (order: string[] | ((prev: string[]) => string[])) => void;
-    setDefaultCardBackThumbnail: (source: ImageSource | null) => void;
+    setDefaultCardBackThumbnail: (source: ImageSource | null, key?: string | null) => void;
     setProjectPath: (path: string | null) => void;
 }
 
@@ -31,6 +33,7 @@ export const useCardStore = create<CardState>((set) => ({
     cardMap: new Map(),
     cardOrder: [],
     defaultCardBackThumbnail: null,
+    defaultCardBackThumbnailKey: null,
     projectPath: null,
 
     setCardMap: (map) => set((state) => ({
@@ -39,6 +42,9 @@ export const useCardStore = create<CardState>((set) => ({
     setCardOrder: (order) => set((state) => ({
         cardOrder: typeof order === 'function' ? order(state.cardOrder) : order
     })),
-    setDefaultCardBackThumbnail: (source) => set({ defaultCardBackThumbnail: source }),
+    setDefaultCardBackThumbnail: (source, key = null) => set({
+        defaultCardBackThumbnail: source,
+        defaultCardBackThumbnailKey: source ? key : null,
+    }),
     setProjectPath: (path) => set({ projectPath: path }),
 }));

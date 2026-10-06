@@ -32,6 +32,15 @@ export interface CardImage {
     image?: ImageSource;
     /** Display thumbnail: a cached file on desktop, otherwise canvas output. */
     thumbnail?: ImageSource;
+    /**
+     * The inputs `thumbnail` was rendered from, as a key.
+     *
+     * A thumbnail is stale the moment any of those inputs changes - the source
+     * file, the bleed, the card dimensions. Comparing this against the current
+     * key is what decides whether to re-render, so a new reason to regenerate
+     * only has to be added to the key, not to a watcher somewhere.
+     */
+    thumbnailKey?: string;
     /** Whether the front thumbnail is being generated */
     thumbnailLoading?: boolean;
     name?: string;
@@ -46,6 +55,8 @@ export interface CardImage {
     cardBack?: ImageSource;
     /** Display thumbnail for the back. */
     cardBackThumbnail?: ImageSource;
+    /** As `thumbnailKey`, for the back image. */
+    cardBackThumbnailKey?: string;
     /** Whether the back thumbnail is being generated */
     cardBackThumbnailLoading?: boolean;
     cardBackBleed: number; // bleed amount in millimetres for back image

@@ -13,6 +13,12 @@ export interface ThumbnailParams {
     cardHeight: number;
 }
 
+export interface ThumbnailResult {
+    thumbnail: ImageSource;
+    /** The key it was rendered from. Store it to detect staleness later. */
+    key: string;
+}
+
 /**
  * FNV-1a, so two files with the same name in different folders do not collide
  * on one cache entry and show each other's artwork.
@@ -27,15 +33,27 @@ function hashPath(value: string): string {
 }
 
 /**
- * Identifies a thumbnail by its source file and every parameter that changes
- * how it is rendered, so a bleed or card-size change misses the cache rather
- * than returning a stale image.
+ * Identifies a thumbnail by its source and every parameter that changes how it
+ * is rendered.
+ *
+ * This is the definition of staleness: if the key differs from the one a
+ * thumbnail was rendered with, that thumbnail is wrong. Adding a new reason to
+ * regenerate means adding it here, rather than writing another watcher and
+ * hoping every caller remembers it.
+ *
+ * In-memory sources get a key too. They cannot be cached on disk, but a blob
+ * URL is stable for the session - which is exactly as long as the thumbnail
+ * needs to stay valid.
  */
-function thumbnailKey(path: string, params: ThumbnailParams): string {
-    const name = basename(path).replace(/\.[^.]+$/, "");
+export function thumbnailKeyFor(source: ImageSource, params: ThumbnailParams): string {
+    const identity = source.kind === "path" ? source.path : source.url;
+    const name = source.kind === "path"
+        ? basename(source.path).replace(/\.[^.]+$/, "")
+        : "memory";
+
     return [
         name,
-        hashPath(path),
+        hashPath(identity),
         `b${params.bleed}`,
         `${params.cardWidth}x${params.cardHeight}`,
         `m${THUMBNAIL_MAX}`,
@@ -58,21 +76,21 @@ async function blobUrlToBase64(blobUrl: string): Promise<string> {
 /**
  * A thumbnail for `source`, reusing the library's cached copy when possible.
  *
- * Only path-backed sources are cached: a blob has no identity beyond the
- * session that created it, so there is nothing stable to key a cache entry on.
+ * Only path-backed sources are cached on disk: a blob has no identity beyond
+ * the session that created it, so there is nothing stable to name a file after.
  */
 export async function getThumbnail(
     source: ImageSource,
     params: ThumbnailParams,
     libraryFolder: string | null
-): Promise<ImageSource> {
+): Promise<ThumbnailResult> {
+    const key = thumbnailKeyFor(source, params);
     const cacheable = isLibraryAvailable(libraryFolder) && source.kind === "path";
-    const key = cacheable ? thumbnailKey(source.path, params) : null;
 
-    if (cacheable && key) {
+    if (cacheable) {
         try {
             const cached = await findCachedThumbnail(libraryFolder, key);
-            if (cached) return cached;
+            if (cached) return { thumbnail: cached, key };
         } catch (error) {
             // A cache that cannot be read is not a reason to fail; fall through
             // and render one.
@@ -90,16 +108,16 @@ export async function getThumbnail(
         params.cardHeight
     );
 
-    if (cacheable && key) {
+    if (cacheable) {
         try {
             const stored = await cacheThumbnail(libraryFolder, key, await blobUrlToBase64(blobUrl));
             // The cached file is now the source of truth, so release the blob.
             URL.revokeObjectURL(blobUrl);
-            return stored;
+            return { thumbnail: stored, key };
         } catch (error) {
             console.warn("Could not write to the thumbnail cache:", error);
         }
     }
 
-    return blobSource(blobUrl);
+    return { thumbnail: blobSource(blobUrl), key };
 }

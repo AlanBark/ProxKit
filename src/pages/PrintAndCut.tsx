@@ -1,10 +1,16 @@
 import { Sidebar } from "../components/Settings/Sidebar";
 import { CardList } from "../components/CardList";
 import { useThumbnailBackfill } from "../hooks/useThumbnailBackfill";
+import { useCardReordering } from "../hooks/useCardReordering";
+import { useDefaultBleedSync } from "../hooks/useDefaultBleedSync";
 
 function Project() {
-    // Cards opened from a project arrive without previews; fill them in.
+    // Before the backfill, so it renders thumbnails at the settled bleed.
+    useDefaultBleedSync();
+    // Renders any thumbnail that no longer matches the card it belongs to.
     useThumbnailBackfill();
+    // Keeps cards grouped by their backs while that setting is on.
+    useCardReordering();
 
     return (
         <div

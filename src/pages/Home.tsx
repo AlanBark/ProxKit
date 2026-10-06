@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { Button, Spinner } from "@heroui/react";
-import { AlertTriangle, FolderOpen, Layers, Plus, Settings, Trash2 } from "lucide-react";
+import { AlertTriangle, Download, FolderOpen, Layers, Plus, Settings, Trash2 } from "lucide-react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { useAppSettingsStore } from "../stores/appSettingsStore";
 import { useProjectFile } from "../hooks/useProjectFile";
@@ -258,6 +258,15 @@ function Home() {
                             <FolderOpen className="w-4 h-4" />
                             Open from disk
                         </button>
+                    )}
+                    {!isTauri && (
+                        <Link
+                            to="/download"
+                            className={`flex items-center gap-1 hover:opacity-100 opacity-70 transition ${textStyles.secondary}`}
+                        >
+                            <Download className="w-4 h-4" />
+                            Get the desktop app
+                        </Link>
                     )}
                     <Link
                         to="/docs"

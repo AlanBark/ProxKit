@@ -27,6 +27,11 @@ log = "0.4"
 tauri = { version = "2.9.4", features = ["protocol-asset"] }
 tauri-plugin-log = "2"
 tauri-plugin-dialog = "2"
+
+# Desktop-only: the updater has no meaning in a browser build.
+[target."cfg(not(any(target_os = \"android\", target_os = \"ios\")))".dependencies]
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
 tauri-plugin-store = "2"
 krilla = { version = "0.6.0", features = ["rayon"] }
 rayon = "1.10"

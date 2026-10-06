@@ -1,0 +1,78 @@
+name: Release
+
+# Publishing is driven by tags so that cutting a release is one deliberate act
+# rather than something that happens on every push to main.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+
+      # Fail before building an installer, not after.
+      - run: npm run lint
+      - run: npm test
+      - run: npx tsc --noEmit -p tsconfig.app.json
+      - run: cargo test --lib --manifest-path src-tauri/Cargo.toml
+
+      # The generated IPC types are committed; a drift here means the frontend
+      # was built against a contract the backend no longer has.
+      - run: npm run types:check
+
+  release:
+    needs: verify
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Generated with `npm run tauri signer generate`. Without these the
+          # build succeeds but produces no signatures, and the updater will
+          # refuse the release rather than install something unverified.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "ProxKit ${{ github.ref_name }}"
+          releaseBody: "See the assets below to download and install."
+          releaseDraft: true
+          prerelease: false
+          # Emits latest.json alongside the installers, which is what the
+          # in-app updater reads.
+          includeUpdaterJson: true
