@@ -18,6 +18,17 @@ export function sourceFromFile(file: File): ImageSource {
 }
 
 /**
+ * What distinguishes one source from another, for cache keys.
+ *
+ * Both arms already carry a string that identifies the bytes - a path on disk,
+ * or an object URL that is unique for as long as it is alive - so this is only
+ * here to stop every caller re-deciding which field that is.
+ */
+export function sourceIdentity(source: ImageSource): string {
+    return source.kind === "path" ? source.path : source.url;
+}
+
+/**
  * A URL the webview can render or fetch: object URLs pass through, disk paths
  * become `asset://` URLs.
  */

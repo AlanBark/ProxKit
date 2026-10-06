@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { FileUp, HelpCircle } from "lucide-react";
 import { Button, ButtonGroup, Card, CardBody } from "@heroui/react";
-import { useMPCFillImport } from "../hooks/useMPCFillImport";
+import { useMPCFillImport, type ImportFailure } from "../hooks/useMPCFillImport";
 import { useProjectSettingsStore } from "../stores/projectSettingsStore";
 import { useCardStore } from "../stores/cardStore";
 import { useCardBackManagement } from "../hooks/useCardBackManagement";
@@ -12,7 +12,7 @@ import XmlHelpModal from "./XmlHelpModal";
 
 export function XMLUpload() {
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const { handleXMLImport, isImporting, importProgress, error, clearError } = useMPCFillImport();
+    const { handleXMLImport, isImporting, importProgress, error, errorSeverity, clearError } = useMPCFillImport();
     const [isXmlHelpModalOpen, setIsXmlHelpModalOpen] = useState(false);
 
     // Get settings and state from store
@@ -76,6 +76,31 @@ export function XMLUpload() {
         setEnableCardBacks(true);
     };
 
+    /**
+     * Stops a placeholder waiting on artwork that failed to arrive.
+     *
+     * The card stays in the list, named but empty, so the user can see which
+     * ones need replacing by hand instead of losing their place in the order.
+     */
+    const handleCardFailed = (
+        failure: ImportFailure,
+        placeholderCardIds: string[]
+    ) => {
+        if (failure.cardIndex === null) return;
+        const cardId = placeholderCardIds[failure.cardIndex];
+        if (!cardId) return;
+
+        setCardMap((prev: Map<string, CardImage>) => {
+            const card = prev.get(cardId);
+            if (!card) return prev;
+            const updated = new Map(prev);
+            updated.set(cardId, failure.face === 'back'
+                ? { ...card, cardBackThumbnailLoading: false }
+                : { ...card, thumbnailLoading: false });
+            return updated;
+        });
+    };
+
     const handleCardBackDefaultDownloaded = (cardBack: ImageSource) => {
         setEnableCardBacks(true);
         handleUpdateDefaultCardBack(cardBack);
@@ -135,6 +160,9 @@ export function XMLUpload() {
                 handleCardBackDownloaded(cardBack, index, placeholderCardIds);
             },
             handleCardBackDefaultDownloaded,
+            (failure: ImportFailure) => {
+                handleCardFailed(failure, placeholderCardIds);
+            },
         );
 
         if (fileInputRef.current) {
@@ -190,14 +218,14 @@ export function XMLUpload() {
             </ButtonGroup>
 
             {error && (
-                <Card className="border-danger">
+                <Card className={errorSeverity === "warning" ? "border-warning" : "border-danger"}>
                     <CardBody className="p-3">
-                        <p className="text-xs text-danger whitespace-pre-wrap">
+                        <p className={`text-xs whitespace-pre-wrap ${errorSeverity === "warning" ? "text-warning" : "text-danger"}`}>
                             {error}
                         </p>
                         <Button
                             size="sm"
-                            color="danger"
+                            color={errorSeverity === "warning" ? "warning" : "danger"}
                             variant="light"
                             onPress={clearError}
                             className="mt-2"

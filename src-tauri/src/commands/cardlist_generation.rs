@@ -52,6 +52,8 @@ pub struct CardListGenerationRequest {
     pub card_height: f32,
     pub output_bleed: f32,
     pub enable_card_backs: bool,
+    /// Print a back page only for pages holding a card with its own back.
+    pub group_by_card_backs: bool,
     pub default_card_back_path: Option<String>,
 }
 
@@ -96,6 +98,37 @@ fn calculate_card_position(slot_index: usize) -> (usize, usize) {
 /// Calculate mirrored column position for card backs (for double-sided printing)
 fn calculate_mirrored_column(original_col: usize) -> usize {
     (GRID_COLS - 1) - original_col
+}
+
+/// Whether this page's cards need a back page printed behind them.
+///
+/// With `group_by_card_backs` off, a back page follows every front page as it
+/// always has. With it on, only a page holding at least one card with its own
+/// back gets one, which is what splits a long order into a short double-sided
+/// run and a longer single-sided one.
+///
+/// A card's own back is what counts, not `default_card_back_path`: if the shared
+/// back decided this, every page would qualify and nothing would be saved. The
+/// shared back still fills the other slots on the pages being printed
+/// double-sided anyway.
+///
+/// Mirrors pageNeedsBackPage in utils/pdf/cardLayoutUtils.ts - the two pipelines
+/// must agree on page count or the preview lies about what comes out.
+fn page_needs_back_page(
+    page_cards: &[Option<CardImageData>],
+    enable_card_backs: bool,
+    group_by_card_backs: bool,
+) -> bool {
+    if !enable_card_backs {
+        return false;
+    }
+    if !group_by_card_backs {
+        return true;
+    }
+    page_cards
+        .iter()
+        .flatten()
+        .any(|card| card.card_back_path.is_some())
 }
 
 /// Tauri command to generate PDF from a cardlist
@@ -250,8 +283,12 @@ pub async fn generate_cardlist(
             background: background.clone(),
         });
 
-        // Create back page if card backs are enabled
-        if request.enable_card_backs {
+        // Create back page if these cards need one
+        if page_needs_back_page(
+            page_cards,
+            request.enable_card_backs,
+            request.group_by_card_backs,
+        ) {
             let mut back_images: Vec<CardImagePosition> = Vec::new();
 
             for (slot_idx, card_opt) in page_cards.iter().enumerate() {

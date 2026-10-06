@@ -45,6 +45,7 @@ export function usePDFGeneration() {
     const cardHeight = useProjectSettingsStore((state) => state.cardHeight);
     const outputBleed = useProjectSettingsStore((state) => state.outputBleed);
     const enableCardBacks = useProjectSettingsStore((state) => state.enableCardBacks);
+    const groupByCardBacks = useProjectSettingsStore((state) => state.groupByCardBacks);
     const defaultCardBack = useProjectSettingsStore((state) => state.defaultCardBack);
     const lastOutputDir = useAppSettingsStore((state) => state.lastOutputDir);
     const setLastOutputDir = useAppSettingsStore((state) => state.setLastOutputDir);
@@ -178,6 +179,7 @@ export function usePDFGeneration() {
                         cardHeight: cardHeight,
                         outputBleed: outputBleed,
                         enableCardBacks: enableCardBacks,
+                        groupByCardBacks: groupByCardBacks,
                         defaultCardBackPath: defaultCardBack
                             ? toBackendPath(defaultCardBack, 'The default card back')
                             : null,
@@ -202,9 +204,12 @@ export function usePDFGeneration() {
 
                 const pdfUrlResult = await pdfManagerRef.current.generatePDF(
                     cardsWithSkippedSlots,
-                    enableCardBacks,
-                    defaultCardBack,
-                    Array.from(skipSlots)
+                    {
+                        enableCardBacks,
+                        groupByCardBacks,
+                        defaultCardBack,
+                        skipSlots: Array.from(skipSlots),
+                    }
                 );
 
                 setPdfUrl(pdfUrlResult);

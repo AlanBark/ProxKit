@@ -4,4 +4,8 @@ import type { CardImageData } from "./CardImageData";
 /**
  * Request from frontend for cardlist generation
  */
-export type CardListGenerationRequest = { cards: Array<CardImageData | null>, outputPath: string, pageWidth: number, pageHeight: number, cardWidth: number, cardHeight: number, outputBleed: number, enableCardBacks: boolean, defaultCardBackPath: string | null, };
+export type CardListGenerationRequest = { cards: Array<CardImageData | null>, outputPath: string, pageWidth: number, pageHeight: number, cardWidth: number, cardHeight: number, outputBleed: number, enableCardBacks: boolean, 
+/**
+ * Print a back page only for pages holding a card with its own back.
+ */
+groupByCardBacks: boolean, defaultCardBackPath: string | null, };

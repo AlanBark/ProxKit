@@ -6,7 +6,7 @@ import { useProjectSettingsStore } from "../stores/projectSettingsStore";
 import { useCardStore } from "../stores/cardStore";
 import { ImageIcon, ChevronLeft, ChevronRight, Ban, Check } from "lucide-react";
 import { Box } from "./Box";
-import { layoutPages } from "../utils/pdf/cardLayoutUtils";
+import { formatPageRanges, layoutPages, pageNeedsBackPage, slotsToCards, splitDuplexPages } from "../utils/pdf/cardLayoutUtils";
 import { motion, AnimatePresence } from "framer-motion";
 
 // @TODO dynamic somehow
@@ -25,12 +25,32 @@ export function CardList() {
     const cardHeight = useProjectSettingsStore((state) => state.cardHeight);
     const skipSlots = useProjectSettingsStore((state) => state.skipSlots);
     const toggleSkipSlot = useProjectSettingsStore((state) => state.toggleSkipSlot);
+    const enableCardBacks = useProjectSettingsStore((state) => state.enableCardBacks);
+    const groupByCardBacks = useProjectSettingsStore((state) => state.groupByCardBacks);
 
     const pages = useMemo(
         () => layoutPages(cardOrder, cardMap, skipSlots),
         [cardOrder, cardMap, skipSlots]
     );
     const totalPages = pages.length;
+
+    // Which pages will have a back page behind them. The point of grouping is
+    // knowing this before you get to the printer, so it is worth showing here
+    // rather than leaving it to be counted off the finished PDF.
+    const printPlan = useMemo(() => {
+        const needsBack = pages.map((page) =>
+            pageNeedsBackPage(slotsToCards([page]), enableCardBacks, groupByCardBacks)
+        );
+        return splitDuplexPages(needsBack);
+    }, [pages, enableCardBacks, groupByCardBacks]);
+
+    // Only worth saying when the run is actually mixed; if every page is the
+    // same there is nothing for the user to sort out at the printer.
+    const showPrintPlan =
+        enableCardBacks &&
+        groupByCardBacks &&
+        printPlan.duplex.length > 0 &&
+        printPlan.single.length > 0;
 
     const handleWheel = (e: React.WheelEvent) => {
         const delta = e.deltaY;
@@ -219,6 +239,12 @@ export function CardList() {
                                 className="cursor-pointer"
                             />
                         </div>
+                    }
+                    {showPrintPlan &&
+                        <p className="text-xs text-default-500 text-center pt-1">
+                            In the PDF, print {formatPageRanges(printPlan.duplex)} double-sided
+                            and {formatPageRanges(printPlan.single)} single-sided.
+                        </p>
                     }
                 </Box>
             </div>

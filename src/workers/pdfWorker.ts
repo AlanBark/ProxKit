@@ -19,6 +19,7 @@ import {
     // GRID_COLS,
     type GridLayout,
     type CardPosition,
+    pageNeedsBackPage,
 } from "../utils/pdf/cardLayoutUtils";
 
 /**
@@ -310,6 +311,7 @@ async function generateChunk(
     cardHeight: number,
     outputBleed: number,
     enableCardBacks: boolean,
+    groupByCardBacks: boolean,
     defaultCardBack: ImageSource | null,
     skipSlots: number[],
     requestId: string
@@ -418,8 +420,9 @@ async function generateChunk(
 
         actualPageNum++;
 
-        // If card backs are enabled, add a back page immediately after this front page
-        if (enableCardBacks) {
+        // A back page goes immediately after its front page, so the two stay a
+        // duplex pair. Which pages get one is pageNeedsBackPage's call.
+        if (pageNeedsBackPage(pageCards, enableCardBacks, groupByCardBacks)) {
             // Add a new page for the backs
             pdf.addPage([pageSettings.height, pageSettings.width], 'landscape');
 
@@ -496,7 +499,7 @@ self.addEventListener('message', async (event: MessageEvent<PDFWorkerMessage>) =
 
     switch (message.type) {
         case PDFWorkerMessageType.GENERATE_PDF: {
-            const { cards, pageSettings, cardWidth, cardHeight, outputBleed, enableCardBacks, defaultCardBack, skipSlots, requestId } = message.payload;
+            const { cards, pageSettings, cardWidth, cardHeight, outputBleed, enableCardBacks, groupByCardBacks, defaultCardBack, skipSlots, requestId } = message.payload;
 
             // Store current request ID and reset cancellation flag
             currentRequestId = requestId;
@@ -511,6 +514,7 @@ self.addEventListener('message', async (event: MessageEvent<PDFWorkerMessage>) =
                     cardHeight,
                     outputBleed,
                     enableCardBacks,
+                    groupByCardBacks,
                     defaultCardBack,
                     skipSlots,
                     requestId

@@ -115,6 +115,93 @@ export function layoutPages(
 }
 
 /**
+ * Whether a page's cards need a back page printed behind them.
+ *
+ * With `groupByCardBacks` off this is just `enableCardBacks` - a back page
+ * follows every front page, as it always has. With it on, only a page holding
+ * at least one card with its own back gets one, which is what splits a long
+ * order into a short double-sided run and a longer single-sided one. The
+ * grouping sort is what makes that run contiguous rather than scattered.
+ *
+ * Note that a card's own back is what counts, not the order's shared back: if
+ * the shared back decided this, every page would need one and nothing would be
+ * saved. The shared back still fills the other slots on the pages that are
+ * being printed double-sided anyway.
+ *
+ * Mirrored in the Rust pipeline - see page_needs_back_page in
+ * commands/cardlist_generation.rs.
+ */
+export function pageNeedsBackPage(
+    pageCards: (CardImage | null)[],
+    enableCardBacks: boolean,
+    groupByCardBacks: boolean
+): boolean {
+    if (!enableCardBacks) return false;
+    if (!groupByCardBacks) return true;
+    return pageCards.some((card) => card?.cardBack !== undefined);
+}
+
+/**
+ * Collapses page numbers into ranges: [1,2,3,7] becomes "1-3, 7".
+ *
+ * Expects ascending input. Meant for telling someone which pages to type into a
+ * print dialog, which is why it reads as ranges rather than a list.
+ */
+export function formatPageRanges(pageNumbers: number[]): string {
+    const ranges: string[] = [];
+    let start: number | null = null;
+    let previous: number | null = null;
+
+    const flush = () => {
+        if (start === null || previous === null) return;
+        ranges.push(start === previous ? `${start}` : `${start}-${previous}`);
+    };
+
+    for (const page of pageNumbers) {
+        if (previous !== null && page === previous + 1) {
+            previous = page;
+            continue;
+        }
+        flush();
+        start = page;
+        previous = page;
+    }
+    flush();
+
+    return ranges.join(", ");
+}
+
+/**
+ * Splits a run of pages into the printed page numbers that need duplex and
+ * those that do not.
+ *
+ * A page that needs a back takes two sheets' worth of output, so the printed
+ * numbering drifts from the page numbering as soon as some pages are skipped.
+ * This resolves that drift once, here, rather than asking the user to work it
+ * out from a PDF.
+ */
+export function splitDuplexPages(needsBack: boolean[]): {
+    duplex: number[];
+    single: number[];
+} {
+    const duplex: number[] = [];
+    const single: number[] = [];
+    let printed = 1;
+
+    for (const isDuplex of needsBack) {
+        if (isDuplex) {
+            duplex.push(printed, printed + 1);
+            printed += 2;
+        } else {
+            single.push(printed);
+            printed += 1;
+        }
+    }
+
+    return { duplex, single };
+}
+
+/**
  * Flattens a layout for the generators, which want one array of cards and gaps.
  *
  * Skipped and empty slots both become null: to a renderer they are simply

@@ -79,10 +79,16 @@ export async function downloadImageFromDrive(
 /**
  * Downloads multiple images from Google Drive with progress tracking
  * Downloads in parallel with concurrency limit and staggered starts
+ *
+ * One image failing is reported through `onFileFailed` and does not stop the
+ * rest: a Drive id that has gone missing is a problem with that one card, not
+ * with the order it appears in. Nothing here rejects, which is also what keeps
+ * the `Promise.race` below from abandoning downloads that are still in flight.
  */
 export async function downloadMultipleImages(
     fileIds: { id: string; name: string }[],
-    onFileDownloaded?: (file: File, id: string, index: number) => void
+    onFileDownloaded?: (file: File, id: string, index: number) => void,
+    onFileFailed?: (error: unknown, id: string, index: number) => void
 ): Promise<{ file: File; id: string }[]> {
     const CONCURRENCY_LIMIT = 20;
     const STAGGER_DELAY_MS = 50;
@@ -107,9 +113,13 @@ export async function downloadMultipleImages(
             const fileInfo = queue.shift()!;
             const index = currentIndex++;
 
-            const downloadPromise = downloadFile(fileInfo, index).finally(() => {
-                activeDownloads.delete(downloadPromise);
-            });
+            const downloadPromise = downloadFile(fileInfo, index)
+                .catch((error: unknown) => {
+                    onFileFailed?.(error, fileInfo.id, index);
+                })
+                .finally(() => {
+                    activeDownloads.delete(downloadPromise);
+                });
 
             activeDownloads.add(downloadPromise);
 
@@ -125,5 +135,6 @@ export async function downloadMultipleImages(
         }
     }
 
-    return results;
+    // Failures leave holes, so drop them rather than hand back a sparse array.
+    return results.filter((result) => result !== undefined);
 }

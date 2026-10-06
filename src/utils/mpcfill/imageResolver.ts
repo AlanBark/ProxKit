@@ -10,6 +10,8 @@ export interface DriveImageRequest {
 
 export type ResolvedHandler = (source: ImageSource, id: string, index: number) => void;
 
+export type RejectedHandler = (error: unknown, id: string, index: number) => void;
+
 /** Matches the concurrency the browser downloader has always used. */
 const CONCURRENCY_LIMIT = 20;
 
@@ -21,16 +23,24 @@ const CONCURRENCY_LIMIT = 20;
  * the results can be handed straight to the PDF backend. Without one - the web
  * build, or a desktop user who skipped setup - it falls back to downloading
  * into memory, which still works but cannot be reused or printed on desktop.
+ *
+ * Resolves once every request has either produced a source or been reported to
+ * `onRejected`. An image that cannot be fetched - a deleted Drive file, a 404
+ * from the proxy - is that card's problem alone, so it never stops the others;
+ * the caller decides what to tell the user about what is missing.
  */
 export async function resolveDriveImages(
     requests: DriveImageRequest[],
     libraryFolder: string | null,
-    onResolved: ResolvedHandler
+    onResolved: ResolvedHandler,
+    onRejected: RejectedHandler
 ): Promise<void> {
     if (!isLibraryAvailable(libraryFolder)) {
-        await downloadMultipleImages(requests, (file, id, index) => {
-            onResolved(sourceFromFile(file), id, index);
-        });
+        await downloadMultipleImages(
+            requests,
+            (file, id, index) => onResolved(sourceFromFile(file), id, index),
+            onRejected
+        );
         return;
     }
 
@@ -42,8 +52,13 @@ export async function resolveDriveImages(
                 const index = next++;
                 if (index >= requests.length) return;
                 const { id, name } = requests[index];
-                const source = await fetchIntoLibrary(libraryFolder, id, name);
-                onResolved(source, id, index);
+                try {
+                    const source = await fetchIntoLibrary(libraryFolder, id, name);
+                    onResolved(source, id, index);
+                } catch (error) {
+                    // Keep this worker on the queue; the next id may be fine.
+                    onRejected(error, id, index);
+                }
             }
         }
     );

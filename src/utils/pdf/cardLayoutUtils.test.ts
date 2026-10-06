@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { layoutPages, slotsToCards, CARDS_PER_PAGE } from "./cardLayoutUtils";
+import {
+    layoutPages,
+    slotsToCards,
+    pageNeedsBackPage,
+    formatPageRanges,
+    splitDuplexPages,
+    CARDS_PER_PAGE,
+} from "./cardLayoutUtils";
 import type { CardImage } from "../../types/card";
 
 function makeCard(id: string): CardImage {
@@ -112,5 +119,73 @@ describe("slotsToCards", () => {
         const flat = slotsToCards(layoutPages(cardOrder, cardMap, new Set()));
         expect(flat.length % CARDS_PER_PAGE).toBe(0);
         expect(flat.filter(Boolean)).toHaveLength(10);
+    });
+});
+
+/** A card carrying its own back image, as a double-faced card would. */
+function makeCardWithBack(id: string): CardImage {
+    return { ...makeCard(id), cardBack: { kind: "path", path: `/backs/${id}.png` } };
+}
+
+describe("pageNeedsBackPage", () => {
+    it("never needs one when card backs are switched off", () => {
+        expect(pageNeedsBackPage([makeCardWithBack("a")], false, true)).toBe(false);
+        expect(pageNeedsBackPage([makeCardWithBack("a")], false, false)).toBe(false);
+    });
+
+    it("needs one on every page when grouping is off", () => {
+        expect(pageNeedsBackPage([makeCard("a")], true, false)).toBe(true);
+        expect(pageNeedsBackPage([null, null], true, false)).toBe(true);
+    });
+
+    it("needs one only where a card brings its own back", () => {
+        expect(pageNeedsBackPage([makeCard("a"), makeCard("b")], true, true)).toBe(false);
+        expect(pageNeedsBackPage([makeCard("a"), makeCardWithBack("b")], true, true)).toBe(true);
+    });
+
+    it("ignores empty slots rather than treating them as backless cards", () => {
+        expect(pageNeedsBackPage([null, makeCardWithBack("a"), null], true, true)).toBe(true);
+        expect(pageNeedsBackPage([null, null], true, true)).toBe(false);
+    });
+});
+
+describe("splitDuplexPages", () => {
+    it("counts a duplex page as two printed pages", () => {
+        expect(splitDuplexPages([true, true])).toEqual({ duplex: [1, 2, 3, 4], single: [] });
+    });
+
+    it("shifts later page numbers by the backs printed before them", () => {
+        // Two duplex pages occupy printed pages 1-4, so the first single-sided
+        // page is 5 rather than 3.
+        expect(splitDuplexPages([true, true, false, false])).toEqual({
+            duplex: [1, 2, 3, 4],
+            single: [5, 6],
+        });
+    });
+
+    it("handles a single-sided page appearing first", () => {
+        expect(splitDuplexPages([false, true])).toEqual({ duplex: [2, 3], single: [1] });
+    });
+
+    it("returns nothing for no pages", () => {
+        expect(splitDuplexPages([])).toEqual({ duplex: [], single: [] });
+    });
+});
+
+describe("formatPageRanges", () => {
+    it("collapses consecutive pages into a range", () => {
+        expect(formatPageRanges([1, 2, 3, 4])).toBe("1-4");
+    });
+
+    it("keeps separate runs apart", () => {
+        expect(formatPageRanges([1, 2, 3, 7, 9, 10])).toBe("1-3, 7, 9-10");
+    });
+
+    it("renders a lone page without a dash", () => {
+        expect(formatPageRanges([5])).toBe("5");
+    });
+
+    it("is empty for no pages", () => {
+        expect(formatPageRanges([])).toBe("");
     });
 });

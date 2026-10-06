@@ -1,5 +1,5 @@
 import type { ImageSource } from "../types/card";
-import { blobSource } from "./imageSource";
+import { blobSource, sourceIdentity } from "./imageSource";
 import { generateThumbnailAsync } from "./asyncThumbnailGeneration";
 import { findCachedThumbnail, cacheThumbnail, isLibraryAvailable } from "./library";
 import { basename } from "./paths";
@@ -46,7 +46,7 @@ function hashPath(value: string): string {
  * needs to stay valid.
  */
 export function thumbnailKeyFor(source: ImageSource, params: ThumbnailParams): string {
-    const identity = source.kind === "path" ? source.path : source.url;
+    const identity = sourceIdentity(source);
     const name = source.kind === "path"
         ? basename(source.path).replace(/\.[^.]+$/, "")
         : "memory";

@@ -5,7 +5,22 @@ import {
     type PDFWorkerMessage,
 } from "./workerTypes";
 import { PDFDocument } from "pdf-lib";
+
+/**
+ * The back-page choices a generation run was made with.
+ *
+ * Bundled because they travel together through generatePDF, the cache key and
+ * the worker payload, and because adding one as a fifth positional boolean is
+ * how the cache came to ignore them in the first place.
+ */
+export interface BackPageOptions {
+    enableCardBacks: boolean;
+    groupByCardBacks: boolean;
+    defaultCardBack: ImageSource | null;
+    skipSlots: number[];
+}
 import { CARDS_PER_PAGE } from "./cardLayoutUtils";
+import { sourceIdentity } from "../imageSource";
 
 /**
  * Progress callback for PDF generation
@@ -191,12 +206,25 @@ export class PDFManager {
     /**
      * Generate a hash of the cards array for cache invalidation
      */
-    private hashCards(cards: (CardImage | null)[]): string {
+    private hashCards(cards: (CardImage | null)[], options: BackPageOptions): string {
         const cardData = cards.map((card) => {
             if (card === null) return "null";
-            return `${card.id}-${card.bleed}`;
+            // The back matters as much as the front: a card gaining its own back
+            // can change which pages are printed double-sided.
+            const back = card.cardBack ? sourceIdentity(card.cardBack) : "none";
+            return `${card.id}-${card.bleed}-${back}-${card.cardBackBleed}`;
         });
-        return JSON.stringify(cardData);
+
+        // Everything that changes the output, not just the cards. These were
+        // missing, so toggling card backs and regenerating returned the
+        // previous PDF from the cache.
+        return JSON.stringify({
+            cards: cardData,
+            enableCardBacks: options.enableCardBacks,
+            groupByCardBacks: options.groupByCardBacks,
+            defaultCardBack: options.defaultCardBack ? sourceIdentity(options.defaultCardBack) : "none",
+            skipSlots: [...options.skipSlots].sort((a, b) => a - b),
+        });
     }
 
     /**
@@ -226,17 +254,16 @@ export class PDFManager {
      * - Main thread merges PDFs using pdf-lib
      *
      * @param cards Array of cards (null = blank placeholder)
-     * @param enableCardBacks Whether to generate card back pages
-     * @param defaultCardBack Default card back image
-     * @param skipSlots Array of slot indices to skip (0-7 for 8-card grid)
+     * @param options Card back choices; see BackPageOptions
      * @returns Promise resolving to blob URL of generated PDF
      */
-    public async generatePDF(cards: (CardImage | null)[], enableCardBacks: boolean = false, defaultCardBack: ImageSource | null = null, skipSlots: number[] = []): Promise<string> {
+    public async generatePDF(cards: (CardImage | null)[], options: BackPageOptions): Promise<string> {
+        const { enableCardBacks, groupByCardBacks, defaultCardBack, skipSlots } = options;
         const startTime = performance.now();
         console.log(`[PDFManager] Starting PDF generation for ${cards.length} cards`);
 
         // Check cache
-        const cardsHash = this.hashCards(cards);
+        const cardsHash = this.hashCards(cards, options);
         if (this.cachedPdfUrls.length > 0 && this.cachedCardsHash === cardsHash) {
             console.log(`[PDFManager] Cache hit, returning cached PDF`);
             return this.cachedPdfUrls[0];
@@ -353,6 +380,7 @@ export class PDFManager {
                             cardHeight: this.cardHeight,
                             outputBleed: this.outputBleed,
                             enableCardBacks: enableCardBacks,
+                            groupByCardBacks: groupByCardBacks,
                             defaultCardBack: defaultCardBack,
                             skipSlots: skipSlots,
                             requestId: chunkRequestId,

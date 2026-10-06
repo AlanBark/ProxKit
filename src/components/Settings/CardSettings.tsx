@@ -25,8 +25,8 @@ function CardSettings() {
     const setEnableCardBacks = useProjectSettingsStore((state) => state.setEnableCardBacks);
     const defaultCardBack = useProjectSettingsStore((state) => state.defaultCardBack);
     const defaultCardBackThumbnail = useCardStore((state) => state.defaultCardBackThumbnail);
-    // const groupByCardBacks = useProjectSettingsStore((state) => state.groupByCardBacks);
-    // const setGroupByCardBacks = useProjectSettingsStore((state) => state.setGroupByCardBacks);
+    const groupByCardBacks = useProjectSettingsStore((state) => state.groupByCardBacks);
+    const setGroupByCardBacks = useProjectSettingsStore((state) => state.setGroupByCardBacks);
     const showAllCardBacks = useProjectSettingsStore((state) => state.showAllCardBacks);
     const setShowAllCardBacks = useProjectSettingsStore((state) => state.setShowAllCardBacks);
 
@@ -224,6 +224,30 @@ function CardSettings() {
                                         className="max-w-sm"
                                     />
                                     <p className="text-sm">When printing on a single sided printer, flip the page so that the <br></br>black square is in the top right, facing away from you.</p>
+                                </div>
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                        <Checkbox
+                            isSelected={groupByCardBacks}
+                            onValueChange={setGroupByCardBacks}
+                            isDisabled={!enableCardBacks}
+                            size="sm"
+                        >
+                            Group Double-Sided Cards
+                        </Checkbox>
+                        <Popover placement="right" showArrow={true} backdrop='blur'>
+                            <PopoverTrigger>
+                                <button className="text-default-400 hover:text-default-600 transition cursor-pointer">
+                                    <CircleHelp className="w-4 h-4" />
+                                </button>
+                            </PopoverTrigger>
+                            <PopoverContent className="border-1">
+                                <div className="p-3 flex flex-col gap-2 max-w-sm">
+                                    <h2 className={`font-bold ${textStyles.primary}`}>Group Double-Sided Cards</h2>
+                                    <p className="text-sm">Moves every card that has its own back to the front of the order, then prints a back page only for the pages those cards land on.</p>
+                                    <p className="text-sm">The rest print one page per sheet, so a long order splits into a short double-sided run followed by a single-sided one.</p>
                                 </div>
                             </PopoverContent>
                         </Popover>
