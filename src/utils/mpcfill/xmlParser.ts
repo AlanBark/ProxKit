@@ -27,13 +27,7 @@ export function parseMPCFillXML(xmlContent: string): MPCFillParseResult {
         const backs = parseBackCards(xmlDoc, errors);
 
         // Create cards array by combining fronts with their matching backs
-        const cards: MPCFillCard[] = Array.from(fronts.entries()).map(([slot, frontCard]) => {
-            const backCard = backs.get(slot);
-            return {
-                ...frontCard,
-                backId: backCard?.id
-            };
-        });
+        const cards = pairFrontsWithBacks(fronts, backs);
 
         // Parse default card back
         const cardback = parseCardBack(xmlDoc, errors);
@@ -54,9 +48,45 @@ export function parseMPCFillXML(xmlContent: string): MPCFillParseResult {
     }
 }
 
-function parseFrontCards(xmlDoc: Document, errors: string[]): Map<number, MPCFillCard> {
+/**
+ * Reads a <slots> value. MPCFill lists every slot a card fills in one
+ * comma-separated value, so "0,1,2" is three copies of the same card.
+ */
+function parseSlots(slotsText: string | undefined): number[] {
+    if (!slotsText) return [];
+    return slotsText
+        .split(',')
+        .map(slot => parseInt(slot.trim(), 10))
+        .filter(slot => Number.isInteger(slot) && slot >= 0)
+        .sort((a, b) => a - b);
+}
 
-    const cards = new Map<number, MPCFillCard>();
+/**
+ * Gives each front the unique back from its slots.
+ *
+ * Copies of a front normally share a back, so they stay one card filling
+ * several slots. A front whose copies were given different backs splits into
+ * one card per back, since a card only carries one.
+ */
+function pairFrontsWithBacks(fronts: MPCFillCard[], backs: Map<number, MPCFillCard>): MPCFillCard[] {
+    return fronts.flatMap(front => {
+        const slotsByBack = new Map<string | undefined, number[]>();
+        for (const slot of front.slots) {
+            const backId = backs.get(slot)?.id;
+            const slots = slotsByBack.get(backId);
+            if (slots) {
+                slots.push(slot);
+            } else {
+                slotsByBack.set(backId, [slot]);
+            }
+        }
+        return Array.from(slotsByBack, ([backId, slots]) => ({ ...front, backId, slots }));
+    });
+}
+
+function parseFrontCards(xmlDoc: Document, errors: string[]): MPCFillCard[] {
+
+    const cards: MPCFillCard[] = [];
     const frontsElement = xmlDoc.querySelector('fronts');
 
     if (!frontsElement) {
@@ -81,16 +111,23 @@ function parseFrontCards(xmlDoc: Document, errors: string[]): Map<number, MPCFil
             errors.push(`Card at index ${index} is missing a <name> element`);
         }
 
-        const slots = parseInt(slotsText || '0', 10);
+        const slots = parseSlots(slotsText);
 
-        cards.set( slots, {
+        if (slots.length === 0) {
+            errors.push(`Card at index ${index} is missing a <slots> element`);
+            return;
+        }
+
+        cards.push({
             id,
             name: name || `Card ${index + 1}`,
-            query
+            query,
+            slots
         });
     });
 
-    return cards;
+    // Download in the order the cards appear, not the order they were listed
+    return cards.sort((a, b) => a.slots[0] - b.slots[0]);
 }
 
 function parseBackCards(xmlDoc: Document, errors: string[]): Map<number, MPCFillCard> {
@@ -116,18 +153,22 @@ function parseBackCards(xmlDoc: Document, errors: string[]): Map<number, MPCFill
             return;
         }
 
-        if (typeof slotsText !== 'string') {
+        const slots = parseSlots(slotsText);
+
+        if (slots.length === 0) {
             errors.push(`Back card at index ${index} is missing a <slots> element`);
             return;
         }
 
-        const slots = parseInt(slotsText, 10);
-
-        cards.set(slots, {
+        const backCard: MPCFillCard = {
             id,
             name: name || `Card Back ${index + 1}`,
-            query
-        });
+            query,
+            slots
+        };
+        for (const slot of slots) {
+            cards.set(slot, backCard);
+        }
     });
 
     return cards;

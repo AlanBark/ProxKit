@@ -128,11 +128,12 @@ export function XMLUpload() {
         }
 
         // Create placeholder cards immediately with skeleton state
-        const placeholderCardIds = parseResult.order.cards.map(() => crypto.randomUUID());
+        const { cards } = parseResult.order;
+        const placeholderCardIds = cards.map(() => crypto.randomUUID());
         const newCardMap = new Map(cardMap);
         const newCardOrder = [...cardOrder];
 
-        parseResult.order.cards.forEach((card, index) => {
+        cards.forEach((card, index) => {
             const cardId = placeholderCardIds[index];
             newCardMap.set(cardId, {
                 id: cardId,
@@ -144,8 +145,14 @@ export function XMLUpload() {
                 cardBackBleed: defaultCardBackBleed,
                 useCustomCardBackBleed: false,
             });
-            newCardOrder.push(cardId);
         });
+
+        // Each copy is the same card placed again, as duplicating one in the
+        // app does, so copies are downloaded once and share their artwork.
+        const slotOrder = cards
+            .flatMap((card, index) => card.slots.map(slot => ({ slot, cardId: placeholderCardIds[index] })))
+            .sort((a, b) => a.slot - b.slot);
+        newCardOrder.push(...slotOrder.map(({ cardId }) => cardId));
 
         setCardMap(newCardMap);
         setCardOrder(newCardOrder);

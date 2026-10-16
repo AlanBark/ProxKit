@@ -3,6 +3,8 @@ export interface MPCFillCard {
     name: string;
     query?: string;
     backId?: string; // Optional unique back for this card
+    /** Every position in the order this card fills, ascending - one per copy. */
+    slots: number[];
 }
 
 export interface MPCFillOrder {
