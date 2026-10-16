@@ -16,38 +16,29 @@ function card(id: string, slots: string): string {
 }
 
 describe("parseMPCFillXML", () => {
-    it("keeps every copy of a card listed under one <slots>", () => {
+    it("makes a card for every copy listed under one <slots>", () => {
         const { order: parsed, errors } = parseMPCFillXML(order(card("island", "0,1,2")));
 
         expect(errors).toEqual([]);
-        expect(parsed.cards).toHaveLength(1);
-        expect(parsed.cards[0]).toMatchObject({ id: "island", slots: [0, 1, 2] });
+        expect(parsed.cards.map(c => c.id)).toEqual(["island", "island", "island"]);
     });
 
-    it("orders cards by the first slot they fill", () => {
+    it("orders cards by slot, not by where they are listed", () => {
         const { order: parsed } = parseMPCFillXML(order(card("forest", "1, 3") + card("island", "2,0")));
 
-        expect(parsed.cards.map(c => [c.id, c.slots])).toEqual([
-            ["island", [0, 2]],
-            ["forest", [1, 3]],
-        ]);
+        expect(parsed.cards.map(c => c.id)).toEqual(["island", "forest", "island", "forest"]);
     });
 
     it("gives a unique back to every copy whose slot it lists", () => {
         const { order: parsed } = parseMPCFillXML(order(card("dfc", "0,1"), card("dfc-back", "0,1")));
 
-        expect(parsed.cards).toHaveLength(1);
-        expect(parsed.cards[0]).toMatchObject({ id: "dfc", backId: "dfc-back", slots: [0, 1] });
+        expect(parsed.cards.map(c => c.backId)).toEqual(["dfc-back", "dfc-back"]);
     });
 
-    it("splits copies of a front that were given different backs", () => {
+    it("lets copies of a front carry different backs", () => {
         const { order: parsed } = parseMPCFillXML(order(card("dfc", "0,1,2"), card("back-a", "0") + card("back-b", "2")));
 
-        expect(parsed.cards.map(c => [c.backId, c.slots])).toEqual([
-            ["back-a", [0]],
-            [undefined, [1]],
-            ["back-b", [2]],
-        ]);
+        expect(parsed.cards.map(c => c.backId)).toEqual(["back-a", undefined, "back-b"]);
     });
 
     it("reports a front with no slots instead of placing it at slot 0", () => {

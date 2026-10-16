@@ -18,12 +18,18 @@ export interface ImportFailure {
 const MAX_LISTED_FAILURES = 8;
 
 function describeFailures(failures: ImportFailure[], total: number): string {
-    const listed = failures.slice(0, MAX_LISTED_FAILURES).map((failure) => {
+    // Copies of a card share an image and so fail together; name each once.
+    const counts = new Map<string, number>();
+    for (const failure of failures) {
         const suffix = failure.face === 'front' ? '' : ` (${failure.face})`;
-        return `  ${failure.cardName}${suffix}`;
-    });
-    if (failures.length > listed.length) {
-        listed.push(`  ...and ${failures.length - listed.length} more`);
+        const line = `${failure.cardName}${suffix}`;
+        counts.set(line, (counts.get(line) ?? 0) + 1);
+    }
+    const lines = Array.from(counts, ([line, count]) => `  ${line}${count > 1 ? ` x${count}` : ''}`);
+
+    const listed = lines.slice(0, MAX_LISTED_FAILURES);
+    if (lines.length > listed.length) {
+        listed.push(`  ...and ${lines.length - listed.length} more`);
     }
 
     return [

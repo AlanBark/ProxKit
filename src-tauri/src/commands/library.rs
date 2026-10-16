@@ -2,6 +2,7 @@ use base64::Engine;
 use serde::Serialize;
 use ts_rs::TS;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 /// Google Apps Script proxy that serves Drive-hosted card art as base64 text.
 /// Mirrors the endpoint the web build fetches directly.
@@ -58,6 +59,40 @@ fn extension_for(bytes: &[u8]) -> &'static str {
     } else {
         "jpg"
     }
+}
+
+/// Keeps temporary files written at the same moment from sharing a name.
+static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+/// Writes a library file so that no reader ever sees it half-written.
+///
+/// The bytes go to a temporary file beside the target, which is then renamed
+/// over it in one step. Writing the target directly let two writers of the same
+/// image - copies of a card rendering one thumbnail, a project reopening while
+/// an order downloads - truncate a file the other had already handed out.
+///
+/// Only for files named by their content (a Drive id, a thumbnail key): if the
+/// rename fails because another writer got there first, theirs is the same
+/// image and is kept. The temporary name has no "(id)" token, so
+/// `find_by_drive_id` never returns a file still being written.
+fn write_atomically(target: &Path, bytes: &[u8]) -> Result<(), String> {
+    let dir = target.parent().unwrap_or_else(|| Path::new("."));
+    let temp = dir.join(format!(
+        ".partial-{}-{}.tmp",
+        std::process::id(),
+        TEMP_COUNTER.fetch_add(1, Ordering::Relaxed)
+    ));
+
+    std::fs::write(&temp, bytes)
+        .map_err(|e| format!("Could not write {}: {}", temp.display(), e))?;
+
+    if let Err(e) = std::fs::rename(&temp, target) {
+        let _ = std::fs::remove_file(&temp);
+        if !target.is_file() {
+            return Err(format!("Could not write {}: {}", target.display(), e));
+        }
+    }
+    Ok(())
 }
 
 /// Finds a library file for this Drive id.
@@ -153,8 +188,7 @@ pub async fn library_fetch(
     let stem = sanitize_filename(strip_image_extension(&name));
     let target = dir.join(format!("{} ({}).{}", stem, drive_id, extension_for(&bytes)));
 
-    std::fs::write(&target, &bytes)
-        .map_err(|e| format!("Could not write {}: {}", target.display(), e))?;
+    write_atomically(&target, &bytes)?;
 
     Ok(target.to_string_lossy().into_owned())
 }
@@ -188,8 +222,7 @@ pub fn thumbnail_save(folder: String, key: String, data: String) -> Result<Strin
     }
 
     let bytes = decode_base64_image(&data)?;
-    std::fs::write(&path, &bytes)
-        .map_err(|e| format!("Could not write {}: {}", path.display(), e))?;
+    write_atomically(&path, &bytes)?;
 
     Ok(path.to_string_lossy().into_owned())
 }
@@ -343,6 +376,30 @@ mod tests {
 
         assert_eq!(find_by_drive_id(&dir, "ABC123"), Some(file));
         assert_eq!(find_by_drive_id(&dir, "NOPE"), None);
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn concurrent_writes_of_one_file_leave_it_whole_and_no_temp_behind() {
+        let dir = std::env::temp_dir().join("proxkit_atomic_write_test");
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let target = dir.join("Island (ABC123).jpg");
+        let bytes = vec![7u8; 256 * 1024];
+
+        std::thread::scope(|scope| {
+            for _ in 0..8 {
+                scope.spawn(|| write_atomically(&target, &bytes).unwrap());
+            }
+        });
+
+        assert_eq!(std::fs::read(&target).unwrap(), bytes);
+        let names: Vec<_> = std::fs::read_dir(&dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name())
+            .collect();
+        assert_eq!(names, vec!["Island (ABC123).jpg"]);
 
         let _ = std::fs::remove_dir_all(&dir);
     }

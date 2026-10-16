@@ -12,7 +12,8 @@ function createTauriStorage(fileName: string): StateStorage {
 
     async function loadStore() {
         const { load } = await import("@tauri-apps/plugin-store");
-        return load(fileName, { autoSave: false });
+        // Plugin 2.4.2 types `defaults` as required; an empty map adds nothing.
+        return load(fileName, { defaults: {}, autoSave: false });
     }
 
     const store = () => (handle ??= loadStore());

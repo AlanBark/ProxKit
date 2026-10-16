@@ -26,8 +26,17 @@ export function parseMPCFillXML(xmlContent: string): MPCFillParseResult {
         // Parse per-card backs
         const backs = parseBackCards(xmlDoc, errors);
 
-        // Create cards array by combining fronts with their matching backs
-        const cards = pairFrontsWithBacks(fronts, backs);
+        // Create cards array by combining fronts with their matching backs,
+        // in slot order: a card ordered three times is three cards here
+        const cards: MPCFillCard[] = Array.from(fronts.entries())
+            .sort(([a], [b]) => a - b)
+            .map(([slot, frontCard]) => {
+                const backCard = backs.get(slot);
+                return {
+                    ...frontCard,
+                    backId: backCard?.id
+                };
+            });
 
         // Parse default card back
         const cardback = parseCardBack(xmlDoc, errors);
@@ -57,36 +66,12 @@ function parseSlots(slotsText: string | undefined): number[] {
     return slotsText
         .split(',')
         .map(slot => parseInt(slot.trim(), 10))
-        .filter(slot => Number.isInteger(slot) && slot >= 0)
-        .sort((a, b) => a - b);
+        .filter(slot => Number.isInteger(slot) && slot >= 0);
 }
 
-/**
- * Gives each front the unique back from its slots.
- *
- * Copies of a front normally share a back, so they stay one card filling
- * several slots. A front whose copies were given different backs splits into
- * one card per back, since a card only carries one.
- */
-function pairFrontsWithBacks(fronts: MPCFillCard[], backs: Map<number, MPCFillCard>): MPCFillCard[] {
-    return fronts.flatMap(front => {
-        const slotsByBack = new Map<string | undefined, number[]>();
-        for (const slot of front.slots) {
-            const backId = backs.get(slot)?.id;
-            const slots = slotsByBack.get(backId);
-            if (slots) {
-                slots.push(slot);
-            } else {
-                slotsByBack.set(backId, [slot]);
-            }
-        }
-        return Array.from(slotsByBack, ([backId, slots]) => ({ ...front, backId, slots }));
-    });
-}
+function parseFrontCards(xmlDoc: Document, errors: string[]): Map<number, MPCFillCard> {
 
-function parseFrontCards(xmlDoc: Document, errors: string[]): MPCFillCard[] {
-
-    const cards: MPCFillCard[] = [];
+    const cards = new Map<number, MPCFillCard>();
     const frontsElement = xmlDoc.querySelector('fronts');
 
     if (!frontsElement) {
@@ -118,16 +103,17 @@ function parseFrontCards(xmlDoc: Document, errors: string[]): MPCFillCard[] {
             return;
         }
 
-        cards.push({
+        const frontCard: MPCFillCard = {
             id,
             name: name || `Card ${index + 1}`,
-            query,
-            slots
-        });
+            query
+        };
+        for (const slot of slots) {
+            cards.set(slot, frontCard);
+        }
     });
 
-    // Download in the order the cards appear, not the order they were listed
-    return cards.sort((a, b) => a.slots[0] - b.slots[0]);
+    return cards;
 }
 
 function parseBackCards(xmlDoc: Document, errors: string[]): Map<number, MPCFillCard> {
@@ -163,8 +149,7 @@ function parseBackCards(xmlDoc: Document, errors: string[]): Map<number, MPCFill
         const backCard: MPCFillCard = {
             id,
             name: name || `Card Back ${index + 1}`,
-            query,
-            slots
+            query
         };
         for (const slot of slots) {
             cards.set(slot, backCard);
