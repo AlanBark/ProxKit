@@ -21,6 +21,7 @@ const settings: ProjectSettings = {
     groupByCardBacks: false,
     showAllCardBacks: false,
     skipSlots: [3],
+    cardSpacing: 2,
 };
 
 function libraryCard(id: string, name: string, driveId?: string): CardImage {

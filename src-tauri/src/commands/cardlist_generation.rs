@@ -51,6 +51,10 @@ pub struct CardListGenerationRequest {
     pub card_width: f32,
     pub card_height: f32,
     pub output_bleed: f32,
+    /// Distance between neighbouring cards' cut lines, in mm. The frontend has
+    /// already held it to what the page allows - see cardSpacingRange in
+    /// utils/pdf/cardLayoutUtils.ts.
+    pub card_spacing: f32,
     pub enable_card_backs: bool,
     /// Print a back page only for pages holding a card with its own back.
     pub group_by_card_backs: bool,
@@ -86,6 +90,16 @@ fn calculate_grid_layout(
         cell_width: card_width,
         cell_height: card_height,
     }
+}
+
+/// The spacing to lay out with, in mm.
+///
+/// Each card prints `output_bleed` into the space between it and its
+/// neighbour, so anything under twice the bleed would print one card's bleed
+/// over the next card's artwork. The frontend never sends that, but this is the
+/// boundary, so it is held here too.
+fn effective_card_spacing(card_spacing: f32, output_bleed: f32) -> f32 {
+    card_spacing.max(2.0 * output_bleed)
 }
 
 /// Calculate the grid position for a card based on its slot index
@@ -163,9 +177,12 @@ pub async fn generate_cardlist(
     let page_width_pts = request.page_height * MM_TO_POINTS; // Landscape width
     let page_height_pts = request.page_width * MM_TO_POINTS; // Landscape height
 
-    // Card cell dimensions including output bleed
-    let cell_width_pts = (request.card_width + (2.0 * request.output_bleed)) * MM_TO_POINTS;
-    let cell_height_pts = (request.card_height + (2.0 * request.output_bleed)) * MM_TO_POINTS;
+    // Each cell is the card plus the spacing to its neighbour; pdf_utils centres
+    // the image (card plus output bleed on each side) inside it. Matches the
+    // cells pdfWorker.ts and dxfGenerator.ts use, so cuts land on the cards.
+    let card_spacing = effective_card_spacing(request.card_spacing, request.output_bleed);
+    let cell_width_pts = (request.card_width + card_spacing) * MM_TO_POINTS;
+    let cell_height_pts = (request.card_height + card_spacing) * MM_TO_POINTS;
 
     // Calculate centered grid layout
     let grid_layout = calculate_grid_layout(
@@ -359,4 +376,28 @@ pub async fn generate_cardlist(
         );
     })
     .await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn spacing_never_drops_below_twice_the_output_bleed() {
+        assert_eq!(effective_card_spacing(0.2, 0.5), 1.0);
+        assert_eq!(effective_card_spacing(1.0, 0.5), 1.0);
+        assert_eq!(effective_card_spacing(2.5, 0.5), 2.5);
+    }
+
+    #[test]
+    fn wider_spacing_keeps_the_grid_centred() {
+        // A4 landscape with MTG cards, in mm, at the default and a wider spacing.
+        for spacing in [1.0_f32, 2.5] {
+            let layout = calculate_grid_layout(297.0, 210.0, 63.0 + spacing, 88.0 + spacing);
+            let grid_width = layout.cell_width * GRID_COLS as f32;
+            let grid_height = layout.cell_height * GRID_ROWS as f32;
+            assert!((2.0 * layout.x + grid_width - 297.0).abs() < 1e-3);
+            assert!((2.0 * layout.y + grid_height - 210.0).abs() < 1e-3);
+        }
+    }
 }

@@ -3,6 +3,8 @@ import {
     calculateGridLayout,
     calculateAllCardRectangles,
     CARDS_PER_PAGE,
+    GRID_COLS,
+    GRID_ROWS,
     type CardRectangle,
 } from "./cardLayoutUtils";
 
@@ -304,7 +306,7 @@ export function generateDxfForPage(
  * @param pageSettings Page configuration
  * @param cardWidth Base card width (without bleed) in mm
  * @param cardHeight Base card height (without bleed) in mm
- * @param outputBleed Output bleed amount in mm
+ * @param cardSpacing Distance between neighbouring cut lines in mm, already clamped
  * @param skipSlots Array of slot indices to skip (0-7)
  * @param cornerRadius Corner radius in mm (default: MTG_CORNER_RADIUS)
  * @returns DXF file content as string
@@ -314,19 +316,17 @@ export function generateDxfForAllPages(
     pageSettings: PageSettings,
     cardWidth: number,
     cardHeight: number,
-    outputBleed: number,
+    cardSpacing: number,
     skipSlots: number[] = [],
     cornerRadius: number = MTG_CORNER_RADIUS
 ): string {
-    const gap = 0;
-
-    // Calculate grid layout - cells include the bleed around them
+    // Same cells as the PDF - the card plus the spacing to its neighbour - so
+    // the cut lines land on the printed cards' edges.
     const gridLayout = calculateGridLayout(
         pageSettings.height,
-        pageSettings.width, 
-        cardWidth + (2 * outputBleed),
-        cardHeight + (2 * outputBleed), 
-        gap 
+        pageSettings.width,
+        cardWidth + cardSpacing,
+        cardHeight + cardSpacing
     );
 
     // Generate page boundary rectangle (landscape orientation)
@@ -378,6 +378,80 @@ export function generateDxfForAllPages(
 }
 
 /**
+ * Generate a single straight cut as a DXF LINE entity
+ */
+function generateDxfLine(
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number,
+    layerName: string = "CUT_LINES"
+): string {
+    return `0
+LINE
+8
+${layerName}
+10
+${x1.toFixed(3)}
+20
+${y1.toFixed(3)}
+11
+${x2.toFixed(3)}
+21
+${y2.toFixed(3)}`;
+}
+
+/**
+ * Generate DXF content that cuts down the middle of every gap, out to the page
+ * edges, for Maximise Cut Space
+ *
+ * One line per gap instead of an outline per card: a full-height cut between
+ * each pair of columns and a full-width cut between the rows. Each card comes
+ * out on the largest piece it can - half the gap on its inner edges, the page
+ * margin on its outer ones - not trimmed to card size.
+ *
+ * @param pageSettings Page configuration
+ * @param cardWidth Base card width (without bleed) in mm
+ * @param cardHeight Base card height (without bleed) in mm
+ * @param cardSpacing Distance between neighbouring cards in mm, already clamped
+ * @returns DXF file content as string
+ */
+export function generateCentreLineDxf(
+    pageSettings: PageSettings,
+    cardWidth: number,
+    cardHeight: number,
+    cardSpacing: number
+): string {
+    // Landscape, as everywhere else
+    const sheetWidth = pageSettings.height;
+    const sheetHeight = pageSettings.width;
+
+    // Same cells as the PDF. Each card is centred in its cell, so the boundary
+    // between two cells is the middle of the gap between their cards.
+    const gridLayout = calculateGridLayout(
+        sheetWidth,
+        sheetHeight,
+        cardWidth + cardSpacing,
+        cardHeight + cardSpacing
+    );
+
+    const cuts: string[] = [];
+    for (let col = 1; col < GRID_COLS; col++) {
+        const x = gridLayout.x + col * gridLayout.cellWidth;
+        cuts.push(generateDxfLine(x, 0, x, sheetHeight));
+    }
+    for (let row = 1; row < GRID_ROWS; row++) {
+        const y = gridLayout.y + row * gridLayout.cellHeight;
+        cuts.push(generateDxfLine(0, y, sheetWidth, y));
+    }
+
+    const pageBoundary: CardRectangle = { x: 0, y: 0, width: sheetWidth, height: sheetHeight };
+    const pageBoundaryEntity = generateDxfRectangle(pageBoundary, "PAGE_BOUNDARY", 0);
+
+    return `${DXF_HEADER}\n${pageBoundaryEntity}\n${cuts.join('\n')}\n${DXF_FOOTER}`;
+}
+
+/**
  * Convert DXF string to Blob for download
  *
  * @param dxfContent DXF file content as string
@@ -385,39 +459,4 @@ export function generateDxfForAllPages(
  */
 export function dxfStringToBlob(dxfContent: string): Blob {
     return new Blob([dxfContent], { type: "application/dxf" });
-}
-
-/**
- * Generate DXF and create a downloadable URL
- *
- * @param cards Array of cards
- * @param pageSettings Page configuration
- * @param cardWidth Base card width in mm
- * @param cardHeight Base card height in mm
- * @param outputBleed Output bleed in mm
- * @param skipSlots Slots to skip
- * @param cornerRadius Corner radius in mm (default: MTG_CORNER_RADIUS)
- * @returns Object URL for the generated DXF file
- */
-export function generateDxfUrl(
-    cards: (CardImage | null)[],
-    pageSettings: PageSettings,
-    cardWidth: number,
-    cardHeight: number,
-    outputBleed: number,
-    skipSlots: number[] = [],
-    cornerRadius: number = MTG_CORNER_RADIUS
-): string {
-    const dxfContent = generateDxfForAllPages(
-        cards,
-        pageSettings,
-        cardWidth,
-        cardHeight,
-        outputBleed,
-        skipSlots,
-        cornerRadius
-    );
-
-    const blob = dxfStringToBlob(dxfContent);
-    return URL.createObjectURL(blob);
 }

@@ -54,6 +54,7 @@ export class PDFManager {
     private cardWidth: number;
     private cardHeight: number;
     private outputBleed: number;
+    private cardSpacing: number;
 
     /**
      * Optional callback for progress updates
@@ -67,12 +68,14 @@ export class PDFManager {
      * @param cardWidth Card width in mm
      * @param cardHeight Card height in mm
      * @param outputBleed Output bleed margin in mm
+     * @param cardSpacing Distance between neighbouring cards' cut lines in mm, already clamped
      */
-    constructor(pageSettings: PageSettings, cardWidth: number, cardHeight: number, outputBleed: number) {
+    constructor(pageSettings: PageSettings, cardWidth: number, cardHeight: number, outputBleed: number, cardSpacing: number) {
         this.pageSettings = pageSettings;
         this.cardWidth = cardWidth;
         this.cardHeight = cardHeight;
         this.outputBleed = outputBleed;
+        this.cardSpacing = cardSpacing;
     }
 
     /**
@@ -379,6 +382,7 @@ export class PDFManager {
                             cardWidth: this.cardWidth,
                             cardHeight: this.cardHeight,
                             outputBleed: this.outputBleed,
+                            cardSpacing: this.cardSpacing,
                             enableCardBacks: enableCardBacks,
                             groupByCardBacks: groupByCardBacks,
                             defaultCardBack: defaultCardBack,

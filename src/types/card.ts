@@ -4,7 +4,10 @@ export const CARD_DIMENSIONS = {
     height: 88, // 88mm
     // Standard bleed for MPC fills
     standardBleed: 3, // 3mm standard for MPCFill
-    outputBleed: 0.5
+    outputBleed: 0.5,
+    // Distance between neighbouring cards' cut lines. Twice outputBleed, so
+    // the bleeds just meet - the fixed layout from before spacing was a setting.
+    cardSpacing: 1,
 } as const;
 
 /**

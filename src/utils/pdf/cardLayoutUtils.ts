@@ -1,4 +1,4 @@
-import type { CardImage } from "../../types/card";
+import type { CardImage, PageSettings } from "../../types/card";
 
 /**
  * Shared utilities for PDF and DXF generation
@@ -47,6 +47,78 @@ export interface CroppedCardDimensions {
 export const CARDS_PER_PAGE = 8;
 export const GRID_COLS = 4;
 export const GRID_ROWS = 2;
+
+/**
+ * Where the registration marks sit, in mm in from the sheet's edges.
+ *
+ * Measured from assets/a4_registration.jpg and letter_registration.jpg, which
+ * agree: three corners carry a mark running from 9.4mm to 17.8mm in from both
+ * edges.
+ */
+const REGISTRATION_MARK_INSET = 9.4;
+const REGISTRATION_MARK_EXTENT = 17.8;
+
+export interface CardSpacingRange {
+    min: number;
+    max: number;
+}
+
+/**
+ * The card spacings a page can take, in mm.
+ *
+ * Spacing is the distance between neighbouring cards' cut lines. Each card
+ * prints `outputBleed` into that gap from both sides, so the minimum is twice
+ * the bleed - any less and one card's bleed would print over the next card's
+ * artwork. At the minimum the bleeds just meet.
+ *
+ * The maximum is the widest grid that stays clear of the registration marks:
+ * inside their inset on every side, and out of the corner squares they occupy.
+ * It is rounded down to the 0.1mm the setting steps in, so the largest value
+ * offered is itself safe. It can fall below the minimum when the cards are
+ * too large for the page at all.
+ */
+export function cardSpacingRange(
+    page: Pick<PageSettings, "width" | "height">,
+    cardWidth: number,
+    cardHeight: number,
+    outputBleed: number
+): CardSpacingRange {
+    // Sheets print landscape, so the page's height runs across the grid.
+    const sheetWidth = page.height;
+    const sheetHeight = page.width;
+
+    // The largest spacing that keeps the grid `margin` from the sheet's edges.
+    const across = (margin: number) =>
+        (sheetWidth - 2 * margin - GRID_COLS * cardWidth - 2 * outputBleed) / (GRID_COLS - 1);
+    const down = (margin: number) =>
+        (sheetHeight - 2 * margin - GRID_ROWS * cardHeight - 2 * outputBleed) / (GRID_ROWS - 1);
+
+    const max = Math.min(
+        across(REGISTRATION_MARK_INSET),
+        down(REGISTRATION_MARK_INSET),
+        // The grid's corners miss the corner marks if it stays clear of them
+        // in either direction.
+        Math.max(across(REGISTRATION_MARK_EXTENT), down(REGISTRATION_MARK_EXTENT))
+    );
+
+    return {
+        min: 2 * outputBleed,
+        // The epsilon keeps 2.8 from flooring to 2.7 through float error.
+        max: Math.floor(max * 10 + 1e-6) / 10,
+    };
+}
+
+/**
+ * The spacing to lay out with: `requested`, held inside what the page allows.
+ *
+ * Never below the minimum, even when nothing fits - overlapping the marks is
+ * an existing problem with the card size, but overlapping artwork would be a
+ * new one.
+ */
+export function clampCardSpacing(requested: number, { min, max }: CardSpacingRange): number {
+    if (!Number.isFinite(requested)) return min;
+    return Math.max(min, Math.min(requested, max));
+}
 
 /**
  * One position on a page.

@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useProjectSettingsStore, PAGE_SIZE_OPTIONS } from "../stores/projectSettingsStore";
 import { useCardStore } from "../stores/cardStore";
-import { generateDxfUrl } from "../utils/pdf/dxfGenerator";
+import { useCardSpacing } from "./useCardSpacing";
+import { dxfStringToBlob, generateCentreLineDxf, generateDxfForAllPages } from "../utils/pdf/dxfGenerator";
 import { layoutPages, slotsToCards } from "../utils/pdf/cardLayoutUtils";
 import { save } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
@@ -35,7 +36,8 @@ export function useDXFGeneration() {
     const pageSize = useProjectSettingsStore((state) => state.pageSize);
     const cardWidth = useProjectSettingsStore((state) => state.cardWidth);
     const cardHeight = useProjectSettingsStore((state) => state.cardHeight);
-    const outputBleed = useProjectSettingsStore((state) => state.outputBleed);
+    const cardSpacing = useCardSpacing().effective;
+    const maximiseCutSpace = useProjectSettingsStore((state) => state.maximiseCutSpace);
     const skipSlots = useProjectSettingsStore((state) => state.skipSlots);
     const lastOutputDir = useAppSettingsStore((state) => state.lastOutputDir);
     const setLastOutputDir = useAppSettingsStore((state) => state.setLastOutputDir);
@@ -67,18 +69,20 @@ export function useDXFGeneration() {
                     ? { width: selectedPage.width, height: selectedPage.height, margin: 10 }
                     : { width: 210, height: 297, margin: 10 };
 
-                const cardsWithSkippedSlots = slotsToCards(layoutPages(cardOrder, cardMap, skipSlots));
+                // Maximise Cut Space cuts the gaps, not the cards, so the
+                // card list does not change it.
+                const dxfContent = maximiseCutSpace
+                    ? generateCentreLineDxf(pageSettings, cardWidth, cardHeight, cardSpacing)
+                    : generateDxfForAllPages(
+                        slotsToCards(layoutPages(cardOrder, cardMap, skipSlots)),
+                        pageSettings,
+                        cardWidth,
+                        cardHeight,
+                        cardSpacing,
+                        []
+                    );
 
-                const newDxfUrl = generateDxfUrl(
-                    cardsWithSkippedSlots,
-                    pageSettings,
-                    cardWidth,
-                    cardHeight,
-                    outputBleed,
-                    []
-                );
-
-                replaceDxfUrl(newDxfUrl);
+                replaceDxfUrl(URL.createObjectURL(dxfStringToBlob(dxfContent)));
             } catch (err) {
                 console.error("Failed to generate DXF:", err);
                 setError(err instanceof Error ? err.message : "Unknown error");
@@ -90,7 +94,7 @@ export function useDXFGeneration() {
 
         generateDxf();
 
-    }, [cardMap, cardOrder, pageSize, cardWidth, cardHeight, outputBleed, skipSlots, replaceDxfUrl]);
+    }, [cardMap, cardOrder, pageSize, cardWidth, cardHeight, cardSpacing, maximiseCutSpace, skipSlots, replaceDxfUrl]);
 
     // Release the last URL when the hook goes away.
     useEffect(() => () => {

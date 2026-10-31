@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { BUILT_IN_PRESETS, matchPreset } from "./presets";
 import { CARD_DIMENSIONS } from "../types/card";
 import { PAGE_SIZE_OPTIONS } from "./projectSettingsStore";
-import { GRID_COLS, GRID_ROWS } from "../utils/pdf/cardLayoutUtils";
+import { cardSpacingRange } from "../utils/pdf/cardLayoutUtils";
 
 const tcg = BUILT_IN_PRESETS.find((p) => p.id === "tcg")!;
 const poker = BUILT_IN_PRESETS.find((p) => p.id === "poker")!;
@@ -55,24 +55,16 @@ describe("built-in presets", () => {
         expect(new Set(fingerprints).size).toBe(fingerprints.length);
     });
 
-    // Page size is independent of the preset, so every combination has to work.
-    it("fits a full grid on every available page size", () => {
+    // Page size is independent of the preset, so every combination has to work:
+    // the default spacing has to be valid, which means the full grid clears
+    // the registration marks.
+    it("fits a full grid at the default spacing on every available page size", () => {
         for (const preset of BUILT_IN_PRESETS) {
             for (const page of PAGE_SIZE_OPTIONS) {
-                // Sheets are used landscape, so width and height swap.
-                const sheetWidth = page.height;
-                const sheetHeight = page.width;
-                const cellWidth = preset.cardWidth + 2 * preset.outputBleed;
-                const cellHeight = preset.cardHeight + 2 * preset.outputBleed;
+                const range = cardSpacingRange(page, preset.cardWidth, preset.cardHeight, preset.outputBleed);
 
-                expect(
-                    GRID_COLS * cellWidth,
-                    `${preset.id} row width on ${page.key}`
-                ).toBeLessThanOrEqual(sheetWidth);
-                expect(
-                    GRID_ROWS * cellHeight,
-                    `${preset.id} column height on ${page.key}`
-                ).toBeLessThanOrEqual(sheetHeight);
+                expect(range.min, `${preset.id} on ${page.key}`).toBeLessThanOrEqual(CARD_DIMENSIONS.cardSpacing);
+                expect(range.max, `${preset.id} on ${page.key}`).toBeGreaterThanOrEqual(CARD_DIMENSIONS.cardSpacing);
             }
         }
     });

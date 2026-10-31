@@ -6,6 +6,7 @@ import { useAppSettingsStore } from "../stores/appSettingsStore";
 import { pathExists, readTextFile, saveTextFile } from "../utils/library";
 import { removeAllCards } from "../utils/cardOperations";
 import { basename, dirname } from "../utils/paths";
+import { CARD_DIMENSIONS } from "../types/card";
 import {
     PROJECT_EXTENSION,
     parseProject,
@@ -138,6 +139,9 @@ export function useProjectFile() {
             settings.setGroupByCardBacks(file.settings.groupByCardBacks);
             settings.setShowAllCardBacks(file.settings.showAllCardBacks);
             settings.setSkipSlots(new Set(file.settings.skipSlots));
+            // Older projects predate the setting and were laid out at the default.
+            settings.setCardSpacing(file.settings.cardSpacing ?? CARD_DIMENSIONS.cardSpacing);
+            settings.setMaximiseCutSpace(file.settings.maximiseCutSpace ?? false);
             settings.setDefaultCardBack(resolved.defaultCardBack);
             setDefaultCardBackThumbnail(null);
 
@@ -206,6 +210,8 @@ export function currentSettings(
         groupByCardBacks: settings.groupByCardBacks,
         showAllCardBacks: settings.showAllCardBacks,
         skipSlots: [...settings.skipSlots],
+        cardSpacing: settings.cardSpacing,
+        maximiseCutSpace: settings.maximiseCutSpace,
     };
 }
 

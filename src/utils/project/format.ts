@@ -40,6 +40,10 @@ export interface ProjectSettings {
     groupByCardBacks: boolean;
     showAllCardBacks: boolean;
     skipSlots: number[];
+    /** Absent from projects saved before spacing was a setting. */
+    cardSpacing?: number;
+    /** Absent from projects saved before the option existed. */
+    maximiseCutSpace?: boolean;
 }
 
 /**

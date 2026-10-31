@@ -4,7 +4,13 @@ import type { CardImageData } from "./CardImageData";
 /**
  * Request from frontend for cardlist generation
  */
-export type CardListGenerationRequest = { cards: Array<CardImageData | null>, outputPath: string, pageWidth: number, pageHeight: number, cardWidth: number, cardHeight: number, outputBleed: number, enableCardBacks: boolean, 
+export type CardListGenerationRequest = { cards: Array<CardImageData | null>, outputPath: string, pageWidth: number, pageHeight: number, cardWidth: number, cardHeight: number, outputBleed: number, 
+/**
+ * Distance between neighbouring cards' cut lines, in mm. The frontend has
+ * already held it to what the page allows - see cardSpacingRange in
+ * utils/pdf/cardLayoutUtils.ts.
+ */
+cardSpacing: number, enableCardBacks: boolean, 
 /**
  * Print a back page only for pages holding a card with its own back.
  */

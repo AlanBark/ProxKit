@@ -28,6 +28,7 @@ export interface GeneratePDFRequest {
         cardWidth: number;
         cardHeight: number;
         outputBleed: number; // Output bleed margin in mm
+        cardSpacing: number; // Distance between neighbouring cards' cut lines in mm, already clamped
         enableCardBacks: boolean; // Whether to generate card back pages
         groupByCardBacks: boolean; // Back pages only for pages holding a card with its own back
         defaultCardBack: ImageSource | null; // Default card back image

@@ -60,6 +60,16 @@ interface ProjectSettingsState {
 
     // Layout
     skipSlots: Set<number>;
+    /**
+     * Distance between neighbouring cards' cut lines, in mm. Kept as the user
+     * set it; see useCardSpacing for the value the output actually uses.
+     */
+    cardSpacing: number;
+    /**
+     * Cut once down the middle of each gap, out to the page edges, rather than
+     * around each card. Pieces come out larger than the cards on purpose.
+     */
+    maximiseCutSpace: boolean;
 
 
     setPageSize: (size: Selection) => void;
@@ -74,6 +84,8 @@ interface ProjectSettingsState {
     setShowAllCardBacks: (show: boolean) => void;
     setSkipSlots: (slots: Set<number> | ((prev: Set<number>) => Set<number>)) => void;
     toggleSkipSlot: (slotIndex: number) => void;
+    setCardSpacing: (spacing: number) => void;
+    setMaximiseCutSpace: (maximise: boolean) => void;
     /** Applies a preset's format in one update. */
     applyPreset: (values: PresetValues) => void;
 }
@@ -92,6 +104,8 @@ export const useProjectSettingsStore = create<ProjectSettingsState>()(
             groupByCardBacks: false,
             showAllCardBacks: false,
             skipSlots: new Set(),
+            cardSpacing: CARD_DIMENSIONS.cardSpacing,
+            maximiseCutSpace: false,
 
             // A page always has a size. Selection widgets can hand back an empty
             // set when the current item is re-picked, which would otherwise leave
@@ -109,6 +123,8 @@ export const useProjectSettingsStore = create<ProjectSettingsState>()(
             setDefaultCardBack: (source) => set({ defaultCardBack: source }),
             setGroupByCardBacks: (group) => set({ groupByCardBacks: group }),
             setShowAllCardBacks: (show) => set({ showAllCardBacks: show }),
+            setCardSpacing: (spacing) => set({ cardSpacing: spacing }),
+            setMaximiseCutSpace: (maximise) => set({ maximiseCutSpace: maximise }),
             applyPreset: (values) => set({
                 cardWidth: values.cardWidth,
                 cardHeight: values.cardHeight,

@@ -5,9 +5,13 @@ import {
     pageNeedsBackPage,
     formatPageRanges,
     splitDuplexPages,
+    cardSpacingRange,
+    clampCardSpacing,
+    calculateGridLayout,
+    calculateAllCardRectangles,
     CARDS_PER_PAGE,
 } from "./cardLayoutUtils";
-import type { CardImage } from "../../types/card";
+import { CARD_DIMENSIONS, type CardImage } from "../../types/card";
 
 function makeCard(id: string): CardImage {
     return {
@@ -187,5 +191,68 @@ describe("formatPageRanges", () => {
 
     it("is empty for no pages", () => {
         expect(formatPageRanges([])).toBe("");
+    });
+});
+
+describe("cardSpacingRange", () => {
+    const A4 = { width: 210, height: 297 };
+    const LETTER = { width: 215.9, height: 279.4 };
+
+    it("starts at twice the output bleed, where neighbouring bleeds meet", () => {
+        expect(cardSpacingRange(A4, 63, 88, 0.5).min).toBe(1);
+        expect(cardSpacingRange(A4, 63, 88, 1).min).toBe(2);
+    });
+
+    it("stops where the grid would reach the registration marks", () => {
+        // A4 runs into the corner marks first; Letter into the marks' inset
+        // along its sides.
+        expect(cardSpacingRange(A4, 63, 88, 0.5).max).toBe(2.8);
+        expect(cardSpacingRange(LETTER, 63, 88, 0.5).max).toBe(2.5);
+    });
+});
+
+describe("clampCardSpacing", () => {
+    const range = { min: 1, max: 2.5 };
+
+    it("leaves a spacing that fits alone", () => {
+        expect(clampCardSpacing(1.7, range)).toBe(1.7);
+    });
+
+    it("holds a spacing to what the page allows", () => {
+        expect(clampCardSpacing(0.2, range)).toBe(1);
+        expect(clampCardSpacing(4, range)).toBe(2.5);
+    });
+
+    it("keeps the minimum when nothing fits, so bleed never covers artwork", () => {
+        expect(clampCardSpacing(1.5, { min: 1, max: 0.3 })).toBe(1);
+    });
+
+    it("falls back to the minimum for a value that is not a number", () => {
+        expect(clampCardSpacing(Number.NaN, range)).toBe(1);
+    });
+});
+
+describe("grid layout with card spacing", () => {
+    const cards = Array.from({ length: CARDS_PER_PAGE }, (_, i) => makeCard(`c${i}`));
+
+    it("puts neighbouring cut lines exactly the spacing apart, centred on the page", () => {
+        const spacing = 2.5;
+        const layout = calculateGridLayout(297, 210, 63 + spacing, 88 + spacing);
+        const rects = calculateAllCardRectangles(cards, layout, 63, 88, 0).map((r) => r.rectangle);
+
+        expect(rects[1].x - (rects[0].x + 63)).toBeCloseTo(spacing);
+        expect(rects[4].y - (rects[0].y + 88)).toBeCloseTo(spacing);
+        expect(rects[0].x).toBeCloseTo(297 - (rects[3].x + 63));
+        expect(rects[0].y).toBeCloseTo(210 - (rects[4].y + 88));
+    });
+
+    it("reproduces the old fixed layout at the default spacing", () => {
+        // Before spacing was a setting, each cell was the card plus the output
+        // bleed on both sides.
+        const before = calculateGridLayout(297, 210, 63 + 2 * 0.5, 88 + 2 * 0.5);
+        const now = calculateGridLayout(
+            297, 210, 63 + CARD_DIMENSIONS.cardSpacing, 88 + CARD_DIMENSIONS.cardSpacing
+        );
+        expect(now).toEqual(before);
     });
 });

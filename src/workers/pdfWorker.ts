@@ -310,6 +310,7 @@ async function generateChunk(
     cardWidth: number,
     cardHeight: number,
     outputBleed: number,
+    cardSpacing: number,
     enableCardBacks: boolean,
     groupByCardBacks: boolean,
     defaultCardBack: ImageSource | null,
@@ -326,12 +327,14 @@ async function generateChunk(
         format: [pageSettings.height, pageSettings.width] // Swapped for landscape
     });
 
-    // Calculate grid layout once (same for all pages)
+    // Calculate grid layout once (same for all pages). Each cell is the card
+    // plus the spacing to its neighbour; the image, card plus outputBleed on
+    // each side, is centred in it.
     const gridLayout = calculateGridLayout(
         pageSettings.height,  // Landscape width
         pageSettings.width,   // Landscape height
-        cardWidth + (2 * outputBleed),  // Cell width with margin spacing
-        cardHeight + (2 * outputBleed)  // Cell height with margin spacing
+        cardWidth + cardSpacing,
+        cardHeight + cardSpacing
     );
 
     // Load and cache registration background ONCE (not per page)
@@ -499,7 +502,7 @@ self.addEventListener('message', async (event: MessageEvent<PDFWorkerMessage>) =
 
     switch (message.type) {
         case PDFWorkerMessageType.GENERATE_PDF: {
-            const { cards, pageSettings, cardWidth, cardHeight, outputBleed, enableCardBacks, groupByCardBacks, defaultCardBack, skipSlots, requestId } = message.payload;
+            const { cards, pageSettings, cardWidth, cardHeight, outputBleed, cardSpacing, enableCardBacks, groupByCardBacks, defaultCardBack, skipSlots, requestId } = message.payload;
 
             // Store current request ID and reset cancellation flag
             currentRequestId = requestId;
@@ -513,6 +516,7 @@ self.addEventListener('message', async (event: MessageEvent<PDFWorkerMessage>) =
                     cardWidth,
                     cardHeight,
                     outputBleed,
+                    cardSpacing,
                     enableCardBacks,
                     groupByCardBacks,
                     defaultCardBack,
