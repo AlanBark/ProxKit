@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useProjectSettingsStore, PAGE_SIZE_OPTIONS } from "../stores/projectSettingsStore";
 import { useCardStore } from "../stores/cardStore";
 import { useCardSpacing } from "./useCardSpacing";
+import { useGridOffset } from "./useGridOffset";
+import { useJigHoles } from "./useJigHoles";
 import { dxfStringToBlob, generateCentreLineDxf, generateDxfForAllPages } from "../utils/pdf/dxfGenerator";
 import { layoutPages, slotsToCards } from "../utils/pdf/cardLayoutUtils";
 import { save } from '@tauri-apps/plugin-dialog';
@@ -37,6 +39,8 @@ export function useDXFGeneration() {
     const cardWidth = useProjectSettingsStore((state) => state.cardWidth);
     const cardHeight = useProjectSettingsStore((state) => state.cardHeight);
     const cardSpacing = useCardSpacing().effective;
+    const gridOffset = useGridOffset();
+    const jigHoles = useJigHoles().cutHoles;
     const maximiseCutSpace = useProjectSettingsStore((state) => state.maximiseCutSpace);
     const skipSlots = useProjectSettingsStore((state) => state.skipSlots);
     const lastOutputDir = useAppSettingsStore((state) => state.lastOutputDir);
@@ -72,14 +76,17 @@ export function useDXFGeneration() {
                 // Maximise Cut Space cuts the gaps, not the cards, so the
                 // card list does not change it.
                 const dxfContent = maximiseCutSpace
-                    ? generateCentreLineDxf(pageSettings, cardWidth, cardHeight, cardSpacing)
+                    ? generateCentreLineDxf(pageSettings, cardWidth, cardHeight, cardSpacing, gridOffset, jigHoles)
                     : generateDxfForAllPages(
                         slotsToCards(layoutPages(cardOrder, cardMap, skipSlots)),
                         pageSettings,
                         cardWidth,
                         cardHeight,
                         cardSpacing,
-                        []
+                        [],
+                        undefined,
+                        gridOffset,
+                        jigHoles
                     );
 
                 replaceDxfUrl(URL.createObjectURL(dxfStringToBlob(dxfContent)));
@@ -94,7 +101,7 @@ export function useDXFGeneration() {
 
         generateDxf();
 
-    }, [cardMap, cardOrder, pageSize, cardWidth, cardHeight, cardSpacing, maximiseCutSpace, skipSlots, replaceDxfUrl]);
+    }, [cardMap, cardOrder, pageSize, cardWidth, cardHeight, cardSpacing, gridOffset, jigHoles, maximiseCutSpace, skipSlots, replaceDxfUrl]);
 
     // Release the last URL when the hook goes away.
     useEffect(() => () => {

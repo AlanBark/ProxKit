@@ -15,9 +15,11 @@ import {
     calculateGridLayout,
     calculateCardPosition,
     calculateMirroredColumn,
+    mirrorGridOffset,
     CARDS_PER_PAGE,
     // GRID_COLS,
     type GridLayout,
+    type GridOffset,
     type CardPosition,
     pageNeedsBackPage,
 } from "../utils/pdf/cardLayoutUtils";
@@ -311,6 +313,7 @@ async function generateChunk(
     cardHeight: number,
     outputBleed: number,
     cardSpacing: number,
+    gridOffset: GridOffset,
     enableCardBacks: boolean,
     groupByCardBacks: boolean,
     defaultCardBack: ImageSource | null,
@@ -334,7 +337,20 @@ async function generateChunk(
         pageSettings.height,  // Landscape width
         pageSettings.width,   // Landscape height
         cardWidth + cardSpacing,
-        cardHeight + cardSpacing
+        cardHeight + cardSpacing,
+        0,
+        gridOffset
+    );
+
+    // Backs mirror their columns, so a grid moved off centre mirrors too -
+    // otherwise they would miss their fronts by twice the offset.
+    const backGridLayout = calculateGridLayout(
+        pageSettings.height,
+        pageSettings.width,
+        cardWidth + cardSpacing,
+        cardHeight + cardSpacing,
+        0,
+        mirrorGridOffset(gridOffset)
     );
 
     // Load and cache registration background ONCE (not per page)
@@ -473,7 +489,7 @@ async function generateChunk(
                     outputBleed,
                     pageNumber: actualPageNum,
                     position,
-                    gridLayout,
+                    gridLayout: backGridLayout,
                     pdfRef: pdf,
                     defaultCardBack
                 });
@@ -502,7 +518,7 @@ self.addEventListener('message', async (event: MessageEvent<PDFWorkerMessage>) =
 
     switch (message.type) {
         case PDFWorkerMessageType.GENERATE_PDF: {
-            const { cards, pageSettings, cardWidth, cardHeight, outputBleed, cardSpacing, enableCardBacks, groupByCardBacks, defaultCardBack, skipSlots, requestId } = message.payload;
+            const { cards, pageSettings, cardWidth, cardHeight, outputBleed, cardSpacing, gridOffset, enableCardBacks, groupByCardBacks, defaultCardBack, skipSlots, requestId } = message.payload;
 
             // Store current request ID and reset cancellation flag
             currentRequestId = requestId;
@@ -517,6 +533,7 @@ self.addEventListener('message', async (event: MessageEvent<PDFWorkerMessage>) =
                     cardHeight,
                     outputBleed,
                     cardSpacing,
+                    gridOffset,
                     enableCardBacks,
                     groupByCardBacks,
                     defaultCardBack,

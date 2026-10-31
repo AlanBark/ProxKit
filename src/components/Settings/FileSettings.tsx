@@ -2,6 +2,7 @@ import { Checkbox, NumberInput, Popover, PopoverContent, PopoverTrigger, Select,
 import { CircleHelp } from "lucide-react";
 import { useProjectSettingsStore, PAGE_SIZE_OPTIONS } from "../../stores/projectSettingsStore";
 import { useCardSpacing } from "../../hooks/useCardSpacing";
+import { useJigHoles } from "../../hooks/useJigHoles";
 import { textStyles } from "../../theme/classNames";
 import { PresetSelect } from "./PresetSelect";
 
@@ -11,7 +12,9 @@ function FileSettings() {
     const setCardSpacing = useProjectSettingsStore((state) => state.setCardSpacing);
     const maximiseCutSpace = useProjectSettingsStore((state) => state.maximiseCutSpace);
     const setMaximiseCutSpace = useProjectSettingsStore((state) => state.setMaximiseCutSpace);
+    const setEnableJigHoles = useProjectSettingsStore((state) => state.setEnableJigHoles);
     const spacing = useCardSpacing();
+    const jig = useJigHoles();
 
     // Cards too large for the page leave no valid spacing at all.
     const fits = spacing.max >= spacing.min;
@@ -103,29 +106,59 @@ function FileSettings() {
                 />
             </div>
 
-            <div className="flex items-center justify-between gap-2">
-                <Checkbox
-                    isSelected={maximiseCutSpace}
-                    onValueChange={setMaximiseCutSpace}
-                    size="sm"
-                >
-                    Maximise Cut Space
-                </Checkbox>
-                <Popover placement="right" showArrow={true} backdrop='blur'>
-                    <PopoverTrigger>
-                        <button className="text-default-400 hover:text-default-600 transition cursor-pointer">
-                            <CircleHelp className="w-4 h-4" />
-                        </button>
-                    </PopoverTrigger>
-                    <PopoverContent className="border-1">
-                        <div className="p-3 flex flex-col gap-2 max-w-sm">
-                            <p className={`font-bold ${textStyles.primary}`}>Maximise Cut Space</p>
-                            <p className="text-sm">Cuts down the middle of the gaps between cards, all the way to the edge of the page.</p>
-                            <p className="text-sm">Cards come out larger than card size, with square corners.</p>
-                            <p className="text-sm">Card spacing is locked to {spacing.min}mm while this is on.</p>
-                        </div>
-                    </PopoverContent>
-                </Popover>
+            <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between gap-2">
+                    <Checkbox
+                        isSelected={maximiseCutSpace}
+                        onValueChange={setMaximiseCutSpace}
+                        size="sm"
+                    >
+                        Maximise Cut Space
+                    </Checkbox>
+                    <Popover placement="right" showArrow={true} backdrop='blur'>
+                        <PopoverTrigger>
+                            <button className="text-default-400 hover:text-default-600 transition cursor-pointer">
+                                <CircleHelp className="w-4 h-4" />
+                            </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="border-1">
+                            <div className="p-3 flex flex-col gap-2 max-w-sm">
+                                <p className={`font-bold ${textStyles.primary}`}>Maximise Cut Space</p>
+                                <p className="text-sm">Cuts down the middle of the gaps between cards, all the way to the edge of the page.</p>
+                                <p className="text-sm">Cards come out larger than card size, with square corners.</p>
+                                <p className="text-sm">Card spacing is locked to {spacing.min}mm while this is on.</p>
+                            </div>
+                        </PopoverContent>
+                    </Popover>
+                </div>
+
+                <div className="flex items-center justify-between gap-2">
+                    <Checkbox
+                        isSelected={jig.enabled}
+                        onValueChange={setEnableJigHoles}
+                        size="sm"
+                    >
+                        Jig Holes
+                    </Checkbox>
+                    <Popover placement="right" showArrow={true} backdrop='blur'>
+                        <PopoverTrigger>
+                            <button className="text-default-400 hover:text-default-600 transition cursor-pointer">
+                                <CircleHelp className="w-4 h-4" />
+                            </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="border-1">
+                            <div className="p-3 flex flex-col gap-2 max-w-sm">
+                                <p className={`font-bold ${textStyles.primary}`}>Jig Holes</p>
+                                <p className="text-sm">Adds holes for the pressing jig to the cut file. One round hole and one slot, 90mm apart, down the left edge.</p>
+                                <p className="text-sm">The cards move over to the bottom right to make room for the holes.</p>
+                                <p className="text-sm">Cut just the holes on both sheets first, press them together on the jig, then cut the cards.</p>
+                            </div>
+                        </PopoverContent>
+                    </Popover>
+                </div>
+                {jig.enabled && !jig.fits && (
+                    <p className="text-xs text-danger">The holes don't fit on {jig.pageLabel} with these cards, so they're left out of the cut file.</p>
+                )}
             </div>
         </div>
     );

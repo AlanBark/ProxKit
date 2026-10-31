@@ -5,8 +5,11 @@ import {
     CARDS_PER_PAGE,
     GRID_COLS,
     GRID_ROWS,
+    NO_GRID_OFFSET,
     type CardRectangle,
+    type GridOffset,
 } from "./cardLayoutUtils";
+import { jigHoleLayout } from "./jigHoles";
 
 /**
  * DXF Generator - Creates DXF cut files for cutting machines
@@ -232,6 +235,20 @@ ${r.toFixed(3)}
 }
 
 /**
+ * Moves a rectangle from the layout's top-down y to DXF's.
+ *
+ * The layout, like the PDF, measures y down from the top of the sheet; DXF
+ * measures it up from the bottom. Every shape cut here is symmetric top to
+ * bottom, so only positions flip, never the shapes. Before the grid could move
+ * off centre this made no difference - a centred grid reads the same either
+ * way up - but a shifted one written top-down would cut upside down, missing
+ * the cards by twice the shift.
+ */
+function toDxfRectangle(rect: CardRectangle, sheetHeight: number): CardRectangle {
+    return { ...rect, y: sheetHeight - rect.y - rect.height };
+}
+
+/**
  * Generate DXF content for a page of cards
  *
  * @param cards Array of cards (null = blank placeholder)
@@ -287,7 +304,7 @@ export function generateDxfForPage(
 
     // Generate DXF entities with rounded corners
     const cardEntities = rectangles.map(({ rectangle }) => {
-        return generateDxfRectangle(rectangle, "CUT_LINES", cornerRadius);
+        return generateDxfRectangle(toDxfRectangle(rectangle, pageSettings.width), "CUT_LINES", cornerRadius);
     }).join('\n');
 
     // Assemble complete DXF file with page boundary first
@@ -309,6 +326,8 @@ export function generateDxfForPage(
  * @param cardSpacing Distance between neighbouring cut lines in mm, already clamped
  * @param skipSlots Array of slot indices to skip (0-7)
  * @param cornerRadius Corner radius in mm (default: MTG_CORNER_RADIUS)
+ * @param gridOffset How far the grid sits from the centre of the sheet in mm (default: none)
+ * @param jigHoles Also cut the pressing jig's holes (default: false)
  * @returns DXF file content as string
  */
 export function generateDxfForAllPages(
@@ -318,7 +337,9 @@ export function generateDxfForAllPages(
     cardHeight: number,
     cardSpacing: number,
     skipSlots: number[] = [],
-    cornerRadius: number = MTG_CORNER_RADIUS
+    cornerRadius: number = MTG_CORNER_RADIUS,
+    gridOffset: GridOffset = NO_GRID_OFFSET,
+    jigHoles: boolean = false
 ): string {
     // Same cells as the PDF - the card plus the spacing to its neighbour - so
     // the cut lines land on the printed cards' edges.
@@ -326,7 +347,9 @@ export function generateDxfForAllPages(
         pageSettings.height,
         pageSettings.width,
         cardWidth + cardSpacing,
-        cardHeight + cardSpacing
+        cardHeight + cardSpacing,
+        0,
+        gridOffset
     );
 
     // Generate page boundary rectangle (landscape orientation)
@@ -364,13 +387,15 @@ export function generateDxfForAllPages(
 
     // Generate DXF entities for all rectangles with rounded corners
     const cardEntities = allRectangles.map(({ rectangle }) => {
-        return generateDxfRectangle(rectangle, "CUT_LINES", cornerRadius);
-    }).join('\n');
+        return generateDxfRectangle(toDxfRectangle(rectangle, pageSettings.width), "CUT_LINES", cornerRadius);
+    });
 
     // Assemble complete DXF file with page boundary first
-    const entities = cardEntities.length > 0
-        ? `${pageBoundaryEntity}\n${cardEntities}`
-        : pageBoundaryEntity;
+    const entities = [
+        pageBoundaryEntity,
+        ...cardEntities,
+        ...(jigHoles ? generateJigHoleEntities(pageSettings) : []),
+    ].join('\n');
 
     const result = `${DXF_HEADER}\n${entities}\n${DXF_FOOTER}`;
 
@@ -414,13 +439,17 @@ ${y2.toFixed(3)}`;
  * @param cardWidth Base card width (without bleed) in mm
  * @param cardHeight Base card height (without bleed) in mm
  * @param cardSpacing Distance between neighbouring cards in mm, already clamped
+ * @param gridOffset How far the grid sits from the centre of the sheet in mm (default: none)
+ * @param jigHoles Also cut the pressing jig's holes (default: false)
  * @returns DXF file content as string
  */
 export function generateCentreLineDxf(
     pageSettings: PageSettings,
     cardWidth: number,
     cardHeight: number,
-    cardSpacing: number
+    cardSpacing: number,
+    gridOffset: GridOffset = NO_GRID_OFFSET,
+    jigHoles: boolean = false
 ): string {
     // Landscape, as everywhere else
     const sheetWidth = pageSettings.height;
@@ -432,7 +461,9 @@ export function generateCentreLineDxf(
         sheetWidth,
         sheetHeight,
         cardWidth + cardSpacing,
-        cardHeight + cardSpacing
+        cardHeight + cardSpacing,
+        0,
+        gridOffset
     );
 
     const cuts: string[] = [];
@@ -441,14 +472,81 @@ export function generateCentreLineDxf(
         cuts.push(generateDxfLine(x, 0, x, sheetHeight));
     }
     for (let row = 1; row < GRID_ROWS; row++) {
-        const y = gridLayout.y + row * gridLayout.cellHeight;
+        // Up from the bottom, as DXF measures it - see toDxfRectangle
+        const y = sheetHeight - (gridLayout.y + row * gridLayout.cellHeight);
         cuts.push(generateDxfLine(0, y, sheetWidth, y));
     }
 
     const pageBoundary: CardRectangle = { x: 0, y: 0, width: sheetWidth, height: sheetHeight };
     const pageBoundaryEntity = generateDxfRectangle(pageBoundary, "PAGE_BOUNDARY", 0);
 
+    if (jigHoles) cuts.push(...generateJigHoleEntities(pageSettings));
+
     return `${DXF_HEADER}\n${pageBoundaryEntity}\n${cuts.join('\n')}\n${DXF_FOOTER}`;
+}
+
+/**
+ * Generate an arc as a DXF ARC entity. Angles are in degrees, counter-clockwise
+ * from east.
+ */
+function generateDxfArc(
+    cx: number,
+    cy: number,
+    radius: number,
+    startAngle: number,
+    endAngle: number,
+    layerName: string = "CUT_LINES"
+): string {
+    return `0
+ARC
+8
+${layerName}
+10
+${cx.toFixed(3)}
+20
+${cy.toFixed(3)}
+40
+${radius.toFixed(3)}
+50
+${startAngle}
+51
+${endAngle}`;
+}
+
+/**
+ * The pressing jig's holes, one round hole and one slot, as DXF entities to
+ * add to a cut file.
+ *
+ * They go in the same file as the cards. The holes have to be cut first, on
+ * both sheets, so they can be pressed together on the jig before the cards are
+ * cut - Silhouette Studio can split them off for that.
+ *
+ * Circles are drawn as two half arcs rather than a CIRCLE entity: arcs are
+ * what the card outlines already use, so they are known to import.
+ *
+ * @param pageSettings Page configuration
+ * @returns DXF entities, one per string
+ */
+function generateJigHoleEntities(pageSettings: Pick<PageSettings, "width" | "height">): string[] {
+    const layout = jigHoleLayout(pageSettings);
+    // Up from the bottom, as DXF measures it - see toDxfRectangle. Both holes
+    // are symmetric top to bottom, so only their centres move.
+    const round = { ...layout.round, y: pageSettings.width - layout.round.y };
+    const slot = { ...layout.slot, y: pageSettings.width - layout.slot.y };
+    const radius = layout.diameter / 2;
+    const slotRadius = slot.width / 2;
+    // From the slot's centre to the centre of each rounded end
+    const reach = (slot.length - slot.width) / 2;
+
+    return [
+        generateDxfArc(round.x, round.y, radius, 0, 180),
+        generateDxfArc(round.x, round.y, radius, 180, 360),
+
+        generateDxfArc(slot.x, slot.y + reach, slotRadius, 0, 180),
+        generateDxfLine(slot.x - slotRadius, slot.y + reach, slot.x - slotRadius, slot.y - reach),
+        generateDxfArc(slot.x, slot.y - reach, slotRadius, 180, 360),
+        generateDxfLine(slot.x + slotRadius, slot.y - reach, slot.x + slotRadius, slot.y + reach),
+    ];
 }
 
 /**

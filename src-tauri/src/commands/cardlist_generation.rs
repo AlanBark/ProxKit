@@ -55,6 +55,11 @@ pub struct CardListGenerationRequest {
     /// already held it to what the page allows - see cardSpacingRange in
     /// utils/pdf/cardLayoutUtils.ts.
     pub card_spacing: f32,
+    /// How far the fronts' grid sits from the centre of the sheet, in mm,
+    /// right and down. The jig holes move it - see jigGridOffset in
+    /// utils/pdf/jigHoles.ts. Backs take the mirror of the sideways part.
+    pub grid_offset_x: f32,
+    pub grid_offset_y: f32,
     pub enable_card_backs: bool,
     /// Print a back page only for pages holding a card with its own back.
     pub group_by_card_backs: bool,
@@ -67,6 +72,18 @@ struct GridLayout {
     y: f32,           // Starting Y position (top edge) in points
     cell_width: f32,  // Width of each cell in points
     cell_height: f32, // Height of each cell in points
+}
+
+impl GridLayout {
+    /// The same grid moved by `dx`, `dy` - right and down, in points.
+    fn shifted(&self, dx: f32, dy: f32) -> GridLayout {
+        GridLayout {
+            x: self.x + dx,
+            y: self.y + dy,
+            cell_width: self.cell_width,
+            cell_height: self.cell_height,
+        }
+    }
 }
 
 /// Calculate grid layout for 4x2 card arrangement, centered on the page
@@ -184,13 +201,19 @@ pub async fn generate_cardlist(
     let cell_width_pts = (request.card_width + card_spacing) * MM_TO_POINTS;
     let cell_height_pts = (request.card_height + card_spacing) * MM_TO_POINTS;
 
-    // Calculate centered grid layout
-    let grid_layout = calculate_grid_layout(
+    // Calculate centered grid layout, then move it by the offset. Backs mirror
+    // their columns, so they take the mirrored offset - otherwise they would
+    // miss their fronts by twice the sideways shift. Matches pdfWorker.ts.
+    let centred = calculate_grid_layout(
         page_width_pts,
         page_height_pts,
         cell_width_pts,
         cell_height_pts,
     );
+    let offset_x_pts = request.grid_offset_x * MM_TO_POINTS;
+    let offset_y_pts = request.grid_offset_y * MM_TO_POINTS;
+    let grid_layout = centred.shifted(offset_x_pts, offset_y_pts);
+    let back_grid_layout = centred.shifted(-offset_x_pts, offset_y_pts);
 
     log::info!(
         "Page layout: {}x{} grid ({} cards per page), grid starts at ({:.2}, {:.2})",
@@ -328,8 +351,8 @@ pub async fn generate_cardlist(
                 let mirrored_col = calculate_mirrored_column(original_col);
 
                 // Calculate cell position with mirrored column
-                let cell_x = grid_layout.x + (mirrored_col as f32 * grid_layout.cell_width);
-                let cell_y = grid_layout.y + (row as f32 * grid_layout.cell_height);
+                let cell_x = back_grid_layout.x + (mirrored_col as f32 * back_grid_layout.cell_width);
+                let cell_y = back_grid_layout.y + (row as f32 * back_grid_layout.cell_height);
 
                 // Source bleed for card back - always the effective value, as with fronts
                 let source_bleed = card.card_back_bleed;
@@ -399,5 +422,22 @@ mod tests {
             assert!((2.0 * layout.x + grid_width - 297.0).abs() < 1e-3);
             assert!((2.0 * layout.y + grid_height - 210.0).abs() < 1e-3);
         }
+    }
+
+    #[test]
+    fn shifted_backs_still_land_behind_their_fronts() {
+        // A4 landscape, MTG cards at 1mm, grid moved right and down as the jig
+        // holes move it. Turned over left to right, each back's cell must sit
+        // exactly where its front's cell was.
+        let centred = calculate_grid_layout(297.0, 210.0, 64.0, 89.0);
+        let front = centred.shifted(11.1, 6.6);
+        let back = centred.shifted(-11.1, 6.6);
+
+        for col in 0..GRID_COLS {
+            let front_x = front.x + col as f32 * front.cell_width;
+            let back_x = back.x + calculate_mirrored_column(col) as f32 * back.cell_width;
+            assert!((297.0 - (back_x + back.cell_width) - front_x).abs() < 1e-3);
+        }
+        assert_eq!(front.y, back.y);
     }
 }

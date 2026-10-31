@@ -44,6 +44,8 @@ export interface ProjectSettings {
     cardSpacing?: number;
     /** Absent from projects saved before the option existed. */
     maximiseCutSpace?: boolean;
+    /** Absent from projects saved before the option existed. */
+    enableJigHoles?: boolean;
 }
 
 /**

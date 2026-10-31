@@ -10,7 +10,13 @@ export type CardListGenerationRequest = { cards: Array<CardImageData | null>, ou
  * already held it to what the page allows - see cardSpacingRange in
  * utils/pdf/cardLayoutUtils.ts.
  */
-cardSpacing: number, enableCardBacks: boolean, 
+cardSpacing: number, 
+/**
+ * How far the fronts' grid sits from the centre of the sheet, in mm,
+ * right and down. The jig holes move it - see jigGridOffset in
+ * utils/pdf/jigHoles.ts. Backs take the mirror of the sideways part.
+ */
+gridOffsetX: number, gridOffsetY: number, enableCardBacks: boolean, 
 /**
  * Print a back page only for pages holding a card with its own back.
  */

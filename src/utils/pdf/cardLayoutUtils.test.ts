@@ -9,7 +9,10 @@ import {
     clampCardSpacing,
     calculateGridLayout,
     calculateAllCardRectangles,
+    calculateMirroredColumn,
+    mirrorGridOffset,
     CARDS_PER_PAGE,
+    GRID_COLS,
 } from "./cardLayoutUtils";
 import { CARD_DIMENSIONS, type CardImage } from "../../types/card";
 
@@ -254,5 +257,31 @@ describe("grid layout with card spacing", () => {
             297, 210, 63 + CARD_DIMENSIONS.cardSpacing, 88 + CARD_DIMENSIONS.cardSpacing
         );
         expect(now).toEqual(before);
+    });
+});
+
+describe("grid layout moved off centre", () => {
+    const offset = { x: 11.1, y: 6.6 };
+
+    it("moves the whole grid by the offset", () => {
+        const centred = calculateGridLayout(297, 210, 64, 89);
+        const moved = calculateGridLayout(297, 210, 64, 89, 0, offset);
+
+        expect(moved.x - centred.x).toBeCloseTo(11.1, 6);
+        expect(moved.y - centred.y).toBeCloseTo(6.6, 6);
+    });
+
+    it("lands each back exactly behind its front once the sheet is turned over", () => {
+        // Turned over left to right, x becomes 297 - x. The backs mirror their
+        // columns, and their grid takes the mirrored offset.
+        const front = calculateGridLayout(297, 210, 64, 89, 0, offset);
+        const back = calculateGridLayout(297, 210, 64, 89, 0, mirrorGridOffset(offset));
+
+        for (let col = 0; col < GRID_COLS; col++) {
+            const frontLeft = front.x + col * front.cellWidth;
+            const backLeft = back.x + calculateMirroredColumn(col) * back.cellWidth;
+            expect(297 - (backLeft + back.cellWidth)).toBeCloseTo(frontLeft, 6);
+        }
+        expect(back.y).toBe(front.y);
     });
 });

@@ -1,4 +1,4 @@
-import { useProjectSettingsStore, PAGE_SIZE_OPTIONS } from "../stores/projectSettingsStore";
+import { useProjectSettingsStore, selectedPageOption } from "../stores/projectSettingsStore";
 import { cardSpacingRange, clampCardSpacing } from "../utils/pdf/cardLayoutUtils";
 
 /**
@@ -22,8 +22,7 @@ export function useCardSpacing() {
     const requested = useProjectSettingsStore((state) => state.cardSpacing);
     const maximiseCutSpace = useProjectSettingsStore((state) => state.maximiseCutSpace);
 
-    const [key] = pageSize === "all" ? [] : Array.from(pageSize);
-    const page = PAGE_SIZE_OPTIONS.find((option) => option.key === key) ?? PAGE_SIZE_OPTIONS[0];
+    const page = selectedPageOption(pageSize);
     const range = cardSpacingRange(page, cardWidth, cardHeight, outputBleed);
 
     return {

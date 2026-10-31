@@ -1,4 +1,5 @@
 import type { CardImage, PageSettings, ImageSource } from "../../types/card";
+import type { GridOffset } from "./cardLayoutUtils";
 
 /**
  * Message types for communication between main thread and PDF worker
@@ -29,6 +30,7 @@ export interface GeneratePDFRequest {
         cardHeight: number;
         outputBleed: number; // Output bleed margin in mm
         cardSpacing: number; // Distance between neighbouring cards' cut lines in mm, already clamped
+        gridOffset: GridOffset; // How far the fronts' grid sits from the centre of the sheet in mm
         enableCardBacks: boolean; // Whether to generate card back pages
         groupByCardBacks: boolean; // Back pages only for pages holding a card with its own back
         defaultCardBack: ImageSource | null; // Default card back image

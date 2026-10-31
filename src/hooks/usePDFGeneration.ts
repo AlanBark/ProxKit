@@ -4,6 +4,7 @@ import { useProjectSettingsStore, PAGE_SIZE_OPTIONS } from "../stores/projectSet
 import { useAppSettingsStore } from "../stores/appSettingsStore";
 import { useCardStore } from "../stores/cardStore";
 import { useCardSpacing } from "./useCardSpacing";
+import { useGridOffset } from "./useGridOffset";
 import { save } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
@@ -52,6 +53,7 @@ export function usePDFGeneration() {
     const setLastOutputDir = useAppSettingsStore((state) => state.setLastOutputDir);
     const skipSlots = useProjectSettingsStore((state) => state.skipSlots);
     const cardSpacing = useCardSpacing().effective;
+    const gridOffset = useGridOffset();
 
     // Initialize PDF manager when settings change
     useEffect(() => {
@@ -66,13 +68,14 @@ export function usePDFGeneration() {
             cardWidth,
             cardHeight,
             outputBleed,
-            cardSpacing
+            cardSpacing,
+            gridOffset
         );
 
         return () => {
             pdfManagerRef.current?.dispose();
         };
-    }, [pageSize, cardWidth, cardHeight, outputBleed, cardSpacing]);
+    }, [pageSize, cardWidth, cardHeight, outputBleed, cardSpacing, gridOffset]);
 
     // The desktop backend reports image-preparation progress as it goes; without
     // this the window looks frozen for the whole export.
@@ -182,6 +185,8 @@ export function usePDFGeneration() {
                         cardHeight: cardHeight,
                         outputBleed: outputBleed,
                         cardSpacing: cardSpacing,
+                        gridOffsetX: gridOffset.x,
+                        gridOffsetY: gridOffset.y,
                         enableCardBacks: enableCardBacks,
                         groupByCardBacks: groupByCardBacks,
                         defaultCardBackPath: defaultCardBack

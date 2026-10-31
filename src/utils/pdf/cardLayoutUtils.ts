@@ -15,6 +15,26 @@ export interface GridLayout {
 }
 
 /**
+ * How far the grid sits from the centre of the sheet, in mm. Positive x is
+ * right, positive y is down.
+ */
+export interface GridOffset {
+    x: number;
+    y: number;
+}
+
+export const NO_GRID_OFFSET: GridOffset = { x: 0, y: 0 };
+
+/**
+ * The offset for the back of a sheet. Backs are mirrored left to right so they
+ * land behind their fronts once the sheet is turned over, so the grid's
+ * sideways shift is mirrored with them.
+ */
+export function mirrorGridOffset(offset: GridOffset): GridOffset {
+    return { x: -offset.x, y: offset.y };
+}
+
+/**
  * Card position on the page
  */
 export interface CardPosition {
@@ -55,8 +75,18 @@ export const GRID_ROWS = 2;
  * agree: three corners carry a mark running from 9.4mm to 17.8mm in from both
  * edges.
  */
-const REGISTRATION_MARK_INSET = 9.4;
-const REGISTRATION_MARK_EXTENT = 17.8;
+export const REGISTRATION_MARK_INSET = 9.4;
+export const REGISTRATION_MARK_EXTENT = 17.8;
+
+/**
+ * How far in from the sheet's edges Silhouette Studio will cut, in mm, with
+ * the registration marks on. Measured to the cut line, not the print.
+ *
+ * Studio skips cuts in the hatched border around the marks. A cut 9.9mm in,
+ * on the line of the marks, was skipped in testing; the standard Letter layout
+ * cuts 12.2mm in from its sides and is cut, so this keeps to that.
+ */
+export const CUT_AREA_INSET = 12.2;
 
 export interface CardSpacingRange {
     min: number;
@@ -285,13 +315,14 @@ export function slotsToCards(pages: Slot[][]): (CardImage | null)[] {
 
 /**
  * Calculate grid layout for 4x2 card arrangement
- * The grid is centered on the page
+ * The grid is centered on the page, then moved by `offset`
  *
  * @param pageWidth Page width in mm (landscape orientation)
  * @param pageHeight Page height in mm (landscape orientation)
  * @param cardWidth Card width (including outputBleed) in mm
  * @param cardHeight Card height (including outputBleed) in mm
  * @param gap Gap between cards in mm (default: 0)
+ * @param offset How far to move the grid from centre in mm (default: none)
  * @returns Grid layout configuration
  */
 export function calculateGridLayout(
@@ -299,7 +330,8 @@ export function calculateGridLayout(
     pageHeight: number,
     cardWidth: number,
     cardHeight: number,
-    gap: number = 0
+    gap: number = 0,
+    offset: GridOffset = NO_GRID_OFFSET
 ): GridLayout {
     // Calculate total grid dimensions including gaps
     // Gaps exist between cards, so we have (GRID_COLS - 1) horizontal gaps
@@ -307,8 +339,8 @@ export function calculateGridLayout(
     const totalGridHeight = (cardHeight * GRID_ROWS) + (gap * (GRID_ROWS - 1));
 
     // Center the grid on the page
-    const startX = (pageWidth - totalGridWidth) / 2;
-    const startY = (pageHeight - totalGridHeight) / 2;
+    const startX = (pageWidth - totalGridWidth) / 2 + offset.x;
+    const startY = (pageHeight - totalGridHeight) / 2 + offset.y;
 
     return {
         x: startX,

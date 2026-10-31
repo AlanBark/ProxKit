@@ -19,7 +19,7 @@ export interface BackPageOptions {
     defaultCardBack: ImageSource | null;
     skipSlots: number[];
 }
-import { CARDS_PER_PAGE } from "./cardLayoutUtils";
+import { CARDS_PER_PAGE, type GridOffset } from "./cardLayoutUtils";
 import { sourceIdentity } from "../imageSource";
 
 /**
@@ -55,6 +55,7 @@ export class PDFManager {
     private cardHeight: number;
     private outputBleed: number;
     private cardSpacing: number;
+    private gridOffset: GridOffset;
 
     /**
      * Optional callback for progress updates
@@ -69,13 +70,15 @@ export class PDFManager {
      * @param cardHeight Card height in mm
      * @param outputBleed Output bleed margin in mm
      * @param cardSpacing Distance between neighbouring cards' cut lines in mm, already clamped
+     * @param gridOffset How far the fronts' grid sits from the centre of the sheet in mm
      */
-    constructor(pageSettings: PageSettings, cardWidth: number, cardHeight: number, outputBleed: number, cardSpacing: number) {
+    constructor(pageSettings: PageSettings, cardWidth: number, cardHeight: number, outputBleed: number, cardSpacing: number, gridOffset: GridOffset) {
         this.pageSettings = pageSettings;
         this.cardWidth = cardWidth;
         this.cardHeight = cardHeight;
         this.outputBleed = outputBleed;
         this.cardSpacing = cardSpacing;
+        this.gridOffset = gridOffset;
     }
 
     /**
@@ -383,6 +386,7 @@ export class PDFManager {
                             cardHeight: this.cardHeight,
                             outputBleed: this.outputBleed,
                             cardSpacing: this.cardSpacing,
+                            gridOffset: this.gridOffset,
                             enableCardBacks: enableCardBacks,
                             groupByCardBacks: groupByCardBacks,
                             defaultCardBack: defaultCardBack,

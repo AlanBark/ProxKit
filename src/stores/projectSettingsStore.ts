@@ -12,6 +12,12 @@ export const PAGE_SIZE_OPTIONS = [
     { key: "Letter", label: "Letter", width: 215.9, height: 279.4 }
 ] as const;
 
+/** The page option a selection points at, falling back to the first. */
+export function selectedPageOption(pageSize: Selection) {
+    const [key] = pageSize === "all" ? [] : Array.from(pageSize);
+    return PAGE_SIZE_OPTIONS.find((option) => option.key === key) ?? PAGE_SIZE_OPTIONS[0];
+}
+
 /**
  * The settings a preset fixes: the card itself.
  *
@@ -70,6 +76,8 @@ interface ProjectSettingsState {
      * around each card. Pieces come out larger than the cards on purpose.
      */
     maximiseCutSpace: boolean;
+    /** Offer a separate cut file with the holes for the pressing jig. */
+    enableJigHoles: boolean;
 
 
     setPageSize: (size: Selection) => void;
@@ -86,6 +94,7 @@ interface ProjectSettingsState {
     toggleSkipSlot: (slotIndex: number) => void;
     setCardSpacing: (spacing: number) => void;
     setMaximiseCutSpace: (maximise: boolean) => void;
+    setEnableJigHoles: (enabled: boolean) => void;
     /** Applies a preset's format in one update. */
     applyPreset: (values: PresetValues) => void;
 }
@@ -106,6 +115,7 @@ export const useProjectSettingsStore = create<ProjectSettingsState>()(
             skipSlots: new Set(),
             cardSpacing: CARD_DIMENSIONS.cardSpacing,
             maximiseCutSpace: false,
+            enableJigHoles: false,
 
             // A page always has a size. Selection widgets can hand back an empty
             // set when the current item is re-picked, which would otherwise leave
@@ -125,6 +135,7 @@ export const useProjectSettingsStore = create<ProjectSettingsState>()(
             setShowAllCardBacks: (show) => set({ showAllCardBacks: show }),
             setCardSpacing: (spacing) => set({ cardSpacing: spacing }),
             setMaximiseCutSpace: (maximise) => set({ maximiseCutSpace: maximise }),
+            setEnableJigHoles: (enabled) => set({ enableJigHoles: enabled }),
             applyPreset: (values) => set({
                 cardWidth: values.cardWidth,
                 cardHeight: values.cardHeight,

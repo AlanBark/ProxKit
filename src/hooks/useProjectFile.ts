@@ -142,6 +142,7 @@ export function useProjectFile() {
             // Older projects predate the setting and were laid out at the default.
             settings.setCardSpacing(file.settings.cardSpacing ?? CARD_DIMENSIONS.cardSpacing);
             settings.setMaximiseCutSpace(file.settings.maximiseCutSpace ?? false);
+            settings.setEnableJigHoles(file.settings.enableJigHoles ?? false);
             settings.setDefaultCardBack(resolved.defaultCardBack);
             setDefaultCardBackThumbnail(null);
 
@@ -212,6 +213,7 @@ export function currentSettings(
         skipSlots: [...settings.skipSlots],
         cardSpacing: settings.cardSpacing,
         maximiseCutSpace: settings.maximiseCutSpace,
+        enableJigHoles: settings.enableJigHoles,
     };
 }
 
